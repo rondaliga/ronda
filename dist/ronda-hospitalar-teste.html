@@ -2477,14 +2477,14 @@ const comCodigo=()=>S[st.cadTab].filter(x=>x.ativo!==false&&x.codigoLocal).sort(
 const semCodigo=()=>S[st.cadTab].filter(x=>x.ativo!==false&&!x.codigoLocal);
 function etqGrid(){
   const fmt=st.etqFmt||'qr',rows=comCodigo();
-  if(!rows.length)return '<div class="empty"><b>Nenhum local com código</b>Use "Gerar códigos faltantes" ou cadastre o código em cada local.</div>';
+  if(!rows.length)return '<div class="empty"><b>Nenhum local com código</b>Cadastre o código em cada local (use "Gerar código" no cadastro).</div>';
   return rows.map(x=>{
     let img;try{img=fmt==='qr'?RH.barcode.qrSvg(x.codigoLocal):RH.barcode.code128Svg(x.codigoLocal)}catch(e){img=`<small class="err">${esc(e.message)}</small>`}
     return `<div class="etq ${fmt}"><div class="etq-img">${img}</div><div class="etq-t"><b>${esc(x.nome)}</b><span>${esc((st.cadTab==='salas'?x.setor:RH.setorEq(x))||'')}${x.andar?' · '+esc(x.andar):''}</span><code>${esc(x.codigoLocal)}</code><small>Ronda Hospitalar · leia ao chegar neste local</small></div></div>`}).join('')}
 function etqBar(){
   const fmt=st.etqFmt||'qr',n=semCodigo().length;
-  return `<span>Formato:</span><button type="button" class="btn sm" data-act="etqFmt" data-v="qr" aria-pressed="${fmt==='qr'}">QR Code (recomendado)</button><button type="button" class="btn sm" data-act="etqFmt" data-v="c128" aria-pressed="${fmt==='c128'}">Código de barras</button>
-  ${n?`<span class="pill late">${n} sem código</span><button type="button" class="btn sm" data-act="etqGen">Gerar códigos faltantes</button>`:''}`}
+  return `<span>Formato:</span><button type="button" class="btn sm" data-act="etqFmt" data-v="qr" aria-pressed="${fmt==='qr'}">QR Code</button><button type="button" class="btn sm" data-act="etqFmt" data-v="c128" aria-pressed="${fmt==='c128'}">Código de barras</button>
+  ${n?`<span class="pill late">${n} sem código</span>`:''}`}
 function etqOpen(){
   const E=ENT[st.cadTab];
   modal(`<div class="mh"><h3 style="font-size:16px">Etiquetas · ${E.nome}</h3><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
@@ -2501,10 +2501,6 @@ Object.assign(RH.ACT,{
   etqOpen,
   etqFmt:el=>{st.etqFmt=el.dataset.v;$('#etq-grid').innerHTML=etqGrid();$('#etq-bar').innerHTML=etqBar()},
   etqPrint:()=>{document.body.classList.add('print-modal');const f=()=>{document.body.classList.remove('print-modal');removeEventListener('afterprint',f)};addEventListener('afterprint',f);print()},
-  etqGen:async el=>{
-    el.disabled=true;const col=st.cadTab,pref=col==='salas'?'S':'E',usados=new Set(),falt=semCodigo();
-    const ok=await RH.safe(async()=>{for(const x of falt){const c=RH.local.gerarCodigo(pref,usados);usados.add(c);await RH.upd(col,x.id,{codigoLocal:c})}return true});
-    if(ok){toast(`${falt.length} código${falt.length===1?'':'s'} gerado${falt.length===1?'':'s'}.`);setTimeout(()=>{if($('#etq-grid')){$('#etq-grid').innerHTML=etqGrid();$('#etq-bar').innerHTML=etqBar()}},700)}else el.disabled=false},
   agDias:el=>{document.querySelectorAll('[data-dia]').forEach(c=>{const d=+c.value;c.checked=el.dataset.v==='todos'||(d>=1&&d<=5)})},
   agAddH:()=>{st.M.horarios.push('');$('#ag-horas').innerHTML=horasHtml();const i=document.querySelectorAll('[data-hx]');i[i.length-1]?.focus()},
   agDelH:el=>{st.M.horarios.splice(+el.dataset.i,1);$('#ag-horas').innerHTML=horasHtml()},

@@ -229,9 +229,11 @@ def main():
         page.click("#nav [data-p=cadastros]"); page.click("[data-act=cadTab][data-k=salas]"); page.click("[data-act=etqOpen]")
         page.wait_for_selector(".etq-grid")
         check("Etiquetas: uma por sala com código (2) e aviso das sem código", page.locator(".etq").count() == 2 and "1 sem código" in page.inner_text("#etq-bar"))
-        page.click("[data-act=etqGen]"); page.wait_for_timeout(1500)
+        check("Etiquetas: sem botão 'Gerar códigos faltantes' e QR sem '(recomendado)'", page.locator("[data-act=etqGen]").count() == 0 and "recomendado" not in page.inner_text("#etq-bar"))
+        page.evaluate("RH.upd('salas','sx',{codigoLocal:RH.local.gerarCodigo('S')})"); page.wait_for_timeout(1500)
         cod = page.evaluate("RH.S.salas.find(s=>s.id==='sx').codigoLocal")
-        check("Gerar códigos faltantes cria o código e a etiqueta", cod.startswith("RH-S-") and page.locator(".etq").count() == 3, cod)
+        page.evaluate("document.getElementById('etq-grid').innerHTML=''"); page.click("[data-act=etqFmt][data-v=qr]")
+        check("Local com código cadastrado ganha etiqueta", cod.startswith("RH-S-") and page.locator(".etq").count() == 3, cod)
         try:
             import cv2, numpy as np
             def decodifica(el):

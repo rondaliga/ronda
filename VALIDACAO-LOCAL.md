@@ -29,8 +29,8 @@ npx cap open android      # Android Studio → Build → Build APK(s)
 
 ## Imprimir as etiquetas (QR Code ou código de barras)
 1. **Cadastros → Salas** (ou **Equipamentos**) → **Imprimir etiquetas**.
-2. Se aparecer "N sem código", clique em **Gerar códigos faltantes** (ou use "Gerar código" no cadastro de cada local).
-3. Escolha **QR Code (recomendado)** ou **Código de barras (Code 128)** e clique em **Imprimir**. Cada etiqueta traz QR/código, nome, setor e o texto do código.
+2. Se aparecer "N sem código", use "Gerar código" no cadastro de cada local.
+3. Escolha **QR Code** ou **Código de barras (Code 128)** e clique em **Imprimir**. Cada etiqueta traz QR/código, nome, setor e o texto do código.
 4. Imprima em 100%, preto sobre branco, recorte nas linhas pontilhadas e cole em ponto fixo do local. Teste a leitura no app antes de colar todas.
 O gerador é próprio (`js/core/barcode.js`, sem bibliotecas): QR nível Q com até 74 caracteres; Code 128 só com ASCII simples (sem acentos).
 
