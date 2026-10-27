@@ -56,6 +56,32 @@ RH.pages.ronda=()=>{
     <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small></button>`}).join('')}</div>`:vazio}`;
 };
 
+/* ---------- vínculo em lote: salas e equipamentos → ronda ----------
+   Usado pelas Ações em Lote de Cadastros. Os itens são referenciados como na ordem de percurso:
+   's:<id>' (sala) e 'e:<id>' (equipamento). Regra de negócio mantida: um item só pode estar em UMA ronda. */
+const itemRef=k=>k[0]==='s'?byId(S.salas,k.slice(2)):k[0]==='e'?byId(S.equipamentos,k.slice(2)):null;
+/* ronda (≠ ignorarId) que já contém o item, se houver */
+RH.rondaDoItem=(k,ignorarId)=>S.modelos.find(m=>m.id!==ignorarId&&RH.ordemDaRonda(m).includes(k));
+/* ordena para o percurso: setor → salas antes de equipamentos → nome */
+RH.ordenaItens=keys=>{
+  const setor=k=>k[0]==='s'?(itemRef(k)?.setor||''):(RH.setorEq(itemRef(k)||{})||'');
+  return [...keys].sort((a,b)=>setor(a).localeCompare(setor(b))||a[0].localeCompare(b[0])*-1||(itemRef(a)?.nome||'').localeCompare(itemRef(b)?.nome||''))};
+/* separa o que pode entrar na ronda do que será ignorado (e por quê). modeloId vazio = ronda nova */
+RH.rondaPlano=(modeloId,keys)=>{
+  const m=modeloId?byId(S.modelos,modeloId):null,atual=new Set(m?RH.ordemDaRonda(m):[]),add=[],skip={ja:[],outra:[],inativo:[]};
+  keys.forEach(k=>{const x=itemRef(k);if(!x)return;
+    if(atual.has(k))skip.ja.push(k);
+    else if(x.ativo===false)skip.inativo.push(k);
+    else if(RH.rondaDoItem(k,modeloId))skip.outra.push(k);
+    else add.push(k)});
+  return{m,add:RH.ordenaItens(add),skip}};
+/* acrescenta ao fim da ronda (grava ordem + salaIds + equipIds, como o formulário da ronda). Devolve quantos entraram. */
+RH.rondaAdicionar=async(modeloId,keys)=>{
+  const{m,add}=RH.rondaPlano(modeloId,keys);if(!m||!add.length)return 0;
+  const ordem=[...RH.ordemDaRonda(m),...add];
+  await RH.upd('modelos',m.id,{ordem,salaIds:ordem.filter(k=>k[0]==='s').map(k=>k.slice(2)),equipIds:ordem.filter(k=>k[0]==='e').map(k=>k.slice(2))});
+  return add.length};
+
 /* ---------- execução ---------- */
 function startRonda(id){
   const m=byId(S.modelos,id);if(!m)return;

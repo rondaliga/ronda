@@ -93,13 +93,182 @@ RH.pages.cadastros=()=>{
     <div class="prog-seed" id="seed-prog" hidden><i></i></div>
     ${demo?`<button class="btn bad" data-act="wipeDemo">Remover dados de exemplo</button>`:`<button class="btn" data-act="seedDemo">Carregar dados de exemplo</button>`}</div>${backupCard()}`;
   }else{
-    const E=ENT[st.cadTab],rows=[...S[E.col]].sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
-    body=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><small>${rows.length} cadastrado${rows.length===1?'':'s'} · clique em uma linha para editar ou use Duplicar</small><span style="display:flex;gap:8px;flex-wrap:wrap">${['salas','equipamentos'].includes(st.cadTab)?`<button class="btn" data-act="etqOpen">${ic('copy',16)} Imprimir etiquetas</button>`:''}<button class="btn pri" data-act="newEnt">${ic('plus',16)} Adicionar ${E.um}</button></span></div>
-    ${rows.length?`<div class="tw"><table><thead><tr>${E.cols.map(c=>`<th>${c[0]}</th>`).join('')}<th class="th-act"><span class="sr">Ações</span></th></tr></thead><tbody>${rows.map(r=>`<tr data-act="editEnt" data-id="${r.id}">${E.cols.map(c=>`<td>${c[1](r)}</td>`).join('')}<td class="td-act"><button type="button" class="btn sm" data-act="dupEnt" data-id="${r.id}" title="Duplicar este cadastro" aria-label="Duplicar ${esc(r.nome||'')}">${ic('copy',14)} Duplicar</button></td></tr>`).join('')}</tbody></table></div>`:empty(`Nenhum cadastro em ${E.nome}`,'Use o botão Adicionar para criar o primeiro.')}`;
+    const E=ENT[st.cadTab],all=[...S[E.col]].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')),bulk=!!BULK[st.cadTab],rows=bulk?visiveis():all;
+    const th=bulk?`<th class="th-sel"><input type="checkbox" data-act="selAll" id="sel-all" aria-label="Selecionar todos os itens exibidos"></th>`:'';
+    const tr=r=>`<tr data-act="editEnt" data-id="${r.id}"${bulk&&st.sel.has(keyOf(r.id))?' class="sel"':''}>${bulk?`<td class="td-sel" data-act="selRow" data-id="${r.id}"><input type="checkbox" aria-label="Selecionar ${esc(r.nome||'')}" ${st.sel.has(keyOf(r.id))?'checked':''}></td>`:''}${E.cols.map(c=>`<td>${c[1](r)}</td>`).join('')}<td class="td-act"><button type="button" class="btn sm" data-act="dupEnt" data-id="${r.id}" title="Duplicar este cadastro" aria-label="Duplicar ${esc(r.nome||'')}">${ic('copy',14)} Duplicar</button></td></tr>`;
+    body=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><small>${bulk&&rows.length!==all.length?`${rows.length} de ${all.length} exibidos`:`${rows.length} cadastrado${rows.length===1?'':'s'}`} · clique em uma linha para editar ou use Duplicar${bulk?' · marque as caixas para ações em lote':''}</small><span style="display:flex;gap:8px;flex-wrap:wrap">${['salas','equipamentos'].includes(st.cadTab)?`<button class="btn" data-act="etqOpen">${ic('copy',16)} Imprimir etiquetas</button>`:''}<button class="btn pri" data-act="newEnt">${ic('plus',16)} Adicionar ${E.um}</button></span></div>
+    ${bulk?filtrosHtml():''}
+    ${rows.length?`<div class="tw"><table><thead><tr>${th}${E.cols.map(c=>`<th>${c[0]}</th>`).join('')}<th class="th-act"><span class="sr">Ações</span></th></tr></thead><tbody>${rows.map(tr).join('')}</tbody></table></div>`:all.length?empty('Nenhum cadastro com estes filtros','Ajuste ou limpe os filtros para ver os demais.'):empty(`Nenhum cadastro em ${E.nome}`,'Use o botão Adicionar para criar o primeiro.')}
+    ${bulk?`<div class="bulk-spacer"></div><div id="bulk-bar" class="bulkbar" role="region" aria-label="Ações em lote" ${selKeys().length?'':'hidden'}>${barHtml()}</div>`:''}`;
   }
   return `<div class="top"><div><h1>Cadastros</h1><p>Rondas, salas, equipamentos, checklists, tipos de não conformidade e usuários.</p></div></div>
   <div class="tabs" role="tablist">${tabs.map(k=>`<button role="tab" data-act="cadTab" data-k="${k}" aria-selected="${st.cadTab===k}">${nm(k)}</button>`).join('')}</div>${body}`;
 };
+
+/* ==========================================================================
+   Seleção e ações em lote (abas Salas, Equipamentos e Checklists)
+   - st.sel : chaves 's:<id>' (sala) · 'e:<id>' (equipamento) · 'c:<id>' (checklist), o mesmo
+              formato da ordem de percurso das rondas. Salas e equipamentos podem ser marcados
+              em abas diferentes e entrar juntos na mesma ronda.
+   - st.CF  : filtros de cada aba (Setor/Andar em Salas; Setor/Categoria em Equipamentos).
+   - A lógica de "entrar em uma ronda" fica em js/features/ronda.js (RH.rondaPlano / RH.rondaAdicionar).
+   ========================================================================== */
+const BULK={salas:'s:',equipamentos:'e:',checklists:'c:'};
+const COL_DE={s:'salas',e:'equipamentos',c:'checklists'};
+const SEMSETOR='__sem';
+st.sel=st.sel||new Set();
+st.CF=st.CF||{salas:{setor:'',andar:''},equipamentos:{setor:'',categoria:''}};
+const keyOf=id=>BULK[st.cadTab]+id;
+const existe=k=>byId(S[COL_DE[k[0]]]||[],k.slice(2));
+const nomeDe=k=>existe(k)?.nome||'';
+const setorDe=(tab,x)=>(tab==='salas'?x.setor:RH.setorEq(x))||'';
+const porNome=(a,b)=>(a.nome||'').localeCompare(b.nome||'');
+const nomes=(keys,max=6)=>{const n=keys.map(nomeDe);return n.slice(0,max).map(esc).join(', ')+(n.length>max?` e mais ${n.length-max}`:'')};
+const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
+
+/* seleção da aba atual, já sem registros que deixaram de existir */
+function selKeys(){
+  for(const k of [...st.sel])if(!existe(k))st.sel.delete(k);
+  const tipos=st.cadTab==='checklists'?['c']:['s','e'];
+  return [...st.sel].filter(k=>tipos.includes(k[0]))}
+
+/* ---------- filtros ---------- */
+function normFiltros(){
+  const tab=st.cadTab,f=st.CF[tab];if(!f)return;
+  const vale=(k,fn)=>{if(f[k]&&f[k]!==SEMSETOR&&!S[tab].some(x=>fn(x)===f[k]))f[k]=''};   /* valor que não existe mais */
+  vale('setor',x=>setorDe(tab,x));vale('andar',x=>x.andar||'');vale('categoria',x=>x.categoria||'')}
+function visiveis(){
+  normFiltros();
+  const tab=st.cadTab,f=st.CF[tab]||{};
+  return [...S[tab]].filter(x=>{
+    const sd=setorDe(tab,x);
+    if(f.setor&&(f.setor===SEMSETOR?sd:sd!==f.setor))return false;
+    if(f.andar&&(x.andar||'')!==f.andar)return false;
+    if(f.categoria&&(x.categoria||'')!==f.categoria)return false;
+    return true}).sort(porNome)}
+function filtrosHtml(){
+  const tab=st.cadTab,f=st.CF[tab];if(!f)return '';
+  const rows=S[tab],uniq=a=>[...new Set(a.filter(Boolean))].sort((x,y)=>x.localeCompare(y,'pt-BR',{numeric:true}));
+  const campo=(k,l,vals,extra='')=>`<label class="field"><span>${l}</span><select data-cf="${k}"><option value="">Todos</option>${extra}${vals.map(v=>`<option value="${esc(v)}" ${f[k]===v?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`;
+  const semSetor=rows.some(x=>!setorDe(tab,x));
+  return `<div class="bulk-filters">${campo('setor','Setor',uniq(rows.map(x=>setorDe(tab,x))),semSetor?`<option value="${SEMSETOR}" ${f.setor===SEMSETOR?'selected':''}>Sem setor</option>`:'')}
+  ${tab==='salas'?campo('andar','Andar / bloco',uniq(rows.map(x=>x.andar))):campo('categoria','Categoria',uniq(rows.map(x=>x.categoria)))}
+  ${Object.values(f).some(Boolean)?`<button type="button" class="btn sm" data-act="cfClear">Limpar filtros</button>`:''}</div>`}
+
+/* ---------- barra flutuante ---------- */
+function barHtml(){
+  const ks=selKeys(),ns=ks.filter(k=>k[0]==='s').length,ne=ks.filter(k=>k[0]==='e').length,n=ks.length;
+  const vis=new Set(visiveis().map(x=>keyOf(x.id))),fora=ks.filter(k=>k.startsWith(BULK[st.cadTab])&&!vis.has(k)).length;
+  const det=[ns?plural(ns,'sala','salas'):'',ne?plural(ne,'equipamento','equipamentos'):'',fora?`${fora} fora dos filtros`:''].filter(Boolean).join(' · ');
+  const lote=st.cadTab!=='checklists';
+  return `<div class="bulk-n" aria-live="polite"><b>${n}</b> selecionado${n===1?'':'s'}${st.cadTab==='checklists'?'':`<small>${det}</small>`}</div>
+  <div class="bulk-a">${lote?`<button type="button" class="btn sm" data-act="bkLink">${ic('clip',14)} Vincular a ronda/checklist</button><button type="button" class="btn sm" data-act="bkSetor">${ic('set',14)} Alterar setor</button><button type="button" class="btn sm pri" data-act="bkRonda">${ic('plus',14)} Criar ronda com selecionados</button>`:''}<button type="button" class="btn sm bad" data-act="bkDel">${ic('trash',14)} Excluir selecionados</button><button type="button" class="btn sm" data-act="selClear">${ic('x',14)} Limpar</button></div>`}
+/* atualiza barra, "selecionar todos" e linhas sem redesenhar a tela (mantém foco e rolagem) */
+function refreshSel(){
+  const bar=$('#bulk-bar');if(!bar)return;
+  const ks=selKeys();bar.hidden=!ks.length;if(ks.length)bar.innerHTML=barHtml();
+  const rows=visiveis(),on=rows.filter(r=>st.sel.has(keyOf(r.id))).length,h=$('#sel-all');
+  if(h){h.checked=!!rows.length&&on===rows.length;h.indeterminate=on>0&&on<rows.length}
+  document.querySelectorAll('tbody tr[data-id]').forEach(tr=>{const s=st.sel.has(keyOf(tr.dataset.id));tr.classList.toggle('sel',s);const cb=tr.querySelector('.td-sel input');if(cb)cb.checked=s})}
+RH.after.cadastros=refreshSel;
+
+/* ---------- janelas ---------- */
+const mHead=t=>`<div class="mh"><h3 style="font-size:16px">${t}</h3><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>`;
+const linhas=L=>L.map(([c,t])=>`<div class="bk-l ${c}">${t}</div>`).join('');
+
+/* o que acontece ao vincular: dest = 'm:<idRonda>' | 'c:<idChecklist>' */
+function planoLink(dest,keys){
+  const t=dest[0],id=dest.slice(2),L=[];
+  if(t==='m'){
+    const p=RH.rondaPlano(id,keys),s=p.skip;
+    L.push([p.add.length?'ok':'warn',`${plural(p.add.length,'item será adicionado','itens serão adicionados')} ao fim da ronda “${esc(p.m.nome)}”.`]);
+    if(s.ja.length)L.push(['warn',`${plural(s.ja.length,'já faz parte desta ronda','já fazem parte desta ronda')}: ${nomes(s.ja)}.`]);
+    if(s.outra.length)L.push(['warn',`${plural(s.outra.length,'já pertence a outra ronda','já pertencem a outras rondas')} (um item só pode estar em uma ronda): ${nomes(s.outra)}.`]);
+    if(s.inativo.length)L.push(['warn',`${plural(s.inativo.length,'está inativo','estão inativos')} e não entra${s.inativo.length===1?'':'m'} em rondas: ${nomes(s.inativo)}.`]);
+    return{add:p.add,L,nome:p.m.nome,ign:keys.length-p.add.length}}
+  const c=byId(S.checklists,id),tipo=c.tipo||'sala',add=[],ja=[],inc=[];
+  keys.forEach(k=>{const x=existe(k);if(!x)return;
+    if(x.checklistId===id)ja.push(k);
+    else if(!(k[0]==='s'?['sala','ambos']:['equipamento','ambos']).includes(tipo))inc.push(k);
+    else add.push(k)});
+  const troca=add.filter(k=>existe(k).checklistId).length;
+  L.push([add.length?'ok':'warn',`${plural(add.length,'item receberá','itens receberão')} o checklist “${esc(c.nome)}”${troca?` (${plural(troca,'troca','trocam')} o checklist atual)`:''}.`]);
+  if(ja.length)L.push(['warn',`${plural(ja.length,'já usa este checklist','já usam este checklist')}: ${nomes(ja)}.`]);
+  if(inc.length)L.push(['warn',`${plural(inc.length,'não é compatível','não são compatíveis')}: este checklist se aplica a “${TIPO_CK[tipo]||'Sala'}”. ${nomes(inc)}.`]);
+  return{add,L,nome:c.nome,ign:keys.length-add.length}}
+function prevLink(){
+  const v=$('#bk-dest').value,B=st.BM,btn=$('#bk-ok');
+  if(!v||!B){$('#bk-prev').innerHTML='';btn.disabled=true;return}
+  const p=planoLink(v,B.keys);
+  $('#bk-prev').innerHTML=linhas(p.L);btn.disabled=!p.add.length;btn.textContent=p.add.length?`Vincular ${p.add.length}`:'Vincular'}
+function bkLink(){
+  const ks=selKeys().filter(k=>k[0]!=='c');if(!ks.length)return;
+  const ms=[...S.modelos].sort(porNome),cs=[...S.checklists].sort(porNome);
+  if(!ms.length&&!cs.length){toast('Cadastre uma ronda ou um checklist antes de vincular.','bad');return}
+  st.BM={tipo:'link',keys:ks};
+  modal(`${mHead('Vincular '+plural(ks.length,'item','itens')+' a ronda ou checklist')}
+  <form id="f-bk-link" autocomplete="off"><div class="mb"><div class="bk-resumo">${nomes(ks,8)}</div>
+  <label class="field"><span>Vincular a *</span><select name="dest" id="bk-dest" data-bk-dest required><option value="">Selecione uma ronda ou um checklist…</option>
+  ${ms.length?`<optgroup label="Rondas (acrescenta ao fim do percurso)">${ms.map(m=>`<option value="m:${esc(m.id)}">${esc(m.nome)}${m.ativo===false?' (inativa)':''}</option>`).join('')}</optgroup>`:''}
+  ${cs.length?`<optgroup label="Checklists (define o checklist de cada item)">${cs.map(c=>`<option value="c:${esc(c.id)}">${esc(c.nome)} · ${TIPO_CK[c.tipo]||'Sala'}</option>`).join('')}</optgroup>`:''}</select></label>
+  <div id="bk-prev" aria-live="polite"></div></div>
+  <div class="mf"><button type="button" class="btn" data-act="closeModal">Cancelar</button><button class="btn pri" type="submit" id="bk-ok" disabled>Vincular</button></div></form>`)}
+RH.ON_SUBMIT['f-bk-link']=async f=>{
+  const dest=f.dest.value,B=st.BM;if(!dest||!B||B.tipo!=='link')return;
+  const p=planoLink(dest,B.keys);if(!p.add.length)return;
+  const btn=$('#bk-ok');btn.disabled=true;
+  const ok=await RH.safe(async()=>{
+    if(dest[0]==='m')await RH.rondaAdicionar(dest.slice(2),B.keys);
+    else for(const k of p.add)await RH.upd(COL_DE[k[0]],k.slice(2),{checklistId:dest.slice(2)});
+    return true});
+  if(!ok){btn.disabled=false;return}
+  st.BM=null;closeModal();refreshSel();
+  toast(`${plural(p.add.length,'item vinculado','itens vinculados')} a “${p.nome}”.${p.ign?` ${plural(p.ign,'ignorado','ignorados')}.`:''}`)};
+
+function bkSetor(){
+  const ks=selKeys().filter(k=>k[0]!=='c');if(!ks.length)return;
+  st.BM={tipo:'setor',keys:ks};
+  modal(`${mHead('Alterar setor de '+plural(ks.length,'item','itens'))}
+  <form id="f-bk-setor" autocomplete="off"><div class="mb"><div class="bk-resumo">${nomes(ks,8)}</div>
+  <label class="field"><span>Novo setor *</span><input type="text" name="setor" id="bk-setor" list="dl-bk-setor" required><datalist id="dl-bk-setor">${optsSetor().map(o=>`<option value="${esc(o)}">`).join('')}</datalist><small>Escolha um setor existente ou digite um novo. Vale para as salas e para os equipamentos selecionados.</small></label>
+  <div class="err" id="bk-err" role="alert"></div></div>
+  <div class="mf"><button type="button" class="btn" data-act="closeModal">Cancelar</button><button class="btn pri" type="submit" id="bk-ok">Alterar setor</button></div></form>`)}
+RH.ON_SUBMIT['f-bk-setor']=async f=>{
+  const B=st.BM,novo=f.setor.value.trim();if(!B||B.tipo!=='setor')return;
+  if(!novo){$('#bk-err').textContent='Informe o novo setor.';return}
+  const mudar=B.keys.filter(k=>setorDe(COL_DE[k[0]],existe(k)||{})!==novo);
+  if(!mudar.length){$('#bk-err').textContent='Todos os itens selecionados já estão neste setor.';return}
+  const btn=$('#bk-ok');btn.disabled=true;
+  const ok=await RH.safe(async()=>{for(const k of mudar)await RH.upd(COL_DE[k[0]],k.slice(2),{setor:novo});return true});
+  if(!ok){btn.disabled=false;return}
+  B.keys.forEach(k=>st.sel.delete(k));st.BM=null;closeModal();refreshSel();   /* saíram do filtro atual: a seleção termina aqui */
+  toast(`Setor alterado para “${novo}” em ${plural(mudar.length,'item','itens')}.`)};
+
+function bkDel(){
+  const ks=selKeys();if(!ks.length)return;
+  const ok=[],bloq=[];
+  ks.forEach(k=>{const E=ENT[COL_DE[k[0]]],b=E.canDel?E.canDel(existe(k)):'';(b?bloq:ok).push([k,b])});
+  const emRonda=ok.filter(([k])=>k[0]==='e'&&RH.rondaDoItem(k)).length;
+  st.BM={tipo:'del',ok:ok.map(x=>x[0])};
+  modal(`${mHead('Excluir '+plural(ks.length,'cadastro','cadastros')+'?')}
+  <div class="mb">${ok.length?`<div class="bk-l bad"><b>${plural(ok.length,'será excluído permanentemente','serão excluídos permanentemente')}:</b> ${nomes(ok.map(x=>x[0]),10)}.<br>Esta ação não pode ser desfeita.${emRonda?`<br>${plural(emRonda,'equipamento faz','equipamentos fazem')} parte de rondas e ${emRonda===1?'será removido':'serão removidos'} delas.`:''}</div>`:''}
+  ${bloq.length?`<div class="bk-l warn"><b>${plural(bloq.length,'não pode ser excluído','não podem ser excluídos')}:</b><ul>${bloq.slice(0,5).map(([k,b])=>`<li><b>${esc(nomeDe(k))}</b> — ${esc(b)}</li>`).join('')}</ul>${bloq.length>5?`<small>e mais ${bloq.length-5}</small>`:''}</div>`:''}</div>
+  <div class="mf"><button type="button" class="btn" data-act="closeModal">Cancelar</button><button type="button" class="btn bad" data-act="bkDelGo" ${ok.length?'':'disabled'}>${ic('trash',16)} Excluir ${ok.length}</button></div>`)}
+async function bkDelGo(el){
+  const B=st.BM;if(!B||B.tipo!=='del'||!B.ok.length)return;
+  el.disabled=true;let n=0;
+  const ok=await RH.safe(async()=>{for(const k of B.ok){await RH.del(COL_DE[k[0]],k.slice(2));st.sel.delete(k);n++}return true});
+  st.BM=null;closeModal();refreshSel();
+  if(ok)toast(`${plural(n,'cadastro excluído','cadastros excluídos')}.`)}
+
+/* cria a ronda já preenchida com a seleção (salas e equipamentos juntos) */
+function bkRonda(){
+  const ks=selKeys().filter(k=>k[0]!=='c');if(!ks.length)return;
+  const p=RH.rondaPlano('',ks),ign=ks.length-p.add.length;
+  if(!p.add.length){toast('Nenhum item selecionado pode entrar em uma nova ronda: já pertencem a outras rondas ou estão inativos.','bad');return}
+  const sets=[...new Set(p.add.map(k=>setorDe(COL_DE[k[0]],existe(k))).filter(Boolean))];
+  openEnt('modelos',null,null,{ordem:p.add,nome:sets.length===1?'Ronda '+sets[0]:''});
+  if(ign)toast(`${plural(ign,'item ignorado','itens ignorados')}: já pertencem a outras rondas ou estão inativos.`)}
 
 /* ---------- formulário ---------- */
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
@@ -169,11 +338,12 @@ function preparaCopia(ent,d){
   if(ent==='salas'||ent==='equipamentos')d.codigoLocal='';   /* o código identifica um único local */
   if(ent==='checklists')d.itens=(d.itens||[]).map(x=>({...x,id:'i'+uid()}));
   delete d.id;delete d.demo}
-function openEnt(ent,id,dupId){
+function openEnt(ent,id,dupId,pre){
   const E=ENT[ent],d=id||dupId?{...byId(S[E.col],id||dupId)}:{};
   if(dupId)preparaCopia(ent,d);
+  if(pre&&pre.nome)d.nome=pre.nome;
   if(ent==='equipamentos'&&!d.setor)d.setor=RH.setorEq(d);
-  st.M={ent,id,ordem:ent==='modelos'?(dupId?[]:RH.ordemDaRonda(d)):null,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>({...x})),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
+  st.M={ent,id,ordem:ent==='modelos'?(pre?.ordem?[...pre.ordem]:dupId?[]:RH.ordemDaRonda(d)):null,fromBulk:!!pre,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>({...x})),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
   if(ent==='checklists'&&!id&&!st.M.items.length)st.M.items=[{id:'i'+uid(),t:''}];
   /* agenda da ronda (padrão: segunda a sexta às 08:00; ronda antiga sem agenda: todos os dias) */
   st.M.dias=RH.agenda.temAgenda(d)?[...d.dias]:(id?[0,1,2,3,4,5,6]:[1,2,3,4,5]);
@@ -233,7 +403,7 @@ async function saveEnt(form){
   }
   const rec=old?{...old,...data}:data;delete rec.id;
   const ok=await RH.safe(async()=>{await RH.put(E.col,id,rec);return true});
-  if(ok){closeModal();toast('Cadastro salvo.')}
+  if(ok){const lote=M.fromBulk;closeModal();if(lote){(data.ordem||[]).forEach(k=>st.sel.delete(k));refreshSel()}toast(lote?`Ronda criada com ${(data.ordem||[]).length} item(ns) da seleção.`:'Cadastro salvo.')}
 }
 
 async function deleteEnt(){
@@ -264,6 +434,11 @@ function etqOpen(){
 
 /* ---------- eventos ---------- */
 Object.assign(RH.ACT,{
+  selRow:(el,e)=>{const cb=el.querySelector('input'),k=keyOf(el.dataset.id);if(e.target!==cb)cb.checked=!cb.checked;cb.checked?st.sel.add(k):st.sel.delete(k);refreshSel()},
+  selAll:el=>{visiveis().forEach(r=>el.checked?st.sel.add(keyOf(r.id)):st.sel.delete(keyOf(r.id)));refreshSel()},
+  selClear:()=>{selKeys().forEach(k=>st.sel.delete(k));refreshSel()},
+  cfClear:()=>{const f=st.CF[st.cadTab];if(f)Object.keys(f).forEach(k=>f[k]='');RH.renderView(true)},
+  bkLink,bkSetor,bkDel,bkDelGo,bkRonda,
   etqOpen,
   etqFmt:el=>{st.etqFmt=el.dataset.v;$('#etq-grid').innerHTML=etqGrid();$('#etq-bar').innerHTML=etqBar()},
   etqPrint:()=>{document.body.classList.add('print-modal');const f=()=>{document.body.classList.remove('print-modal');removeEventListener('afterprint',f)};addEventListener('afterprint',f);print()},
@@ -301,6 +476,8 @@ Object.assign(RH.ACT,{
     if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Antena '+r.valor+' adicionada.')},
 });
 RH.ON_CHANGE.push(async el=>{
+  if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
+  if(el.dataset.bkDest!=null){prevLink();return true}
   if(el.dataset.lib!=null){if(el.value)st.M.liberacao[el.dataset.lib]=el.value;else delete st.M.liberacao[el.dataset.lib];ordemRefresh();return true}
   if(el.dataset.import!=null){if(el.files[0]){try{const n=await RH.store.importJSON(await el.files[0].text());toast(n+' registros importados.')}catch(err){toast(err.message||'Não foi possível importar o arquivo.','bad')}el.value=''}return true}
   if(el.dataset.entFoto!=null){if(el.files[0]){try{Object.assign(st.M.foto,await RH.processImg(el.files[0]),{remove:false});$('#foto-prev').innerHTML=fotoPrev()}catch(err){toast('Não foi possível ler a imagem.','bad')}}return true}
