@@ -199,7 +199,6 @@ img.thumb{display:block}
 .ncp .ph{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ncp .ph img{width:64px;height:64px;border-radius:8px;object-fit:cover}
 .it.miss{box-shadow:inset 3px 0 0 var(--bad);background:var(--bad-bg)}
-.cal{font-size:12px}
 /* orientação da não conformidade (alerta ao inspetor) */
 .orient{display:flex;gap:10px;align-items:flex-start;background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn);border-left-width:5px;border-radius:8px;padding:10px 12px;font-size:13.5px;overflow-wrap:anywhere}
 .orient svg{margin-top:2px}
@@ -1618,8 +1617,7 @@ const libDe=m=>{const o={};Object.entries(m.liberacao||{}).forEach(([d,k])=>{o[b
 const prefix=(sid,al)=>`${sid}:${al.a}:${al.i}:`;
 const thumbEq=e=>e.thumb?`<img class="thumb" src="${e.thumb}" alt="${esc(e.nome)}">`:`<div class="thumb">${ic('dev',22)}</div>`;
 RH.thumbEq=thumbEq;
-RH.calBadge=d=>{const dias=Math.round((new Date(d+'T23:59:59')-Date.now())/864e5);
-  return dias<0?`<span class="pill st-aberta cal">Calibração vencida em ${fd(new Date(d+'T12:00:00'))}</span>`:dias<=30?`<span class="pill late cal">Calibração vence em ${dias} d</span>`:`<small class="cal">Calibração até ${fd(new Date(d+'T12:00:00'))}</small>`};
+
 
 /* ---------- lista de rondas ---------- */
 const visiveis=()=>S.modelos.filter(m=>RH.access.rondaVisivel(m,st.me)).sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -1765,8 +1763,7 @@ function blocoHtml(bl){
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
     if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem checklist vinculado${st.me.role==='admin'?' · vincule em Cadastros':''}</small></div></div></div>`;
-    const cal=al.eq?.calibracao?RH.calBadge(al.eq.calibracao):'';
-    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?`<span class="mono">${esc(al.eq.patrimonio||'sem patrimônio')}</span> · ${esc(al.eq.categoria||'')}`:esc(al.cl?.nome||'')}</small> ${cal}</div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
+    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?`<span class="mono">${esc(al.eq.patrimonio||'sem patrimônio')}</span> · ${esc(al.eq.categoria||'')}`:esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){
   const bl=st.R&&st.R.blocos.find(b=>b.id===id),el=document.getElementById('bl-'+id);
@@ -2103,13 +2100,13 @@ const ENT={
    {k:'ativo',l:'Sala ativa (aparece nas rondas)',t:'check',def:true,full:1}],
   canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir. Ou apenas desative a sala.':''},
  equipamentos:{col:'equipamentos',nome:'Equipamentos',um:'equipamento',
-  cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b><small class="mono">${esc(e.patrimonio||'')}</small></div></div>`],['Categoria',e=>esc(e.categoria||'—')],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Calibração',e=>e.calibracao?RH.calBadge(e.calibracao):'—'],['Situação',actPill]],
+  cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b><small class="mono">${esc(e.patrimonio||'')}</small></div></div>`],['Categoria',e=>esc(e.categoria||'—')],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Situação',actPill]],
   fields:[{k:'nome',l:'Nome do equipamento',req:1},{k:'patrimonio',l:'Nº de patrimônio / série'},{k:'categoria',l:'Categoria',list:()=>[...new Set(S.equipamentos.map(e=>e.categoria).filter(Boolean))],hint:'Ex.: Suporte à vida, Esterilização'},
    {k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Setor onde o equipamento fica. Ex.: UTI, Centro Cirúrgico'},
    {k:'checklistId',l:'Checklist do equipamento',t:'select',opts:()=>S.checklists.filter(c=>['equipamento','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum'},
    {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.'},
    {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.'},
-   {k:'calibracao',l:'Validade da calibração',t:'date'},{k:'foto',l:'Foto do equipamento',t:'photo',full:1},
+   {k:'foto',l:'Foto do equipamento',t:'photo',full:1},
    {k:'obs',l:'Observações',t:'textarea',full:1},{k:'ativo',l:'Equipamento ativo',t:'check',def:true,full:1}]},
  checklists:{col:'checklists',nome:'Checklists',um:'checklist',
   cols:[['Checklist',c=>`<b>${esc(c.nome)}</b>`],['Aplica-se a',c=>TIPO_CK[c.tipo]||'Sala'],['Itens',c=>(c.itens||[]).length],['Em uso',c=>S.salas.filter(s=>s.checklistId===c.id).length+S.equipamentos.filter(e=>e.checklistId===c.id).length+' vínculos']],
@@ -2579,12 +2576,11 @@ RH.seedDemo=async barId=>{
   Object.entries(CL).forEach(([k,[n,t,it]])=>D('checklists','demo_c'+k,{nome:n,tipo:t,itens:it.map((x,j)=>({id:'i'+j,t:x}))}));
   const SL=[['s1','UTI Adulto 01','UTI','2º andar','u1','ca',.09],['s2','UTI Adulto 02','UTI','2º andar','u1','ca',.05],['s3','UTI Neonatal','UTI','2º andar','u1','ca',.04],['s4','Centro Cirúrgico · Sala 1','Centro Cirúrgico','3º andar','u3','ca',.07],['s5','Centro Cirúrgico · Sala 2','Centro Cirúrgico','3º andar','u3','ca',.12],['s6','Emergência · Sala Vermelha','Emergência','Térreo','u4','ca',.1],['s7','Enfermaria 3A','Enfermaria','3º andar','u4','cp',.06],['s8','Farmácia Central','Farmácia','1º andar','u5','cp',.08],['s9','Central de Material Esterilizado','CME','Subsolo','u2','ca',.11],['s10','Diagnóstico por Imagem','Imagem','Térreo','u2','cp',.05]];
   SL.forEach(([i,n,s,a,r,c])=>D('salas','demo_'+i,{nome:n,setor:s,andar:a,responsavelId:'demo_'+r,checklistId:'demo_c'+c,ativo:true}));
-  const cal=d=>new Date(Date.now()+d*864e5).toISOString().slice(0,10);
   const EQ=[['e1','Ventilador pulmonar','Suporte à vida','s1','es',200],['e2','Monitor multiparamétrico','Suporte à vida','s1','es',90],['e3','Bomba de infusão','Suporte à vida','s2','es',45],['e4','Ventilador pulmonar','Suporte à vida','s2','es',-12],['e5','Incubadora neonatal','Suporte à vida','s3','es',150],['e6','Monitor multiparamétrico','Suporte à vida','s3','es',20],
    ['e7','Aparelho de anestesia','Suporte à vida','s4','es',120],['e8','Foco cirúrgico','Apoio cirúrgico','s4','es',300],['e9','Aparelho de anestesia','Suporte à vida','s5','es',60],['e10','Desfibrilador','Suporte à vida','s5','es',-3],
    ['e11','Carro de emergência','Emergência','s6','ee',400],['e12','Desfibrilador','Suporte à vida','s6','es',75],['e13','Aspirador cirúrgico','Suporte à vida','s6','es',180],['e14','Carro de emergência','Emergência','s7','ee',400],
    ['e15','Refrigerador de medicamentos','Refrigeração','s8','er',365],['e16','Refrigerador de vacinas','Refrigeração','s8','er',250],['e17','Autoclave 1','Esterilização','s9','et',30],['e18','Autoclave 2','Esterilização','s9','et',110],['e19','Termodesinfectora','Esterilização','s9','et',200],['e20','Tomógrafo','Diagnóstico','s10','es',160]];
-  EQ.forEach(([i,n,c,s,k,d])=>D('equipamentos','demo_'+i,{nome:n,categoria:c,setor:SL.find(x=>x[0]===s)[2],patrimonio:'PAT-'+(10400+parseInt(i.slice(1))*37),checklistId:'demo_c'+k,calibracao:cal(d),ativo:true,thumb:null,fotoId:null}));
+  EQ.forEach(([i,n,c,s,k,d])=>D('equipamentos','demo_'+i,{nome:n,categoria:c,setor:SL.find(x=>x[0]===s)[2],patrimonio:'PAT-'+(10400+parseInt(i.slice(1))*37),checklistId:'demo_c'+k,ativo:true,thumb:null,fotoId:null}));
 
   /* rondas cadastradas ("Nome da ronda"): responsável vazio = todos os inspetores */
   const MD=[['m1','Ronda UTI · plantão diurno',['s1','s2','s3'],'u1',24],['m2','Ronda Centro Cirúrgico',['s4','s5'],'u3',24],['m3','Ronda Emergência e Enfermaria',['s6','s7'],'',24],['m4','Ronda Farmácia e CME',['s8','s9'],'u5',48],['m5','Ronda Diagnóstico por Imagem',['s10'],'',48]];

@@ -31,8 +31,7 @@ const libDe=m=>{const o={};Object.entries(m.liberacao||{}).forEach(([d,k])=>{o[b
 const prefix=(sid,al)=>`${sid}:${al.a}:${al.i}:`;
 const thumbEq=e=>e.thumb?`<img class="thumb" src="${e.thumb}" alt="${esc(e.nome)}">`:`<div class="thumb">${ic('dev',22)}</div>`;
 RH.thumbEq=thumbEq;
-RH.calBadge=d=>{const dias=Math.round((new Date(d+'T23:59:59')-Date.now())/864e5);
-  return dias<0?`<span class="pill st-aberta cal">Calibração vencida em ${fd(new Date(d+'T12:00:00'))}</span>`:dias<=30?`<span class="pill late cal">Calibração vence em ${dias} d</span>`:`<small class="cal">Calibração até ${fd(new Date(d+'T12:00:00'))}</small>`};
+
 
 /* ---------- lista de rondas ---------- */
 const visiveis=()=>S.modelos.filter(m=>RH.access.rondaVisivel(m,st.me)).sort((a,b)=>a.nome.localeCompare(b.nome));
@@ -178,8 +177,7 @@ function blocoHtml(bl){
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
     if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem checklist vinculado${st.me.role==='admin'?' · vincule em Cadastros':''}</small></div></div></div>`;
-    const cal=al.eq?.calibracao?RH.calBadge(al.eq.calibracao):'';
-    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?`<span class="mono">${esc(al.eq.patrimonio||'sem patrimônio')}</span> · ${esc(al.eq.categoria||'')}`:esc(al.cl?.nome||'')}</small> ${cal}</div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
+    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?`<span class="mono">${esc(al.eq.patrimonio||'sem patrimônio')}</span> · ${esc(al.eq.categoria||'')}`:esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){
   const bl=st.R&&st.R.blocos.find(b=>b.id===id),el=document.getElementById('bl-'+id);

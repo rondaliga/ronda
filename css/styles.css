@@ -187,7 +187,6 @@ img.thumb{display:block}
 .ncp .ph{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .ncp .ph img{width:64px;height:64px;border-radius:8px;object-fit:cover}
 .it.miss{box-shadow:inset 3px 0 0 var(--bad);background:var(--bad-bg)}
-.cal{font-size:12px}
 /* orientação da não conformidade (alerta ao inspetor) */
 .orient{display:flex;gap:10px;align-items:flex-start;background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn);border-left-width:5px;border-radius:8px;padding:10px 12px;font-size:13.5px;overflow-wrap:anywhere}
 .orient svg{margin-top:2px}
