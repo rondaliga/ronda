@@ -62,11 +62,6 @@ def main():
         page.select_option("#bk-dest", label="Ronda Farmácia")
         check("já em outra ronda: nada entra", page.is_disabled("#bk-ok"))
         page.click("[data-act=closeModal]")
-        # checklist: sala recebe, equipamento incompatível
-        page.click("[data-act=bkLink]"); page.select_option("#bk-dest", label="Vazio · Sala")
-        check("checklist de sala ignora equipamentos", "2 itens receberão" in page.inner_text("#bk-prev") and "não são compatíveis" in page.inner_text("#bk-prev"), page.inner_text("#bk-prev"))
-        page.click("#bk-ok"); page.wait_for_selector("#f-bk-link", state="detached")
-        check("checklist gravado nas salas", page.evaluate("RH.S.salas.filter(s=>s.checklistId==='ck3').map(s=>s.id).sort().join()") == "a,b")
         # alterar setor
         page.click("[data-act=bkSetor]"); page.fill("#bk-setor", "CTI"); page.click("#bk-ok"); page.wait_for_selector("#f-bk-setor", state="detached")
         check("setor alterado em salas e equipamentos", page.evaluate("[...RH.S.salas.filter(s=>['a','b'].includes(s.id)),...RH.S.equipamentos.filter(e=>['e1','e2'].includes(e.id))].every(x=>x.setor==='CTI')"))
@@ -91,13 +86,6 @@ def main():
         check("exclusão: separa excluíveis e bloqueadas", "1 será excluído" in mod and "1 não pode ser excluído" in mod, mod)
         page.click("[data-act=bkDelGo]"); page.wait_for_selector("[data-act=bkDelGo]", state="detached"); page.wait_for_timeout(600)
         check("só a sala livre foi excluída", page.evaluate("!RH.S.salas.some(s=>s.id==='y')&&RH.S.salas.some(s=>s.id==='c')"))
-        # checklists
-        open_cad(page, "checklists")
-        page.click("#sel-all")
-        check("checklists: barra só com excluir", page.locator("[data-act=bkDel]").count() == 1 and page.locator("[data-act=bkLink]").count() == 0)
-        page.click("[data-act=bkDel]")
-        check("checklists em uso ficam bloqueados", "não pode" in page.inner_text("#modal") or "não podem" in page.inner_text("#modal"), page.inner_text("#modal"))
-        page.click("[data-act=closeModal]")
         browser.close()
     print("\nErros de console/página:", errors or "nenhum")
     bad = [r for r in results if not r[1]]

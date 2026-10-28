@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Cadastros (somente administrador): Rondas, Salas, Equipamentos, Checklists,
+   Cadastros (somente administrador): Rondas, Salas, Equipamentos,
    Tipos de NC, Usuários e dados do hospital / backup.
    Cada entidade é descrita em ENT (colunas da tabela + campos do formulário).
    ========================================================================== */
@@ -54,10 +54,6 @@ const ENT={
    {k:'foto',l:'Foto do equipamento',t:'photo',full:1,tab:'presenca'},
    {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
    {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}]},
- checklists:{col:'checklists',nome:'Checklists',um:'checklist',
-  cols:[['Checklist',c=>`<b>${esc(c.nome)}</b>`],['Aplica-se a',c=>TIPO_CK[c.tipo]||'Sala'],['Itens',c=>(c.itens||[]).length],['Em uso',c=>S.salas.filter(s=>s.checklistId===c.id).length+S.equipamentos.filter(e=>e.checklistId===c.id).length+' vínculos']],
-  fields:[{k:'nome',l:'Nome do checklist',req:1,full:1},{k:'tipo',l:'Aplica-se a',t:'select',req:1,opts:()=>Object.entries(TIPO_CK),hint:'Escolha "Sala e equipamento" para usar o mesmo checklist nos dois cadastros.'},{k:'itens',l:'Itens a verificar',t:'items',full:1}],
-  canDel:c=>S.salas.some(s=>s.checklistId===c.id)||S.equipamentos.some(e=>e.checklistId===c.id)?'Este checklist está vinculado a salas ou equipamentos. Troque o vínculo antes de excluir.':''},
  tiposNC:{col:'tiposNC',nome:'Tipos de NC',um:'tipo de não conformidade',
   cols:[['Tipo',t=>`<b>${esc(t.nome)}</b>`],['Severidade padrão',t=>sevPill(t.sev||2)],['Orientação / ação esperada (exibida ao inspetor)',t=>t.orient?`<span style="white-space:normal">${esc(t.orient)}</span>`:'<small>—</small>'],['Registros',t=>S.ncs.filter(n=>n.tipoId===t.id).length]],
   fields:[{k:'nome',l:'Nome',req:1,full:1},{k:'sev',l:'Severidade padrão',t:'select',req:1,opts:()=>[1,2,3,4].map(s=>[s,s+' · '+SEV[s]]),def:2},
@@ -103,20 +99,20 @@ RH.pages.cadastros=()=>{
     ${rows.length?`<div class="tw"><table><thead><tr>${th}${E.cols.map(c=>`<th>${c[0]}</th>`).join('')}<th class="th-act"><span class="sr">Ações</span></th></tr></thead><tbody>${rows.map(tr).join('')}</tbody></table></div>`:all.length?empty('Nenhum cadastro com estes filtros','Ajuste ou limpe os filtros para ver os demais.'):empty(`Nenhum cadastro em ${E.nome}`,'Use o botão Adicionar para criar o primeiro.')}
     ${bulk?`<div class="bulk-spacer"></div><div id="bulk-bar" class="bulkbar" role="region" aria-label="Ações em lote" ${selKeys().length?'':'hidden'}>${barHtml()}</div>`:''}`;
   }
-  return `<div class="top"><div><h1>Cadastros</h1><p>Rondas, salas, equipamentos, checklists, tipos de não conformidade e usuários.</p></div></div>
+  return `<div class="top"><div><h1>Cadastros</h1><p>Rondas, salas, equipamentos, tipos de não conformidade e usuários.</p></div></div>
   <div class="tabs" role="tablist">${tabs.map(k=>`<button role="tab" data-act="cadTab" data-k="${k}" aria-selected="${st.cadTab===k}">${nm(k)}</button>`).join('')}</div>${body}`;
 };
 
 /* ==========================================================================
-   Seleção e ações em lote (abas Salas, Equipamentos e Checklists)
+   Seleção e ações em lote (abas Salas e Equipamentos)
    - st.sel : chaves 's:<id>' (sala) · 'e:<id>' (equipamento) · 'c:<id>' (checklist), o mesmo
               formato da ordem de percurso das rondas. Salas e equipamentos podem ser marcados
               em abas diferentes e entrar juntos na mesma ronda.
    - st.CF  : filtros de cada aba (Setor/Andar em Salas; Setor em Equipamentos).
    - A lógica de "entrar em uma ronda" fica em js/features/ronda.js (RH.rondaPlano / RH.rondaAdicionar).
    ========================================================================== */
-const BULK={salas:'s:',equipamentos:'e:',checklists:'c:'};
-const COL_DE={s:'salas',e:'equipamentos',c:'checklists'};
+const BULK={salas:'s:',equipamentos:'e:'};
+const COL_DE={s:'salas',e:'equipamentos'};
 const SEMSETOR='__sem';
 st.sel=st.sel||new Set();
 st.CF=st.CF||{salas:{setor:'',andar:''},equipamentos:{setor:''}};
@@ -131,7 +127,7 @@ const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
 /* seleção da aba atual, já sem registros que deixaram de existir */
 function selKeys(){
   for(const k of [...st.sel])if(!existe(k))st.sel.delete(k);
-  const tipos=st.cadTab==='checklists'?['c']:['s','e'];
+  const tipos=['s','e'];
   return [...st.sel].filter(k=>tipos.includes(k[0]))}
 
 /* ---------- filtros ---------- */
@@ -161,9 +157,9 @@ function barHtml(){
   const ks=selKeys(),ns=ks.filter(k=>k[0]==='s').length,ne=ks.filter(k=>k[0]==='e').length,n=ks.length;
   const vis=new Set(visiveis().map(x=>keyOf(x.id))),fora=ks.filter(k=>k.startsWith(BULK[st.cadTab])&&!vis.has(k)).length;
   const det=[ns?plural(ns,'sala','salas'):'',ne?plural(ne,'equipamento','equipamentos'):'',fora?`${fora} fora dos filtros`:''].filter(Boolean).join(' · ');
-  const lote=st.cadTab!=='checklists';
-  return `<div class="bulk-n" aria-live="polite"><b>${n}</b> selecionado${n===1?'':'s'}${st.cadTab==='checklists'?'':`<small>${det}</small>`}</div>
-  <div class="bulk-a">${lote?`<button type="button" class="btn sm" data-act="bkLink">${ic('clip',14)} Vincular a ronda/checklist</button><button type="button" class="btn sm" data-act="bkSetor">${ic('set',14)} Alterar setor</button><button type="button" class="btn sm pri" data-act="bkRonda">${ic('plus',14)} Criar ronda com selecionados</button>`:''}<button type="button" class="btn sm bad" data-act="bkDel">${ic('trash',14)} Excluir selecionados</button><button type="button" class="btn sm" data-act="selClear">${ic('x',14)} Limpar</button></div>`}
+  const lote=true;
+  return `<div class="bulk-n" aria-live="polite"><b>${n}</b> selecionado${n===1?'':'s'}<small>${det}</small></div>
+  <div class="bulk-a">${lote?`<button type="button" class="btn sm" data-act="bkLink">${ic('clip',14)} Vincular a ronda</button><button type="button" class="btn sm" data-act="bkSetor">${ic('set',14)} Alterar setor</button><button type="button" class="btn sm pri" data-act="bkRonda">${ic('plus',14)} Criar ronda com selecionados</button>`:''}<button type="button" class="btn sm bad" data-act="bkDel">${ic('trash',14)} Excluir selecionados</button><button type="button" class="btn sm" data-act="selClear">${ic('x',14)} Limpar</button></div>`}
 /* atualiza barra, "selecionar todos" e linhas sem redesenhar a tela (mantém foco e rolagem) */
 function refreshSel(){
   const bar=$('#bulk-bar');if(!bar)return;
@@ -177,7 +173,7 @@ RH.after.cadastros=refreshSel;
 const mHead=t=>`<div class="mh"><h3 style="font-size:16px">${t}</h3><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>`;
 const linhas=L=>L.map(([c,t])=>`<div class="bk-l ${c}">${t}</div>`).join('');
 
-/* o que acontece ao vincular: dest = 'm:<idRonda>' | 'c:<idChecklist>' */
+/* o que acontece ao vincular: dest = 'm:<idRonda>' */
 function planoLink(dest,keys){
   const t=dest[0],id=dest.slice(2),L=[];
   if(t==='m'){
@@ -187,16 +183,7 @@ function planoLink(dest,keys){
     if(s.outra.length)L.push(['warn',`${plural(s.outra.length,'já pertence a outra ronda','já pertencem a outras rondas')} (um item só pode estar em uma ronda): ${nomes(s.outra)}.`]);
     if(s.inativo.length)L.push(['warn',`${plural(s.inativo.length,'está inativo','estão inativos')} e não entra${s.inativo.length===1?'':'m'} em rondas: ${nomes(s.inativo)}.`]);
     return{add:p.add,L,nome:p.m.nome,ign:keys.length-p.add.length}}
-  const c=byId(S.checklists,id),tipo=c.tipo||'sala',add=[],ja=[],inc=[];
-  keys.forEach(k=>{const x=existe(k);if(!x)return;
-    if(x.checklistId===id)ja.push(k);
-    else if(!(k[0]==='s'?['sala','ambos']:['equipamento','ambos']).includes(tipo))inc.push(k);
-    else add.push(k)});
-  const troca=add.filter(k=>existe(k).checklistId).length;
-  L.push([add.length?'ok':'warn',`${plural(add.length,'item receberá','itens receberão')} o checklist “${esc(c.nome)}”${troca?` (${plural(troca,'troca','trocam')} o checklist atual)`:''}.`]);
-  if(ja.length)L.push(['warn',`${plural(ja.length,'já usa este checklist','já usam este checklist')}: ${nomes(ja)}.`]);
-  if(inc.length)L.push(['warn',`${plural(inc.length,'não é compatível','não são compatíveis')}: este checklist se aplica a “${TIPO_CK[tipo]||'Sala'}”. ${nomes(inc)}.`]);
-  return{add,L,nome:c.nome,ign:keys.length-add.length}}
+  return{add:[],L,nome:'',ign:keys.length}}
 function prevLink(){
   const v=$('#bk-dest').value,B=st.BM,btn=$('#bk-ok');
   if(!v||!B){$('#bk-prev').innerHTML='';btn.disabled=true;return}
@@ -204,14 +191,14 @@ function prevLink(){
   $('#bk-prev').innerHTML=linhas(p.L);btn.disabled=!p.add.length;btn.textContent=p.add.length?`Vincular ${p.add.length}`:'Vincular'}
 function bkLink(){
   const ks=selKeys().filter(k=>k[0]!=='c');if(!ks.length)return;
-  const ms=[...S.modelos].sort(porNome),cs=[...S.checklists].sort(porNome);
-  if(!ms.length&&!cs.length){toast('Cadastre uma ronda ou um checklist antes de vincular.','bad');return}
+  const ms=[...S.modelos].sort(porNome);
+  if(!ms.length){toast('Cadastre uma ronda antes de vincular.','bad');return}
   st.BM={tipo:'link',keys:ks};
-  modal(`${mHead('Vincular '+plural(ks.length,'item','itens')+' a ronda ou checklist')}
+  modal(`${mHead('Vincular '+plural(ks.length,'item','itens')+' a ronda')}
   <form id="f-bk-link" autocomplete="off"><div class="mb"><div class="bk-resumo">${nomes(ks,8)}</div>
-  <label class="field"><span>Vincular a *</span><select name="dest" id="bk-dest" data-bk-dest required><option value="">Selecione uma ronda ou um checklist…</option>
+  <label class="field"><span>Vincular a *</span><select name="dest" id="bk-dest" data-bk-dest required><option value="">Selecione uma ronda…</option>
   ${ms.length?`<optgroup label="Rondas (acrescenta ao fim do percurso)">${ms.map(m=>`<option value="m:${esc(m.id)}">${esc(m.nome)}${m.ativo===false?' (inativa)':''}</option>`).join('')}</optgroup>`:''}
-  ${cs.length?`<optgroup label="Checklists (define o checklist de cada item)">${cs.map(c=>`<option value="c:${esc(c.id)}">${esc(c.nome)} · ${TIPO_CK[c.tipo]||'Sala'}</option>`).join('')}</optgroup>`:''}</select></label>
+  </select></label>
   <div id="bk-prev" aria-live="polite"></div></div>
   <div class="mf"><button type="button" class="btn" data-act="closeModal">Cancelar</button><button class="btn pri" type="submit" id="bk-ok" disabled>Vincular</button></div></form>`)}
 RH.ON_SUBMIT['f-bk-link']=async f=>{
@@ -219,8 +206,7 @@ RH.ON_SUBMIT['f-bk-link']=async f=>{
   const p=planoLink(dest,B.keys);if(!p.add.length)return;
   const btn=$('#bk-ok');btn.disabled=true;
   const ok=await RH.safe(async()=>{
-    if(dest[0]==='m')await RH.rondaAdicionar(dest.slice(2),B.keys);
-    else for(const k of p.add)await RH.upd(COL_DE[k[0]],k.slice(2),{checklistId:dest.slice(2)});
+    await RH.rondaAdicionar(dest.slice(2),B.keys);
     return true});
   if(!ok){btn.disabled=false;return}
   st.BM=null;closeModal();refreshSel();
@@ -300,7 +286,7 @@ const ordemRefresh=()=>{$('#ord-list').innerHTML=ordemHtml();$('#ord-add').inner
 function salasPicker(f){
   return `<div class="full"><span class="hint" style="font-weight:600;color:var(--ink2)">${esc(f.l)} *</span><div id="ord-list" style="margin-top:6px">${ordemHtml()}</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><select id="ord-add" aria-label="Adicionar sala ou equipamento" style="flex:1;min-width:200px">${ordemOpts()}</select><button type="button" class="btn sm" data-act="ordAdd">${ic('plus',14)} Adicionar</button></div>
-  <small>Itens já vinculados a outra ronda não aparecem na lista. Salas e equipamentos são inspecionados na ordem numerada (1° é o primeiro), com os checklists vinculados a cada um.</small>
+  <small>Itens já vinculados a outra ronda não aparecem na lista. Salas e equipamentos são inspecionados na ordem numerada (1° é o primeiro), com os itens a verificar de cada um.</small>
   <small style="display:block;margin-top:4px"><b>Liberar com:</b> para bloquear vários locais e liberá-los todos de uma vez, escolha em cada um a sala/equipamento-chave. Ao ler o código da chave (na antena Wi-Fi dela) todos os vinculados são liberados.</small></div>`}
 
 /* dias da semana + horários em que a ronda deve ser realizada */
