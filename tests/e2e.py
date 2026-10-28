@@ -54,12 +54,20 @@ def nav_labels(page):
 def open_cad(page, tab):
     page.click(f"#nav [data-p=cadastros]"); page.click(f"[data-act=cadTab][data-k={tab}]")
 
+def goto_field(page, k):
+    """Salas/equipamentos têm abas no modal: abre a aba que contém o campo."""
+    panel = page.locator(f"[role=tabpanel]:has(#ff-{k})")
+    if panel.count() and not panel.first.is_visible():
+        page.click("#et-" + panel.first.get_attribute("id")[3:])
+
 def add(page, tab, fill=None, select=None, checks=None, check_boxes=None):
     open_cad(page, tab)
     page.click("[data-act=newEnt]")
     for k, v in (fill or {}).items():
+        goto_field(page, k)
         page.fill(f"#ff-{k}", str(v))
     for k, v in (select or {}).items():
+        goto_field(page, k)
         page.select_option(f"#ff-{k}", label=v)
     for k in (checks or []):
         page.uncheck(f"#ff-{k}")
@@ -105,10 +113,10 @@ def main():
         open_cad(page, "salas")
         for nome in ["UTI 01", "UTI 02", "Farmácia"]:
             page.click(f"tr[data-act=editEnt]:has-text('{nome}')")
-            page.select_option("#ff-checklistId", label="Sala padrão"); save(page)
+            goto_field(page, "checklistId"); page.select_option("#ff-checklistId", label="Sala padrão"); save(page)
             open_cad(page, "salas")
         # equipamento na UTI 01
-        add(page, "equipamentos", fill={"nome": "Monitor", "patrimonio": "PAT-1", "setor": "UTI"}, select={"checklistId": "Equipamento padrão"}); save(page)
+        add(page, "equipamentos", fill={"nome": "Monitor", "setor": "UTI"}, select={"checklistId": "Equipamento padrão"}); save(page)
         # tipos de NC com orientação
         add(page, "tiposNC", fill={"nome": "Alarme inoperante", "orient": "Testar, reparar e validar antes de reutilizar."}, select={"sev": "4 · Crítica"}); save(page)
         add(page, "tiposNC", fill={"nome": "Higienização deficiente", "orient": "Refazer a limpeza terminal."}); save(page)
@@ -581,7 +589,7 @@ def main():
                 check("Duplicar usuário: login e senha em branco", page.input_value("#ff-login") == "" and page.input_value("#ff-senha") == "")
                 page.fill("#ff-login", "copia"); page.fill("#ff-senha", "Copia#Senha1")
             if tab == "equipamentos":
-                check("Duplicar equipamento: patrimônio em branco", page.input_value("#ff-patrimonio") == "")
+                check("Duplicar equipamento: abas Geral / Foto e presença / Checklist", page.locator("#f-ent .ent-tabs [role=tab]").count() == 3 and page.locator("#ff-patrimonio, #ff-categoria, #ff-obs").count() == 0)
             if tab == "checklists":
                 check("Duplicar checklist copia os itens", page.locator("[data-itx]").count() >= 3)
             if tab == "modelos":

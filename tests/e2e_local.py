@@ -63,8 +63,8 @@ def main():
         def nova_sala(nome, codigo, bssids):
             page.click("#nav [data-p=cadastros]"); page.click("[data-act=cadTab][data-k=salas]"); page.click("[data-act=newEnt]")
             page.fill("#ff-nome", nome); page.fill("#ff-setor", "UTI")
-            page.select_option("#ff-checklistId", label="Sala padrão")
-            page.fill("#ff-codigoLocal", codigo); page.fill("#ff-bssids", bssids)
+            page.click("#et-checklist"); page.select_option("#ff-checklistId", label="Sala padrão")
+            page.click("#et-presenca"); page.fill("#ff-codigoLocal", codigo); page.fill("#ff-bssids", bssids)
             page.click("#f-ent button[type=submit]")
         page.click("#nav [data-p=cadastros]"); page.click("[data-act=cadTab][data-k=salas]"); page.click("[data-act=newEnt]")
         page.click("[data-act=genCodigo]")

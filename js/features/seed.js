@@ -28,7 +28,7 @@ RH.seedDemo=async barId=>{
    ['e7','Aparelho de anestesia','Suporte à vida','s4','es',120],['e8','Foco cirúrgico','Apoio cirúrgico','s4','es',300],['e9','Aparelho de anestesia','Suporte à vida','s5','es',60],['e10','Desfibrilador','Suporte à vida','s5','es',-3],
    ['e11','Carro de emergência','Emergência','s6','ee',400],['e12','Desfibrilador','Suporte à vida','s6','es',75],['e13','Aspirador cirúrgico','Suporte à vida','s6','es',180],['e14','Carro de emergência','Emergência','s7','ee',400],
    ['e15','Refrigerador de medicamentos','Refrigeração','s8','er',365],['e16','Refrigerador de vacinas','Refrigeração','s8','er',250],['e17','Autoclave 1','Esterilização','s9','et',30],['e18','Autoclave 2','Esterilização','s9','et',110],['e19','Termodesinfectora','Esterilização','s9','et',200],['e20','Tomógrafo','Diagnóstico','s10','es',160]];
-  EQ.forEach(([i,n,c,s,k,d])=>D('equipamentos','demo_'+i,{nome:n,categoria:c,setor:SL.find(x=>x[0]===s)[2],patrimonio:'PAT-'+(10400+parseInt(i.slice(1))*37),checklistId:'demo_c'+k,ativo:true,thumb:null,fotoId:null}));
+  EQ.forEach(([i,n,c,s,k,d])=>D('equipamentos','demo_'+i,{nome:n,setor:SL.find(x=>x[0]===s)[2],checklistId:'demo_c'+k,ativo:true,thumb:null,fotoId:null}));
 
   /* rondas cadastradas ("Nome da ronda"): responsável vazio = todos os inspetores */
   const MD=[['m1','Ronda UTI · plantão diurno',['s1','s2','s3'],'u1',24],['m2','Ronda Centro Cirúrgico',['s4','s5'],'u3',24],['m3','Ronda Emergência e Enfermaria',['s6','s7'],'',24],['m4','Ronda Farmácia e CME',['s8','s9'],'u5',48],['m5','Ronda Diagnóstico por Imagem',['s10'],'',48]];

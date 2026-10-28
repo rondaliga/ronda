@@ -1763,7 +1763,7 @@ function blocoHtml(bl){
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
     if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem checklist vinculado${st.me.role==='admin'?' · vincule em Cadastros':''}</small></div></div></div>`;
-    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?`<span class="mono">${esc(al.eq.patrimonio||'sem patrimônio')}</span> · ${esc(al.eq.categoria||'')}`:esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
+    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?esc(RH.setorEq(al.eq)||''):esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){
   const bl=st.R&&st.R.blocos.find(b=>b.id===id),el=document.getElementById('bl-'+id);
@@ -2092,22 +2092,24 @@ const ENT={
    {k:'salaIds',l:'Setor (salas e equipamentos)',t:'salas',full:1}]},
  salas:{col:'salas',nome:'Salas',um:'sala',
   cols:[['Sala',s=>`<b>${esc(s.nome)}</b><small>${esc(s.andar||'')}</small>`],['Setor',s=>esc(s.setor||'—')],['Presença',presencaCol],['Responsável pela sala',s=>esc(userName(s.responsavelId))],['Equipamentos no setor',s=>S.equipamentos.filter(e=>s.setor&&RH.setorEq(e)===s.setor).length],['Rondas',s=>S.modelos.filter(m=>(m.salaIds||[]).includes(s.id)).length||'<span class="pill late">Fora de rondas</span>'],['Situação',actPill]],
-  fields:[{k:'nome',l:'Nome da sala / ambiente',req:1,full:1},{k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Ex.: UTI, Centro Cirúrgico, Emergência'},{k:'andar',l:'Andar / bloco'},
-   {k:'responsavelId',l:'Responsável pela sala (recebe as NCs)',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos'},
-   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.'},
-   {k:'checklistId',l:'Checklist da sala',t:'select',full:1,opts:()=>S.checklists.filter(c=>['sala','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum'},
-   {k:'ativo',l:'Sala ativa (aparece nas rondas)',t:'check',def:true,full:1}],
+  tabs:[['geral','Geral'],['presenca','Presença no local'],['checklist','Checklist']],
+  fields:[{k:'nome',l:'Nome da sala / ambiente',req:1,full:1,tab:'geral'},{k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Ex.: UTI, Centro Cirúrgico, Emergência',tab:'geral'},{k:'andar',l:'Andar / bloco',tab:'geral'},
+   {k:'responsavelId',l:'Responsável pela sala (recebe as NCs)',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos',tab:'geral'},
+   {k:'ativo',l:'Sala ativa (aparece nas rondas)',t:'check',def:true,full:1,tab:'geral'},
+   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
+   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'},
+   {k:'checklistId',l:'Checklist da sala',t:'select',full:1,opts:()=>S.checklists.filter(c=>['sala','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum',tab:'checklist'}],
   canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir. Ou apenas desative a sala.':''},
  equipamentos:{col:'equipamentos',nome:'Equipamentos',um:'equipamento',
-  cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b><small class="mono">${esc(e.patrimonio||'')}</small></div></div>`],['Categoria',e=>esc(e.categoria||'—')],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Situação',actPill]],
-  fields:[{k:'nome',l:'Nome do equipamento',req:1},{k:'patrimonio',l:'Nº de patrimônio / série'},{k:'categoria',l:'Categoria',list:()=>[...new Set(S.equipamentos.map(e=>e.categoria).filter(Boolean))],hint:'Ex.: Suporte à vida, Esterilização'},
-   {k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Setor onde o equipamento fica. Ex.: UTI, Centro Cirúrgico'},
-   {k:'checklistId',l:'Checklist do equipamento',t:'select',opts:()=>S.checklists.filter(c=>['equipamento','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum'},
-   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.'},
-   {k:'foto',l:'Foto do equipamento',t:'photo',full:1},
-   {k:'obs',l:'Observações',t:'textarea',full:1},{k:'ativo',l:'Equipamento ativo',t:'check',def:true,full:1}]},
+  cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b></div></div>`],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Situação',actPill]],
+  tabs:[['geral','Geral'],['presenca','Foto e presença'],['checklist','Checklist']],
+  fields:[{k:'nome',l:'Nome do equipamento',req:1,full:1,tab:'geral'},
+   {k:'setor',l:'Setor',req:1,full:1,list:optsSetor,hint:'Setor onde o equipamento fica. Ex.: UTI, Centro Cirúrgico',tab:'geral'},
+   {k:'ativo',l:'Equipamento ativo',t:'check',def:true,full:1,tab:'geral'},
+   {k:'foto',l:'Foto do equipamento',t:'photo',full:1,tab:'presenca'},
+   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
+   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'},
+   {k:'checklistId',l:'Checklist do equipamento',t:'select',full:1,opts:()=>S.checklists.filter(c=>['equipamento','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum',tab:'checklist'}]},
  checklists:{col:'checklists',nome:'Checklists',um:'checklist',
   cols:[['Checklist',c=>`<b>${esc(c.nome)}</b>`],['Aplica-se a',c=>TIPO_CK[c.tipo]||'Sala'],['Itens',c=>(c.itens||[]).length],['Em uso',c=>S.salas.filter(s=>s.checklistId===c.id).length+S.equipamentos.filter(e=>e.checklistId===c.id).length+' vínculos']],
   fields:[{k:'nome',l:'Nome do checklist',req:1,full:1},{k:'tipo',l:'Aplica-se a',t:'select',req:1,opts:()=>Object.entries(TIPO_CK),hint:'Escolha "Sala e equipamento" para usar o mesmo checklist nos dois cadastros.'},{k:'itens',l:'Itens a verificar',t:'items',full:1}],
@@ -2166,14 +2168,14 @@ RH.pages.cadastros=()=>{
    - st.sel : chaves 's:<id>' (sala) · 'e:<id>' (equipamento) · 'c:<id>' (checklist), o mesmo
               formato da ordem de percurso das rondas. Salas e equipamentos podem ser marcados
               em abas diferentes e entrar juntos na mesma ronda.
-   - st.CF  : filtros de cada aba (Setor/Andar em Salas; Setor/Categoria em Equipamentos).
+   - st.CF  : filtros de cada aba (Setor/Andar em Salas; Setor em Equipamentos).
    - A lógica de "entrar em uma ronda" fica em js/features/ronda.js (RH.rondaPlano / RH.rondaAdicionar).
    ========================================================================== */
 const BULK={salas:'s:',equipamentos:'e:',checklists:'c:'};
 const COL_DE={s:'salas',e:'equipamentos',c:'checklists'};
 const SEMSETOR='__sem';
 st.sel=st.sel||new Set();
-st.CF=st.CF||{salas:{setor:'',andar:''},equipamentos:{setor:'',categoria:''}};
+st.CF=st.CF||{salas:{setor:'',andar:''},equipamentos:{setor:''}};
 const keyOf=id=>BULK[st.cadTab]+id;
 const existe=k=>byId(S[COL_DE[k[0]]]||[],k.slice(2));
 const nomeDe=k=>existe(k)?.nome||'';
@@ -2192,7 +2194,7 @@ function selKeys(){
 function normFiltros(){
   const tab=st.cadTab,f=st.CF[tab];if(!f)return;
   const vale=(k,fn)=>{if(f[k]&&f[k]!==SEMSETOR&&!S[tab].some(x=>fn(x)===f[k]))f[k]=''};   /* valor que não existe mais */
-  vale('setor',x=>setorDe(tab,x));vale('andar',x=>x.andar||'');vale('categoria',x=>x.categoria||'')}
+  vale('setor',x=>setorDe(tab,x));vale('andar',x=>x.andar||'')}
 function visiveis(){
   normFiltros();
   const tab=st.cadTab,f=st.CF[tab]||{};
@@ -2200,7 +2202,6 @@ function visiveis(){
     const sd=setorDe(tab,x);
     if(f.setor&&(f.setor===SEMSETOR?sd:sd!==f.setor))return false;
     if(f.andar&&(x.andar||'')!==f.andar)return false;
-    if(f.categoria&&(x.categoria||'')!==f.categoria)return false;
     return true}).sort(porNome)}
 function filtrosHtml(){
   const tab=st.cadTab,f=st.CF[tab];if(!f)return '';
@@ -2208,7 +2209,7 @@ function filtrosHtml(){
   const campo=(k,l,vals,extra='')=>`<label class="field"><span>${l}</span><select data-cf="${k}"><option value="">Todos</option>${extra}${vals.map(v=>`<option value="${esc(v)}" ${f[k]===v?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`;
   const semSetor=rows.some(x=>!setorDe(tab,x));
   return `<div class="bulk-filters">${campo('setor','Setor',uniq(rows.map(x=>setorDe(tab,x))),semSetor?`<option value="${SEMSETOR}" ${f.setor===SEMSETOR?'selected':''}>Sem setor</option>`:'')}
-  ${tab==='salas'?campo('andar','Andar / bloco',uniq(rows.map(x=>x.andar))):campo('categoria','Categoria',uniq(rows.map(x=>x.categoria)))}
+  ${tab==='salas'?campo('andar','Andar / bloco',uniq(rows.map(x=>x.andar))):''}
   ${Object.values(f).some(Boolean)?`<button type="button" class="btn sm" data-act="cfClear">Limpar filtros</button>`:''}</div>`}
 
 /* ---------- barra flutuante ---------- */
@@ -2390,7 +2391,6 @@ function fieldHtml(f,v){
 function preparaCopia(ent,d){
   d.nome=(d.nome||'')+' (cópia)';
   if(ent==='users'){d.login='';d.hash=null;d.salt=null}
-  if(ent==='equipamentos')d.patrimonio='';
   if(ent==='salas'||ent==='equipamentos')d.codigoLocal='';   /* o código identifica um único local */
   if(ent==='checklists')d.itens=(d.itens||[]).map(x=>({...x,id:'i'+uid()}));
   delete d.id;delete d.demo}
@@ -2405,11 +2405,17 @@ function openEnt(ent,id,dupId,pre){
   st.M.dias=RH.agenda.temAgenda(d)?[...d.dias]:(id?[0,1,2,3,4,5,6]:[1,2,3,4,5]);
   st.M.horarios=RH.agenda.temAgenda(d)?[...d.horarios]:['08:00'];
   st.M.orientManual=!!(d.orient||'').trim();
+  const fieldHtml2=f=>fieldHtml(f,d[f.k]??(f.def??(f.t==='check'?false:f.t==='salas'?[]:'')));
   modal(`<div class="mh"><h3 style="font-size:16px">${dupId?'Duplicar':id?'Editar':'Adicionar'} ${E.um}</h3><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
-  <form id="f-ent" autocomplete="off"><div class="mb"><div class="fg">${E.fields.map(f=>fieldHtml(f,d[f.k]??(f.def??(f.t==='check'?false:f.t==='salas'?[]:'')))).join('')}</div><div class="err" id="ent-err" role="alert"></div></div>
+  <form id="f-ent" autocomplete="off" ${E.tabs?'novalidate':''}>${E.tabs?`<div class="tabs ent-tabs" role="tablist" style="padding:0 20px;margin-bottom:0">${E.tabs.map(([k,l],i)=>`<button type="button" role="tab" id="et-${k}" aria-controls="ep-${k}" data-act="entTab" data-k="${k}" aria-selected="${i===0}">${l}</button>`).join('')}</div>`:''}<div class="mb">${E.tabs?E.tabs.map(([k],i)=>`<div class="fg" role="tabpanel" id="ep-${k}" aria-labelledby="et-${k}" ${i?'hidden':''}>${E.fields.filter(f=>f.tab===k).map(fieldHtml2).join('')}</div>`).join(''):`<div class="fg">${E.fields.map(fieldHtml2).join('')}</div>`}<div class="err" id="ent-err" role="alert"></div></div>
   <div class="mf">${id?`<button type="button" class="btn bad sp" data-act="delEnt" id="btn-del">${ic('trash',16)} Excluir</button>`:''}<button type="button" class="btn" data-act="closeModal">Cancelar</button><button class="btn pri" type="submit">Salvar</button></div></form>`,true);
   if(ent==='tiposNC'&&!st.M.orientManual&&d.nome)$('#ff-orient').value=RH.sugerirOrientacao(d.nome);
 }
+
+function entTab(el){
+  const k=el.dataset.k;
+  document.querySelectorAll('#f-ent .ent-tabs [role=tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.k===k)));
+  document.querySelectorAll('#f-ent [role=tabpanel]').forEach(p=>{p.hidden=p.id!=='ep-'+k})}
 
 async function saveEnt(form){
   const M=st.M,E=ENT[M.ent],err=m=>{$('#ent-err').textContent=m},data={},old=M.id?byId(S[E.col],M.id):null;
@@ -2433,7 +2439,7 @@ async function saveEnt(form){
     let v=(form.elements[f.k].value||'').trim();
     if(f.t==='number')v=v===''?null:+v;
     if(f.k==='sev')v=+v;
-    if(f.req&&(v===''||v==null))return err(`Preencha o campo: ${f.l}`);
+    if(f.req&&(v===''||v==null)){if(f.tab)entTab({dataset:{k:f.tab}});return err(`Preencha o campo: ${f.l}`)}
     data[f.k]=v}
   if(M.ent==='salas'||M.ent==='equipamentos'){const e=RH.local.validaCadastro(data,M.ent,M.id);if(e)return err(e)}
   if(M.ent==='users'){
@@ -2458,6 +2464,7 @@ async function saveEnt(form){
     else{data.thumb=M.foto.thumb;data.fotoId=M.foto.fotoId}
   }
   const rec=old?{...old,...data}:data;delete rec.id;
+  if(M.ent==='equipamentos'){delete rec.patrimonio;delete rec.categoria;delete rec.obs}   /* campos removidos do cadastro */
   const ok=await RH.safe(async()=>{await RH.put(E.col,id,rec);return true});
   if(ok){const lote=M.fromBulk;closeModal();if(lote){(data.ordem||[]).forEach(k=>st.sel.delete(k));refreshSel()}toast(lote?`Ronda criada com ${(data.ordem||[]).length} item(ns) da seleção.`:'Cadastro salvo.')}
 }
@@ -2505,7 +2512,7 @@ Object.assign(RH.ACT,{
     $('#ff-orient').value=RH.sugerirOrientacao(n);st.M.orientManual=false},
   cadTab:el=>{st.cadTab=el.dataset.k;try{sessionStorage.setItem('rh_cadtab',st.cadTab)}catch(e){}RH.renderView()},
   newEnt:()=>openEnt(st.cadTab), editEnt:el=>openEnt(st.cadTab,el.dataset.id), dupEnt:el=>openEnt(st.cadTab,null,el.dataset.id),
-  delEnt:deleteEnt,
+  delEnt:deleteEnt,entTab,
   itAdd:()=>{st.M.items.push({id:'i'+uid(),t:''});$('#items').innerHTML=itemsHtml();const i=document.querySelectorAll('[data-itx]');i[i.length-1]?.focus()},
   itDel:el=>{st.M.items.splice(+el.dataset.i,1);$('#items').innerHTML=itemsHtml()},
   ordAdd:()=>{const v=$('#ord-add').value;if(v){st.M.ordem.push(v);ordemRefresh()}},
@@ -2580,7 +2587,7 @@ RH.seedDemo=async barId=>{
    ['e7','Aparelho de anestesia','Suporte à vida','s4','es',120],['e8','Foco cirúrgico','Apoio cirúrgico','s4','es',300],['e9','Aparelho de anestesia','Suporte à vida','s5','es',60],['e10','Desfibrilador','Suporte à vida','s5','es',-3],
    ['e11','Carro de emergência','Emergência','s6','ee',400],['e12','Desfibrilador','Suporte à vida','s6','es',75],['e13','Aspirador cirúrgico','Suporte à vida','s6','es',180],['e14','Carro de emergência','Emergência','s7','ee',400],
    ['e15','Refrigerador de medicamentos','Refrigeração','s8','er',365],['e16','Refrigerador de vacinas','Refrigeração','s8','er',250],['e17','Autoclave 1','Esterilização','s9','et',30],['e18','Autoclave 2','Esterilização','s9','et',110],['e19','Termodesinfectora','Esterilização','s9','et',200],['e20','Tomógrafo','Diagnóstico','s10','es',160]];
-  EQ.forEach(([i,n,c,s,k,d])=>D('equipamentos','demo_'+i,{nome:n,categoria:c,setor:SL.find(x=>x[0]===s)[2],patrimonio:'PAT-'+(10400+parseInt(i.slice(1))*37),checklistId:'demo_c'+k,ativo:true,thumb:null,fotoId:null}));
+  EQ.forEach(([i,n,c,s,k,d])=>D('equipamentos','demo_'+i,{nome:n,setor:SL.find(x=>x[0]===s)[2],checklistId:'demo_c'+k,ativo:true,thumb:null,fotoId:null}));
 
   /* rondas cadastradas ("Nome da ronda"): responsável vazio = todos os inspetores */
   const MD=[['m1','Ronda UTI · plantão diurno',['s1','s2','s3'],'u1',24],['m2','Ronda Centro Cirúrgico',['s4','s5'],'u3',24],['m3','Ronda Emergência e Enfermaria',['s6','s7'],'',24],['m4','Ronda Farmácia e CME',['s8','s9'],'u5',48],['m5','Ronda Diagnóstico por Imagem',['s10'],'',48]];

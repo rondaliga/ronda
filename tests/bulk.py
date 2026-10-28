@@ -45,8 +45,8 @@ def main():
         # equipamentos: seleção entre abas
         page.select_option("[data-cf=setor]", "UTI"); page.click("#sel-all")
         open_cad(page, "equipamentos")
-        check("filtro categoria presente em Equipamentos", page.locator("[data-cf=categoria]").count() == 1)
-        page.select_option("[data-cf=categoria]", "Suporte à vida"); page.click("#sel-all")
+        check("sem filtro de categoria em Equipamentos", page.locator("[data-cf=categoria]").count() == 0)
+        page.select_option("[data-cf=setor]", "UTI"); page.click("#sel-all")
         txt = page.inner_text(".bulk-n")
         check("seleção soma salas e equipamentos entre abas", "4" in txt and "2 salas" in txt and "2 equipamentos" in txt, txt)
         # vincular a ronda
