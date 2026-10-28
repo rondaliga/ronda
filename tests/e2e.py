@@ -581,7 +581,7 @@ def main():
                 check("Duplicar usuário: login e senha em branco", page.input_value("#ff-login") == "" and page.input_value("#ff-senha") == "")
                 page.fill("#ff-login", "copia"); page.fill("#ff-senha", "Copia#Senha1")
             if tab == "equipamentos":
-                check("Duplicar equipamento: abas Geral / Foto e presença", page.locator("#f-ent .ent-tabs [role=tab]").count() == 2 and page.locator("#ff-patrimonio, #ff-categoria, #ff-obs").count() == 0)
+                check("Duplicar equipamento: abas Geral / Presença no local", page.locator("#f-ent .ent-tabs [role=tab]").count() == 2 and page.locator("#ff-patrimonio, #ff-categoria, #ff-obs").count() == 0)
             if tab == "checklists":
                 check("Duplicar checklist copia os itens", page.locator("[data-itx]").count() >= 3)
             if tab == "modelos":
