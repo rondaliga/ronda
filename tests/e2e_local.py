@@ -63,11 +63,11 @@ def main():
         def nova_sala(nome, codigo, bssids):
             page.click("#nav [data-p=cadastros]"); page.click("[data-act=cadTab][data-k=salas]"); page.click("[data-act=newEnt]")
             page.fill("#ff-nome", nome); page.fill("#ff-setor", "UTI")
-            page.click("#et-checklist"); page.select_option("#ff-checklistId", label="Sala padrão")
+            page.fill("[data-itx='0']", "Limpeza adequada")
             page.click("#et-presenca"); page.fill("#ff-codigoLocal", codigo); page.fill("#ff-bssids", bssids)
             page.click("#f-ent button[type=submit]")
         page.click("#nav [data-p=cadastros]"); page.click("[data-act=cadTab][data-k=salas]"); page.click("[data-act=newEnt]")
-        page.click("[data-act=genCodigo]")
+        page.click("#et-presenca"); page.click("[data-act=genCodigo]")
         check("Gerar código cria RH-S-XXXXXX", page.input_value("#ff-codigoLocal").startswith("RH-S-") and len(page.input_value("#ff-codigoLocal")) == 11)
         page.click("[data-act=closeModal]")
         nova_sala("UTI 01", "rh-s-uti01", "AA-BB-CC-DD-EE-01\naa:bb:cc:dd:ff:*")
@@ -84,10 +84,10 @@ def main():
         check("Tabela mostra o código e a contagem de antenas", "RH-S-UTI01" in page.inner_text("table") and "2 antena(s)" in page.inner_text("table"))
 
         # botão "ler antena deste aparelho": sem provedor (navegador) -> mensagem clara
-        page.click("tr[data-act=editEnt]:has-text('UTI 01')"); page.click("[data-act=capBssid]"); page.wait_for_timeout(200)
+        page.click("tr[data-act=editEnt]:has-text('UTI 01')"); page.click("#et-presenca"); page.click("[data-act=capBssid]"); page.wait_for_timeout(200)
         check("Navegador comum: aviso de que não lê o BSSID", "não permite ler a antena" in toast(page), toast(page))
         page.evaluate("RH.local.provedorBssid=async()=>'AA:BB:CC:DD:EE:77'")
-        page.click("[data-act=capBssid]"); page.wait_for_timeout(200)
+        page.click("#et-presenca"); page.click("[data-act=capBssid]"); page.wait_for_timeout(200)
         check("Aplicativo: antena atual é adicionada ao cadastro", "aa:bb:cc:dd:ee:77" in page.input_value("#ff-bssids"))
         page.click("[data-act=closeModal]")
 

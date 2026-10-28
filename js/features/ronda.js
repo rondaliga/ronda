@@ -21,9 +21,11 @@ function blocosDa(m){
     if(k[0]==='s'){const s=byId(S.salas,id);if(s&&s.ativo!==false)o.push({id:s.id,tipo:'sala',salaId:s.id,setor:s.setor||'Sem setor'})}
     else{const e=byId(S.equipamentos,id);if(e&&e.ativo!==false)o.push({id:'eq:'+e.id,tipo:'eq',salaId:null,setor:RH.setorEq(e)||'Sem setor',eqIds:[e.id]})}});
   return o}
+/* itens a verificar: os do próprio cadastro; cadastro antigo sem itens usa o checklist vinculado */
+const itensProprios=x=>({itens:(x.itens&&x.itens.length)?x.itens:(byId(S.checklists,x.checklistId)?.itens||[]),nome:''});
 function alvos(bl){
-  if(bl.tipo==='sala'){const s=byId(S.salas,bl.salaId);return s?[{a:'s',i:s.id,n:s.nome,cl:byId(S.checklists,s.checklistId)}]:[]}
-  return bl.eqIds.map(id=>byId(S.equipamentos,id)).filter(Boolean).map(e=>({a:'e',i:e.id,n:e.nome,eq:e,cl:byId(S.checklists,e.checklistId)}))}
+  if(bl.tipo==='sala'){const s=byId(S.salas,bl.salaId);return s?[{a:'s',i:s.id,n:s.nome,cl:itensProprios(s)}]:[]}
+  return bl.eqIds.map(id=>byId(S.equipamentos,id)).filter(Boolean).map(e=>({a:'e',i:e.id,n:e.nome,eq:e,cl:itensProprios(e)}))}
 const tagTipo=a=>a==='e'?'<span class="tag tag-e">Equipamento</span>':'<span class="tag tag-s">Sala</span>';
 /* liberação em grupo definida no cadastro da ronda: 's:ID'/'e:ID' → id do bloco */
 const blId=k=>k[0]==='s'?k.slice(2):'eq:'+k.slice(2);
@@ -176,7 +178,7 @@ function blocoHtml(bl){
   return `<section class="bl" id="bl-${esc(bl.id)}">${h}${chkHtml(bl,e)}`+alvos(bl).map(al=>{
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
-    if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem checklist vinculado${st.me.role==='admin'?' · vincule em Cadastros':''}</small></div></div></div>`;
+    if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem itens a verificar${st.me.role==='admin'?' · cadastre em Cadastros':''}</small></div></div></div>`;
     return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?esc(RH.setorEq(al.eq)||''):esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){

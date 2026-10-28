@@ -36,24 +36,24 @@ const ENT={
    {k:'salaIds',l:'Setor (salas e equipamentos)',t:'salas',full:1}]},
  salas:{col:'salas',nome:'Salas',um:'sala',
   cols:[['Sala',s=>`<b>${esc(s.nome)}</b><small>${esc(s.andar||'')}</small>`],['Setor',s=>esc(s.setor||'—')],['Presença',presencaCol],['Responsável pela sala',s=>esc(userName(s.responsavelId))],['Equipamentos no setor',s=>S.equipamentos.filter(e=>s.setor&&RH.setorEq(e)===s.setor).length],['Rondas',s=>S.modelos.filter(m=>(m.salaIds||[]).includes(s.id)).length||'<span class="pill late">Fora de rondas</span>'],['Situação',actPill]],
-  tabs:[['geral','Geral'],['presenca','Presença no local'],['checklist','Checklist']],
+  tabs:[['geral','Geral'],['presenca','Presença no local']],
   fields:[{k:'nome',l:'Nome da sala / ambiente',req:1,full:1,tab:'geral'},{k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Ex.: UTI, Centro Cirúrgico, Emergência',tab:'geral'},{k:'andar',l:'Andar / bloco',tab:'geral'},
    {k:'responsavelId',l:'Responsável pela sala (recebe as NCs)',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos',tab:'geral'},
+   {k:'itens',l:'Itens a verificar',t:'items',full:1,tab:'geral'},
    {k:'ativo',l:'Sala ativa (aparece nas rondas)',t:'check',def:true,full:1,tab:'geral'},
    {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'},
-   {k:'checklistId',l:'Checklist da sala',t:'select',full:1,opts:()=>S.checklists.filter(c=>['sala','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum',tab:'checklist'}],
+   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}],
   canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir. Ou apenas desative a sala.':''},
  equipamentos:{col:'equipamentos',nome:'Equipamentos',um:'equipamento',
   cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b></div></div>`],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Situação',actPill]],
-  tabs:[['geral','Geral'],['presenca','Foto e presença'],['checklist','Checklist']],
+  tabs:[['geral','Geral'],['presenca','Foto e presença']],
   fields:[{k:'nome',l:'Nome do equipamento',req:1,full:1,tab:'geral'},
    {k:'setor',l:'Setor',req:1,full:1,list:optsSetor,hint:'Setor onde o equipamento fica. Ex.: UTI, Centro Cirúrgico',tab:'geral'},
+   {k:'itens',l:'Itens a verificar',t:'items',full:1,tab:'geral'},
    {k:'ativo',l:'Equipamento ativo',t:'check',def:true,full:1,tab:'geral'},
    {k:'foto',l:'Foto do equipamento',t:'photo',full:1,tab:'presenca'},
    {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'},
-   {k:'checklistId',l:'Checklist do equipamento',t:'select',full:1,opts:()=>S.checklists.filter(c=>['equipamento','ambos'].includes(c.tipo)).map(c=>[c.id,c.nome]),blank:'Nenhum',tab:'checklist'}]},
+   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}]},
  checklists:{col:'checklists',nome:'Checklists',um:'checklist',
   cols:[['Checklist',c=>`<b>${esc(c.nome)}</b>`],['Aplica-se a',c=>TIPO_CK[c.tipo]||'Sala'],['Itens',c=>(c.itens||[]).length],['Em uso',c=>S.salas.filter(s=>s.checklistId===c.id).length+S.equipamentos.filter(e=>e.checklistId===c.id).length+' vínculos']],
   fields:[{k:'nome',l:'Nome do checklist',req:1,full:1},{k:'tipo',l:'Aplica-se a',t:'select',req:1,opts:()=>Object.entries(TIPO_CK),hint:'Escolha "Sala e equipamento" para usar o mesmo checklist nos dois cadastros.'},{k:'itens',l:'Itens a verificar',t:'items',full:1}],
@@ -336,15 +336,16 @@ function preparaCopia(ent,d){
   d.nome=(d.nome||'')+' (cópia)';
   if(ent==='users'){d.login='';d.hash=null;d.salt=null}
   if(ent==='salas'||ent==='equipamentos')d.codigoLocal='';   /* o código identifica um único local */
-  if(ent==='checklists')d.itens=(d.itens||[]).map(x=>({...x,id:'i'+uid()}));
+  if(ent==='checklists'||ent==='salas'||ent==='equipamentos')d.itens=(d.itens||[]).map(x=>({...x,id:'i'+uid()}));
   delete d.id;delete d.demo}
 function openEnt(ent,id,dupId,pre){
   const E=ENT[ent],d=id||dupId?{...byId(S[E.col],id||dupId)}:{};
   if(dupId)preparaCopia(ent,d);
+  if((ent==='salas'||ent==='equipamentos')&&!(d.itens||[]).length&&d.checklistId)d.itens=(byId(S.checklists,d.checklistId)?.itens||[]).map(x=>({...x}));   /* cadastro antigo: traz os itens do checklist vinculado */
   if(pre&&pre.nome)d.nome=pre.nome;
   if(ent==='equipamentos'&&!d.setor)d.setor=RH.setorEq(d);
   st.M={ent,id,ordem:ent==='modelos'?(pre?.ordem?[...pre.ordem]:dupId?[]:RH.ordemDaRonda(d)):null,fromBulk:!!pre,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>({...x})),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
-  if(ent==='checklists'&&!id&&!st.M.items.length)st.M.items=[{id:'i'+uid(),t:''}];
+  if((ent==='checklists'||ent==='salas'||ent==='equipamentos')&&!st.M.items.length)st.M.items=[{id:'i'+uid(),t:''}];
   /* agenda da ronda (padrão: segunda a sexta às 08:00; ronda antiga sem agenda: todos os dias) */
   st.M.dias=RH.agenda.temAgenda(d)?[...d.dias]:(id?[0,1,2,3,4,5,6]:[1,2,3,4,5]);
   st.M.horarios=RH.agenda.temAgenda(d)?[...d.horarios]:['08:00'];
@@ -365,7 +366,7 @@ async function saveEnt(form){
   const M=st.M,E=ENT[M.ent],err=m=>{$('#ent-err').textContent=m},data={},old=M.id?byId(S[E.col],M.id):null;
   for(const f of E.fields){
     if(f.t==='photo')continue;
-    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim()}));if(!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
+    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim()}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
     if(f.t==='agenda'){
       const dias=[...form.querySelectorAll('[data-dia]:checked')].map(x=>+x.value),hs=[...new Set(M.horarios.filter(RH.agenda.validaHora))].sort();
       if(!dias.length)return err('Marque ao menos um dia da semana para a ronda.');
@@ -408,6 +409,7 @@ async function saveEnt(form){
     else{data.thumb=M.foto.thumb;data.fotoId=M.foto.fotoId}
   }
   const rec=old?{...old,...data}:data;delete rec.id;
+  if(M.ent==='salas'||M.ent==='equipamentos')rec.checklistId='';   /* os itens agora ficam no próprio cadastro */
   if(M.ent==='equipamentos'){delete rec.patrimonio;delete rec.categoria;delete rec.obs}   /* campos removidos do cadastro */
   const ok=await RH.safe(async()=>{await RH.put(E.col,id,rec);return true});
   if(ok){const lote=M.fromBulk;closeModal();if(lote){(data.ordem||[]).forEach(k=>st.sel.delete(k));refreshSel()}toast(lote?`Ronda criada com ${(data.ordem||[]).length} item(ns) da seleção.`:'Cadastro salvo.')}
