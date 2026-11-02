@@ -95,7 +95,7 @@ function startRonda(id){
 }
 function itensDe(blocos){
   const itens={};
-  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,r:''}})));
+  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,av:it.aviso||'',r:''}})));
   return itens}
 
 /* ---------- rascunho da ronda em andamento (auto-save) ----------
@@ -143,23 +143,25 @@ document.addEventListener('click',e=>{const f=e.target.closest&&e.target.closest
 addEventListener('pagehide',saveDraft);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveDraft()});
 
-/* item de equipamento cujo texto contém "Temperatura": exige foto do equipamento (exceto se Inacessível) */
-const fotoObrig=it=>!!it&&it.a==='e'&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
-const fotoBtns=(it,k)=>`<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto do equipamento"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
+/* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
+const fotoObrig=it=>!!it&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
+const alvoNome=it=>it.a==='e'?'equipamento':'sala';
+const fotoBtns=(it,k)=>`<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto d${it.a==='e'?'o equipamento':'a sala'}"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
   <button type="button" class="btn sm" data-act="camOpen" data-k="${k}">${ic('cam',16)} ${it.thumb?'Tirar outra foto':'Tirar foto'}</button>
   <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"></label></div>`;
 function itemHtml(k){
   const it=st.R.itens[k],nc=it.r==='NC',ina=it.r==='IN',tipo=nc?byId(S.tiposNC,it.tipoId):null;
   return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}</div>
   <div class="seg" role="group" aria-label="Resultado">${[['C','Conforme','c'],['NC','Não conforme','n'],['IN','Inacessível','a']].map(([v,l,c])=>`<button type="button" class="${c}" data-act="res" data-k="${k}" data-r="${v}" aria-pressed="${it.r===v}">${l}</button>`).join('')}</div></div>
+  ${RH.avisoBox(it.av)}
   ${nc?`<div class="ncp"><label class="field"><span>Tipo de não conformidade</span><select data-nc="tipoId" data-k="${k}"><option value="">Selecione…</option>${S.tiposNC.map(t=>`<option value="${t.id}" ${it.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select data-nc="sev" data-k="${k}">${[1,2,3,4].map(s=>`<option value="${s}" ${(it.sev||2)==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   ${tipo&&tipo.orient?`<div class="full">${RH.orientBox(tipo.orient)}</div>`:''}
   <label class="field full"><span>Descrição do problema</span><textarea data-nc="desc" data-k="${k}" placeholder="O que foi encontrado, onde e em que condição?">${esc(it.desc||'')}</textarea></label>
-  ${fotoObrig(it)?'<div class="full"><b>Foto do equipamento (obrigatória)</b></div>':''}<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto da não conformidade"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
+  ${fotoObrig(it)?`<div class="full"><b>Foto d${it.a==='e'?'o equipamento':'a sala'} (obrigatória)</b></div>`:''}<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto da não conformidade"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
   <button type="button" class="btn sm" data-act="camOpen" data-k="${k}">${ic('cam',16)} ${it.thumb?'Tirar outra foto':'Tirar foto'}</button>
   <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"></label></div></div>`:''}
-  ${it.r==='C'&&fotoObrig(it)?`<div class="ncp"><div class="full"><b>Foto do equipamento (obrigatória)</b><small style="display:block;color:var(--ink2)">Fotografe o equipamento mostrando a temperatura.</small></div>${fotoBtns(it,k)}</div>`:''}
+  ${it.r==='C'&&fotoObrig(it)?`<div class="ncp"><div class="full"><b>Foto d${it.a==='e'?'o equipamento':'a sala'} (obrigatória)</b><small style="display:block;color:var(--ink2)">Fotografe ${it.a==='e'?'o equipamento':'o ambiente'} mostrando a temperatura.</small></div>${fotoBtns(it,k)}</div>`:''}
   ${ina?`<div class="ncp ina"><label class="field full"><span>Descrição (obrigatória) · por que o item está inacessível?</span><textarea data-ina="just" data-k="${k}" id="ina-${k}" required aria-required="true" placeholder="Explique o motivo (ex.: sala ocupada, equipamento em uso, acesso restrito)">${esc(it.just||'')}</textarea></label></div>`:''}</div>`;
 }
 
@@ -185,7 +187,7 @@ function blocoHtml(bl){
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
     if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem itens a verificar${st.me.role==='admin'?' · cadastre em Cadastros':''}</small></div></div></div>`;
-    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?esc(RH.setorEq(al.eq)||''):esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
+    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${al.eq?esc(al.n):'Checklist da sala'}</b><small>${al.eq?esc(RH.setorEq(al.eq)||''):esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){
   const bl=st.R&&st.R.blocos.find(b=>b.id===id),el=document.getElementById('bl-'+id);
@@ -220,7 +222,7 @@ async function submitRonda(){
   const noJust=its.filter(([,i])=>i.r==='IN'&&!(i.just||'').trim());
   if(noJust.length){noJust.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+noJust[0][0])?.scrollIntoView({block:'center'});document.getElementById('ina-'+noJust[0][0])?.focus({preventScroll:true});toast('Descreva o motivo de cada item marcado como Inacessível.','bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
-  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(`Tire a foto do equipamento em ${semFoto.length} item(ns) de Temperatura.`,'bad');return}
+  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(`Tire a foto em ${semFoto.length} item(ns) de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
   if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(`Confirme a presença lendo o código de barras em ${pend.length} local(is) antes de finalizar.`,'bad');return}

@@ -33,10 +33,32 @@ function onData(){
         if(!id){const r=JSON.parse(localStorage.getItem('rh_resume')||'null');if(r&&r.uid&&Date.now()-r.ts<9e5){id=r.uid;pg=r.page;sessionStorage.setItem('rh_uid',id)}}
         localStorage.removeItem('rh_resume');
         const u=id&&byId(S.users,id);if(u&&u.ativo!==false){st.me=u;const ct=sessionStorage.getItem('rh_cadtab');if(pg)st.page=pg;if(ct)st.cadTab=ct}}catch(e){}
-      RH.renderRoot()}
+      RH.renderRoot();migrarLuz()}
     return}
   if(st.me){const u=byId(S.users,st.me.id);if(!u||u.ativo===false){RH.logout();return}st.me=u}
   clearTimeout(onData.t);onData.t=setTimeout(()=>RH.renderRoot(true),200);
+  migrarLuz();
 }
 RH.syncAll=()=>COLS.forEach(sync);
+
+/* ---------- migração: "Luz" → "Iluminação" nos checklists ----------
+   Troca a palavra inteira (Luz/luz/Luzes) nos nomes e itens de checklists, salas e equipamentos já cadastrados.
+   Roda sozinha quando um administrador está logado; é idempotente (sem "luz" restante, não grava nada).
+   Rondas já realizadas não são alteradas (histórico fiel ao que foi respondido). */
+const LUZ=/\bluz(es)?\b/gi;
+const trocaLuz=t=>typeof t==='string'?t.replace(LUZ,(m,pl)=>{const r=pl?'iluminações':'iluminação';return m[0]===m[0].toUpperCase()?r[0].toUpperCase()+r.slice(1):r}):t;
+RH.trocaLuz=trocaLuz;
+let migrando=false;
+async function migrarLuz(){
+  if(migrando||!st.me||st.me.role!=='admin')return;
+  const tarefas=[];
+  ['checklists','salas','equipamentos'].forEach(c=>(S[c]||[]).forEach(d=>{
+    const itens=(d.itens||[]).map(i=>({...i,t:trocaLuz(i.t)})),nome=c==='checklists'?trocaLuz(d.nome):d.nome;
+    if(nome!==d.nome||itens.some((i,j)=>i.t!==d.itens[j].t))tarefas.push([c,d.id,{...(nome!==d.nome?{nome}:{}),itens}])}));
+  if(!tarefas.length)return;
+  migrando=true;
+  try{for(const [c,id,patch] of tarefas)await RH.upd(c,id,patch)}catch(e){console.error('migração Luz→Iluminação',e)}
+  finally{migrando=false}
+}
+RH.migrarLuz=migrarLuz;
 })();

@@ -258,7 +258,7 @@ function bkRonda(){
 
 /* ---------- formulário ---------- */
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
-const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
+const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button><input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Aviso (opcional) — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
 
 /* Setor (salas e equipamentos): sequência de percurso numerada (1°, 2°, ...) */
 const ordNome=k=>{const id=k.slice(2),x=k[0]==='s'?byId(S.salas,id):byId(S.equipamentos,id);return x};
@@ -351,7 +351,7 @@ async function saveEnt(form){
   const M=st.M,E=ENT[M.ent],err=m=>{$('#ent-err').textContent=m},data={},old=M.id?byId(S[E.col],M.id):null;
   for(const f of E.fields){
     if(f.t==='photo')continue;
-    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim()}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
+    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim(),...((x.aviso||'').trim()?{aviso:x.aviso.trim()}:{})}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
     if(f.t==='agenda'){
       const dias=[...form.querySelectorAll('[data-dia]:checked')].map(x=>+x.value),hs=[...new Set(M.horarios.filter(RH.agenda.validaHora))].sort();
       if(!dias.length)return err('Marque ao menos um dia da semana para a ronda.');
@@ -474,6 +474,7 @@ RH.ON_CHANGE.push(async el=>{
   return false});
 RH.ON_INPUT.push(el=>{
   if(el.dataset.itx!=null){st.M.items[+el.dataset.itx].t=el.value;return true}
+  if(el.dataset.ita!=null){st.M.items[+el.dataset.ita].aviso=el.value;return true}
   if(el.dataset.hx!=null){st.M.horarios[+el.dataset.hx]=el.value;return true}
   /* Tipos de NC: a orientação acompanha o nome enquanto a pessoa não a editar à mão */
   if(st.M&&st.M.ent==='tiposNC'){

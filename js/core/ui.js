@@ -30,5 +30,7 @@ RH.sevPill=n=>`<span class="sev s${n}"><b>${n}</b>${SEV[n]||''}</span>`;
 RH.stPill=s=>`<span class="pill st-${s}"><i></i>${ST[s]||s}</span>`;
 RH.actPill=x=>x.ativo===false?'<span class="pill off">Inativo</span>':'<span class="pill okp">Ativo</span>';
 /* alerta com a "Orientação / ação esperada" de um tipo de NC (vazio se não houver texto) */
+/* aviso fixo de um item do checklist (campo "Aviso" do cadastro) */
+RH.avisoBox=txt=>txt?`<div class="orient aviso" role="note">${ic('alert',18)}<div><b>Aviso</b>${esc(txt)}</div></div>`:'';
 RH.orientBox=txt=>txt?`<div class="orient" role="note">${ic('alert',18)}<div><b>Orientação / ação esperada</b>${esc(txt)}</div></div>`:'';
 })();

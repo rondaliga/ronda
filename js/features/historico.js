@@ -45,7 +45,7 @@ function openRonda(id){
     ${Object.values(g).map(x=>`<div style="margin-top:10px">${x.n===r.salaNome?'':`<b>${esc(x.n)}</b>`}<div style="margin-top:4px">${x.l.map(i=>itemOc(r,i)).join('')}</div></div>`).join('')}</div>`)});
   /* fotos obrigatórias dos itens de Temperatura (conformes; as das NCs já aparecem acima) */
   const fotosT=e.docs.flatMap(r=>(r.itens||[]).filter(i=>i.r==='C'&&(i.thumb||i.fotoId)).map(i=>`<figure style="margin:0;max-width:160px"><img class="big-img" ${i.fotoId?`data-foto="${esc(i.fotoId)}"`:''} src="${i.thumb?esc(i.thumb):''}" alt="Foto de ${esc(i.n)}" style="width:160px;height:120px;object-fit:cover;border-radius:8px"><figcaption><small><b>${esc(i.n)}</b><br>${esc(i.t)}</small></figcaption></figure>`));
-  const blocoFotos=fotosT.length?`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">Fotos dos equipamentos (temperatura)</h4><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">${fotosT.join('')}</div></div>`:'';
+  const blocoFotos=fotosT.length?`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">Fotos de temperatura (salas e equipamentos)</h4><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">${fotosT.join('')}</div></div>`:'';
   const porSala=(comOc.length?comOc.join(''):'<div class="empty"><b>Nenhuma não conformidade ou item inacessível</b>Todos os itens desta ronda estavam conformes.</div>');
   const obs=e.docs.map(r=>r.obs).find(Boolean),nNC=ncsDa(e).length;
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(e.nome)}</h3><small>${fdt(e.ts)} · Inspetor: ${esc(e.inspNome)}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>

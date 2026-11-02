@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="theme-color" content="#0b2f3a">
 <title>Ronda Hospitalar</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a6c7d'/%3E%3Cpath d='M26 12h12v14h14v12H38v14H26V38H12V26h14z' fill='white'/%3E%3C/svg%3E">
@@ -224,8 +225,10 @@ details.guide{margin-bottom:12px} details.guide summary{cursor:pointer;font-weig
 .chk-list{border:1px solid var(--line2);border-radius:8px;padding:8px 12px;max-height:260px;overflow-y:auto;display:grid;gap:4px;background:var(--surface)}
 .chk-list .gt{display:flex;gap:8px;align-items:center;cursor:pointer;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:6px;font-weight:600}
 .chk-list .chk{font-weight:400;padding:3px 0}
-.irow{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.irow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
 .irow input{flex:1}
+.irow .aviso-in{flex:1 0 100%;font-size:13px}
+.it .aviso{margin-top:8px}
 .ic-btn{border:1px solid var(--line2);background:var(--surface);border-radius:8px;width:34px;height:34px;display:grid;place-items:center;flex:none;color:var(--ink2)}
 .ic-btn:hover{background:var(--surface2)}
 .big-img{width:100%;max-height:60vh;object-fit:contain;border-radius:10px;background:var(--grid)}
@@ -430,6 +433,52 @@ body:has(.bulkbar:not([hidden])) #toast .toast{bottom:96px}
 .bk-l.bad{background:var(--bad-bg);color:var(--bad)}
 .bk-l ul{margin:6px 0 0;padding-left:18px}
 @media (max-width:560px){.bulkbar{left:12px;right:12px;transform:none;width:auto}}
+
+
+/* ---------- ajustes visuais (nomes longos, celular) ---------- */
+/* elementos .sr (position:absolute) dentro da tabela vazavam para fora do rolagem e alargavam a página no celular */
+.tw{position:relative;max-width:100%}
+.tw td{overflow-wrap:break-word;min-width:70px}
+.tw th{white-space:normal;line-height:1.25;vertical-align:bottom}
+.tw td:has(>b),.tw td:has(>div>b){min-width:200px;max-width:340px}
+.tw td:nth-child(n+3):not(.td-act){min-width:84px}
+.sev b{flex:none}
+.pill{max-width:100%}
+.sala-h h2,.hb-l{overflow-wrap:anywhere}
+.nc{align-items:start}
+.nc>.thumb,.nc>svg{margin-top:2px}
+.sala b,.sala .h>div{overflow-wrap:anywhere;min-width:0}
+.it-t{hyphens:auto}
+.irow .aviso-in{margin-bottom:2px}
+.mh h2,.mh h3{overflow-wrap:anywhere;min-width:0}
+@media (max-width:560px){
+  main{padding:16px 14px 40px}
+  h1{font-size:19px;overflow-wrap:anywhere}
+  .top{gap:10px}
+  .top>.btn,.top .tools{width:100%}
+  .top>.btn{justify-content:center}
+  /* ronda: cabeçalho de progresso numa linha só e nomes compactos */
+  .rhead{flex-wrap:nowrap;gap:10px;padding:8px 0 10px}
+  .prog{min-width:0;flex:1 1 auto;font-size:13px}
+  .rhead .btn{flex:none;white-space:nowrap;padding:8px 12px}
+  .sala-h{margin:16px 0 8px;gap:2px 10px}
+  .sala-h h2{font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .grp>.gh{padding:10px 12px;gap:10px}
+  .grp>.gh b{font-size:13.5px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .grp>.gh .thumb{width:36px;height:36px}
+  .tag{display:inline-block;margin:0 6px 2px 0}
+  .it{padding:10px 12px}
+  .it-t{flex-basis:100%;font-size:14px}
+  .seg button{padding:8px 4px;font-size:12.5px}
+  .ncp .ph .btn{flex:1 1 auto}
+  .sala b{font-size:14px}
+  .mh{padding:12px 14px}.mb{padding:14px}.mf{padding:12px 14px}
+  .mf .btn{flex:1 1 auto}
+  .ov{padding:2vh 8px}
+  th,td{padding:9px 10px}
+  .tw td:has(>b),.tw td:has(>div>b){min-width:170px}
+  .hb-l{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+}
 
 </style>
 </head>
@@ -1032,6 +1081,8 @@ RH.sevPill=n=>`<span class="sev s${n}"><b>${n}</b>${SEV[n]||''}</span>`;
 RH.stPill=s=>`<span class="pill st-${s}"><i></i>${ST[s]||s}</span>`;
 RH.actPill=x=>x.ativo===false?'<span class="pill off">Inativo</span>':'<span class="pill okp">Ativo</span>';
 /* alerta com a "Orientação / ação esperada" de um tipo de NC (vazio se não houver texto) */
+/* aviso fixo de um item do checklist (campo "Aviso" do cadastro) */
+RH.avisoBox=txt=>txt?`<div class="orient aviso" role="note">${ic('alert',18)}<div><b>Aviso</b>${esc(txt)}</div></div>`:'';
 RH.orientBox=txt=>txt?`<div class="orient" role="note">${ic('alert',18)}<div><b>Orientação / ação esperada</b>${esc(txt)}</div></div>`:'';
 })();
 
@@ -1072,12 +1123,34 @@ function onData(){
         if(!id){const r=JSON.parse(localStorage.getItem('rh_resume')||'null');if(r&&r.uid&&Date.now()-r.ts<9e5){id=r.uid;pg=r.page;sessionStorage.setItem('rh_uid',id)}}
         localStorage.removeItem('rh_resume');
         const u=id&&byId(S.users,id);if(u&&u.ativo!==false){st.me=u;const ct=sessionStorage.getItem('rh_cadtab');if(pg)st.page=pg;if(ct)st.cadTab=ct}}catch(e){}
-      RH.renderRoot()}
+      RH.renderRoot();migrarLuz()}
     return}
   if(st.me){const u=byId(S.users,st.me.id);if(!u||u.ativo===false){RH.logout();return}st.me=u}
   clearTimeout(onData.t);onData.t=setTimeout(()=>RH.renderRoot(true),200);
+  migrarLuz();
 }
 RH.syncAll=()=>COLS.forEach(sync);
+
+/* ---------- migração: "Luz" → "Iluminação" nos checklists ----------
+   Troca a palavra inteira (Luz/luz/Luzes) nos nomes e itens de checklists, salas e equipamentos já cadastrados.
+   Roda sozinha quando um administrador está logado; é idempotente (sem "luz" restante, não grava nada).
+   Rondas já realizadas não são alteradas (histórico fiel ao que foi respondido). */
+const LUZ=/\bluz(es)?\b/gi;
+const trocaLuz=t=>typeof t==='string'?t.replace(LUZ,(m,pl)=>{const r=pl?'iluminações':'iluminação';return m[0]===m[0].toUpperCase()?r[0].toUpperCase()+r.slice(1):r}):t;
+RH.trocaLuz=trocaLuz;
+let migrando=false;
+async function migrarLuz(){
+  if(migrando||!st.me||st.me.role!=='admin')return;
+  const tarefas=[];
+  ['checklists','salas','equipamentos'].forEach(c=>(S[c]||[]).forEach(d=>{
+    const itens=(d.itens||[]).map(i=>({...i,t:trocaLuz(i.t)})),nome=c==='checklists'?trocaLuz(d.nome):d.nome;
+    if(nome!==d.nome||itens.some((i,j)=>i.t!==d.itens[j].t))tarefas.push([c,d.id,{...(nome!==d.nome?{nome}:{}),itens}])}));
+  if(!tarefas.length)return;
+  migrando=true;
+  try{for(const [c,id,patch] of tarefas)await RH.upd(c,id,patch)}catch(e){console.error('migração Luz→Iluminação',e)}
+  finally{migrando=false}
+}
+RH.migrarLuz=migrarLuz;
 })();
 
 </script>
@@ -1681,7 +1754,7 @@ function startRonda(id){
 }
 function itensDe(blocos){
   const itens={};
-  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,r:''}})));
+  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,av:it.aviso||'',r:''}})));
   return itens}
 
 /* ---------- rascunho da ronda em andamento (auto-save) ----------
@@ -1729,23 +1802,25 @@ document.addEventListener('click',e=>{const f=e.target.closest&&e.target.closest
 addEventListener('pagehide',saveDraft);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveDraft()});
 
-/* item de equipamento cujo texto contém "Temperatura": exige foto do equipamento (exceto se Inacessível) */
-const fotoObrig=it=>!!it&&it.a==='e'&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
-const fotoBtns=(it,k)=>`<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto do equipamento"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
+/* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
+const fotoObrig=it=>!!it&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
+const alvoNome=it=>it.a==='e'?'equipamento':'sala';
+const fotoBtns=(it,k)=>`<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto d${it.a==='e'?'o equipamento':'a sala'}"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
   <button type="button" class="btn sm" data-act="camOpen" data-k="${k}">${ic('cam',16)} ${it.thumb?'Tirar outra foto':'Tirar foto'}</button>
   <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"></label></div>`;
 function itemHtml(k){
   const it=st.R.itens[k],nc=it.r==='NC',ina=it.r==='IN',tipo=nc?byId(S.tiposNC,it.tipoId):null;
   return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}</div>
   <div class="seg" role="group" aria-label="Resultado">${[['C','Conforme','c'],['NC','Não conforme','n'],['IN','Inacessível','a']].map(([v,l,c])=>`<button type="button" class="${c}" data-act="res" data-k="${k}" data-r="${v}" aria-pressed="${it.r===v}">${l}</button>`).join('')}</div></div>
+  ${RH.avisoBox(it.av)}
   ${nc?`<div class="ncp"><label class="field"><span>Tipo de não conformidade</span><select data-nc="tipoId" data-k="${k}"><option value="">Selecione…</option>${S.tiposNC.map(t=>`<option value="${t.id}" ${it.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select data-nc="sev" data-k="${k}">${[1,2,3,4].map(s=>`<option value="${s}" ${(it.sev||2)==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   ${tipo&&tipo.orient?`<div class="full">${RH.orientBox(tipo.orient)}</div>`:''}
   <label class="field full"><span>Descrição do problema</span><textarea data-nc="desc" data-k="${k}" placeholder="O que foi encontrado, onde e em que condição?">${esc(it.desc||'')}</textarea></label>
-  ${fotoObrig(it)?'<div class="full"><b>Foto do equipamento (obrigatória)</b></div>':''}<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto da não conformidade"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
+  ${fotoObrig(it)?`<div class="full"><b>Foto d${it.a==='e'?'o equipamento':'a sala'} (obrigatória)</b></div>`:''}<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto da não conformidade"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
   <button type="button" class="btn sm" data-act="camOpen" data-k="${k}">${ic('cam',16)} ${it.thumb?'Tirar outra foto':'Tirar foto'}</button>
   <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"></label></div></div>`:''}
-  ${it.r==='C'&&fotoObrig(it)?`<div class="ncp"><div class="full"><b>Foto do equipamento (obrigatória)</b><small style="display:block;color:var(--ink2)">Fotografe o equipamento mostrando a temperatura.</small></div>${fotoBtns(it,k)}</div>`:''}
+  ${it.r==='C'&&fotoObrig(it)?`<div class="ncp"><div class="full"><b>Foto d${it.a==='e'?'o equipamento':'a sala'} (obrigatória)</b><small style="display:block;color:var(--ink2)">Fotografe ${it.a==='e'?'o equipamento':'o ambiente'} mostrando a temperatura.</small></div>${fotoBtns(it,k)}</div>`:''}
   ${ina?`<div class="ncp ina"><label class="field full"><span>Descrição (obrigatória) · por que o item está inacessível?</span><textarea data-ina="just" data-k="${k}" id="ina-${k}" required aria-required="true" placeholder="Explique o motivo (ex.: sala ocupada, equipamento em uso, acesso restrito)">${esc(it.just||'')}</textarea></label></div>`:''}</div>`;
 }
 
@@ -1771,7 +1846,7 @@ function blocoHtml(bl){
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
     if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem itens a verificar${st.me.role==='admin'?' · cadastre em Cadastros':''}</small></div></div></div>`;
-    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${al.eq?esc(RH.setorEq(al.eq)||''):esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
+    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${al.eq?esc(al.n):'Checklist da sala'}</b><small>${al.eq?esc(RH.setorEq(al.eq)||''):esc(al.cl?.nome||'')}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){
   const bl=st.R&&st.R.blocos.find(b=>b.id===id),el=document.getElementById('bl-'+id);
@@ -1806,7 +1881,7 @@ async function submitRonda(){
   const noJust=its.filter(([,i])=>i.r==='IN'&&!(i.just||'').trim());
   if(noJust.length){noJust.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+noJust[0][0])?.scrollIntoView({block:'center'});document.getElementById('ina-'+noJust[0][0])?.focus({preventScroll:true});toast('Descreva o motivo de cada item marcado como Inacessível.','bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
-  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(`Tire a foto do equipamento em ${semFoto.length} item(ns) de Temperatura.`,'bad');return}
+  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(`Tire a foto em ${semFoto.length} item(ns) de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
   if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(`Confirme a presença lendo o código de barras em ${pend.length} local(is) antes de finalizar.`,'bad');return}
@@ -1953,7 +2028,7 @@ function openRonda(id){
     ${Object.values(g).map(x=>`<div style="margin-top:10px">${x.n===r.salaNome?'':`<b>${esc(x.n)}</b>`}<div style="margin-top:4px">${x.l.map(i=>itemOc(r,i)).join('')}</div></div>`).join('')}</div>`)});
   /* fotos obrigatórias dos itens de Temperatura (conformes; as das NCs já aparecem acima) */
   const fotosT=e.docs.flatMap(r=>(r.itens||[]).filter(i=>i.r==='C'&&(i.thumb||i.fotoId)).map(i=>`<figure style="margin:0;max-width:160px"><img class="big-img" ${i.fotoId?`data-foto="${esc(i.fotoId)}"`:''} src="${i.thumb?esc(i.thumb):''}" alt="Foto de ${esc(i.n)}" style="width:160px;height:120px;object-fit:cover;border-radius:8px"><figcaption><small><b>${esc(i.n)}</b><br>${esc(i.t)}</small></figcaption></figure>`));
-  const blocoFotos=fotosT.length?`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">Fotos dos equipamentos (temperatura)</h4><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">${fotosT.join('')}</div></div>`:'';
+  const blocoFotos=fotosT.length?`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">Fotos de temperatura (salas e equipamentos)</h4><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">${fotosT.join('')}</div></div>`:'';
   const porSala=(comOc.length?comOc.join(''):'<div class="empty"><b>Nenhuma não conformidade ou item inacessível</b>Todos os itens desta ronda estavam conformes.</div>');
   const obs=e.docs.map(r=>r.obs).find(Boolean),nNC=ncsDa(e).length;
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(e.nome)}</h3><small>${fdt(e.ts)} · Inspetor: ${esc(e.inspNome)}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
@@ -2328,7 +2403,7 @@ function bkRonda(){
 
 /* ---------- formulário ---------- */
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
-const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
+const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button><input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Aviso (opcional) — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
 
 /* Setor (salas e equipamentos): sequência de percurso numerada (1°, 2°, ...) */
 const ordNome=k=>{const id=k.slice(2),x=k[0]==='s'?byId(S.salas,id):byId(S.equipamentos,id);return x};
@@ -2421,7 +2496,7 @@ async function saveEnt(form){
   const M=st.M,E=ENT[M.ent],err=m=>{$('#ent-err').textContent=m},data={},old=M.id?byId(S[E.col],M.id):null;
   for(const f of E.fields){
     if(f.t==='photo')continue;
-    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim()}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
+    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim(),...((x.aviso||'').trim()?{aviso:x.aviso.trim()}:{})}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
     if(f.t==='agenda'){
       const dias=[...form.querySelectorAll('[data-dia]:checked')].map(x=>+x.value),hs=[...new Set(M.horarios.filter(RH.agenda.validaHora))].sort();
       if(!dias.length)return err('Marque ao menos um dia da semana para a ronda.');
@@ -2544,6 +2619,7 @@ RH.ON_CHANGE.push(async el=>{
   return false});
 RH.ON_INPUT.push(el=>{
   if(el.dataset.itx!=null){st.M.items[+el.dataset.itx].t=el.value;return true}
+  if(el.dataset.ita!=null){st.M.items[+el.dataset.ita].aviso=el.value;return true}
   if(el.dataset.hx!=null){st.M.horarios[+el.dataset.hx]=el.value;return true}
   /* Tipos de NC: a orientação acompanha o nome enquanto a pessoa não a editar à mão */
   if(st.M&&st.M.ent==='tiposNC'){
@@ -2669,7 +2745,7 @@ RH.views={
 RH.ON_SUBMIT['f-login']=async f=>{
   const l=f.login.value.trim().toLowerCase(),u=S.users.find(x=>(x.login||'').toLowerCase()===l&&x.ativo!==false),er=$('#lg-err');er.textContent='';
   if(!u||!u.hash||await RH.hash(f.senha.value,u.salt)!==u.hash){er.textContent='Usuário ou senha incorretos.';return}
-  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}
+  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);
   st.screen='';st.page=RH.access.firstPage();try{sessionStorage.removeItem('rh_page');sessionStorage.removeItem('rh_cadtab')}catch(x){}RH.renderRoot();
 };
 
@@ -2762,7 +2838,7 @@ function renderShell(){
   <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key')}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema">${ic('moon')}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair">${ic('out')}<span>Sair</span></button></div></div></aside>
   <div class="work"><div class="topbar"><div class="clock" aria-label="Data e horário atuais"><time id="rh-time" class="hora"></time><div class="dt"><b id="rh-date"></b><span id="rh-turno"></span></div></div>
   <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Os dados ficam só neste aparelho"><i></i>Modo local</span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
-  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição</footer></div></div>`;
+  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão 2026.11.01-a</footer></div></div>`;
   tickClock();clearInterval(RH.clockT);RH.clockT=setInterval(tickClock,1000);
   RH.renderView();
 }
