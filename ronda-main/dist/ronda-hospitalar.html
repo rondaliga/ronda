@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="theme-color" content="#0b2f3a">
 <title>Ronda Hospitalar</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a6c7d'/%3E%3Cpath d='M26 12h12v14h14v12H38v14H26V38H12V26h14z' fill='white'/%3E%3C/svg%3E">
@@ -2844,7 +2845,7 @@ function renderShell(){
   <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key')}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema">${ic('moon')}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair">${ic('out')}<span>Sair</span></button></div></div></aside>
   <div class="work"><div class="topbar"><div class="clock" aria-label="Data e horário atuais"><time id="rh-time" class="hora"></time><div class="dt"><b id="rh-date"></b><span id="rh-turno"></span></div></div>
   <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Os dados ficam só neste aparelho"><i></i>Modo local</span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
-  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição</footer></div></div>`;
+  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão 2026.11.01-a</footer></div></div>`;
   tickClock();clearInterval(RH.clockT);RH.clockT=setInterval(tickClock,1000);
   RH.renderView();
 }
