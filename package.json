@@ -1,0 +1,51 @@
+{
+  "name": "ronda-hospitalar",
+  "version": "2026.11.2",
+  "description": "Ronda Hospitalar: rondas de segurança e qualidade assistencial (Android, macOS e navegador)",
+  "private": true,
+  "main": "desktop/main.js",
+  "author": "Ronda Hospitalar",
+  "scripts": {
+    "www": "node tools/preparar-www.js",
+    "android:add": "npm run www && npx cap add android && node tools/preparar-android.js && npx capacitor-assets generate --android --assetPath assets && npx cap sync android",
+    "android:sync": "npm run www && node tools/preparar-android.js && npx cap sync android",
+    "android:apk": "cd android && ./gradlew assembleDebug",
+    "android:abrir": "npx cap open android",
+    "desktop": "npm run www && electron .",
+    "desktop:mac": "npm run www && electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "test:regras": "node tests/local.test.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "@zxing/library": "0.21.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "br.hospital.ronda",
+    "productName": "Ronda Hospitalar",
+    "copyright": "Ronda Hospitalar",
+    "directories": { "output": "dist-desktop", "buildResources": "assets" },
+    "files": ["desktop/**", "www/**", "package.json"],
+    "mac": {
+      "category": "public.app-category.medical",
+      "icon": "assets/icon-only.png",
+      "identity": null,
+      "target": ["dmg", "zip"],
+      "extendInfo": {
+        "NSCameraUsageDescription": "A câmera é usada para fotografar não conformidades e ler o código de barras dos locais."
+      }
+    },
+    "dmg": { "title": "Ronda Hospitalar" }
+  }
+}

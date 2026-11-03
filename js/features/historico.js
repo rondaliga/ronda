@@ -59,7 +59,7 @@ function openRonda(id){
   document.querySelectorAll('#modal img[data-foto]').forEach(img=>st.db.doc('fotos/'+img.dataset.foto).get().then(d=>{if(d.exists&&img.isConnected)img.src=d.data().data}).catch(()=>{}));
 }
 /* exclusão em dois toques; apaga os documentos da execução e, se marcado, as NCs (e fotos) */
-function imprimir(){document.body.classList.add('print-modal');const f=()=>{document.body.classList.remove('print-modal');removeEventListener('afterprint',f)};addEventListener('afterprint',f);print()}
+function imprimir(){RH.native.imprimirModal('Relatorio de ronda')}
 async function delRonda(el){
   if(!RH.access.canDeleteRonda())return;
   if(!el.dataset.armed){el.dataset.armed='1';el.textContent='Confirmar exclusão';return}

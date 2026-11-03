@@ -44,7 +44,7 @@ const L={
 let badge=null;
 function status(ok,msg){
   if(ok){if(badge){badge.remove();badge=null}return}
-  if(!badge){badge=document.createElement('div');badge.setAttribute('role','status');badge.style.cssText='position:fixed;left:12px;bottom:12px;z-index:95;background:var(--warn-bg,#fdf0d0);color:var(--warn,#855400);border:1px solid var(--line2,#ccc);padding:8px 12px;border-radius:10px;font:500 13px var(--font,system-ui);box-shadow:0 4px 14px rgba(0,0,0,.2)';document.body.appendChild(badge)}
+  if(!badge){badge=document.createElement('div');badge.setAttribute('role','status');badge.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:95;background:var(--warn-bg,#fdf0d0);color:var(--warn,#855400);border:1px solid var(--line2,#ccc);padding:8px 12px;border-radius:10px;font:500 13px var(--font,system-ui);box-shadow:0 4px 14px rgba(0,0,0,.2)';document.body.appendChild(badge)}
   badge.textContent=msg||'Sem conexão com o servidor. Tentando novamente…'}
 async function rpc(fn,args){
   const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),25000),h={'Content-Type':'application/json',apikey:KEY};

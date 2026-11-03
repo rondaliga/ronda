@@ -98,7 +98,11 @@ const comTempo=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new
 
 async function bssidBruto(){
   if(typeof RH.local.provedorBssid==='function'){const r=await RH.local.provedorBssid();return typeof r==='string'?{valor:r}:(r||{})}
-  const cap=window.Capacitor,W=cap&&cap.Plugins&&cap.Plugins.CapacitorWifi;
+  const cap=window.Capacitor,nat=cap&&cap.isNativePlatform&&cap.isNativePlatform();
+  /* plugin próprio do app Android (android-extras/RondaWifiPlugin.java) */
+  const RW=nat&&(cap.Plugins&&cap.Plugins.RondaWifi||(cap.registerPlugin&&cap.registerPlugin('RondaWifi')));
+  if(RW&&RW.getBssid){const r=await RW.getBssid();return r||{}}
+  const W=cap&&cap.Plugins&&cap.Plugins.CapacitorWifi;
   if(W&&(!cap.isNativePlatform||cap.isNativePlatform())){
     let p=await W.checkPermissions();
     if(!p||p.location!=='granted')p=await W.requestPermissions();
@@ -149,7 +153,7 @@ async function criaDecodificador(video){
 /* abre a câmera num painel próprio; devolve o texto lido ou null (cancelado/sem câmera) */
 async function escanear(titulo){
   if(typeof RH.local.leitor==='function')return RH.local.leitor(titulo);   /* gancho para testes ou leitor externo */
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){RH.toast('Este navegador não permite abrir a câmera aqui.','bad');return null}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){RH.toast('Este aparelho não permite abrir a câmera aqui.','bad');return null}
   let stream;
   try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false})}
   catch(e){RH.toast(e&&(e.name==='NotAllowedError'||e.name==='SecurityError')?'Permissão da câmera negada. Libere a câmera para este site/aplicativo.':'Não foi possível abrir a câmera.','bad');return null}

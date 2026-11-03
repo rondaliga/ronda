@@ -1,0 +1,10 @@
+{
+  "appId": "br.hospital.ronda",
+  "appName": "Ronda Hospitalar",
+  "webDir": "www",
+  "backgroundColor": "#0b2740",
+  "android": { "allowMixedContent": false, "webContentsDebugEnabled": false },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 1200, "backgroundColor": "#0b2740", "showSpinner": false, "launchAutoHide": true }
+  }
+}

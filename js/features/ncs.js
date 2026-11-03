@@ -22,7 +22,7 @@ RH.pages.ncs=()=>{
   const setores=[...new Set(S.ncs.map(n=>n.setor).filter(Boolean))].sort();
   const opened=S.ncs.filter(n=>n.status!=='resolvida').length;
   return `<div class="top"><div><h1>Não conformidades</h1><p>${opened} em aberto · ${S.ncs.length} registradas</p></div></div>
-  <div class="filters" style="margin-bottom:14px"><div class="chips" role="group" aria-label="Situação">${[['abertas','Em aberto'],['aberta','Abertas'],['tratamento','Em tratamento'],['resolvida','Resolvidas'],['todas','Todas']].map(([v,l])=>`<button class="chip" data-act="ncStatus" data-v="${v}" aria-pressed="${NF.status===v}">${l}</button>`).join('')}</div></div>
+  <div class="filters" style="margin-bottom:14px"><div class="chips" role="group" aria-label="Situação">${[['abertas','Não resolvidas'],['aberta','Abertas'],['tratamento','Em tratamento'],['resolvida','Resolvidas'],['todas','Todas']].map(([v,l])=>`<button class="chip" data-act="ncStatus" data-v="${v}" aria-pressed="${NF.status===v}">${l}</button>`).join('')}</div></div>
   <div class="filters" style="margin-bottom:14px"><label class="field"><span>Severidade</span><select data-set="NF:sev"><option value="">Todas</option>${[4,3,2,1].map(s=>`<option value="${s}" ${NF.sev==s?'selected':''}>${SEV[s]}</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="NF:setor"><option value="">Todos</option>${setores.map(s=>`<option ${NF.setor===s?'selected':''}>${esc(s)}</option>`).join('')}</select></label>
   <label class="field" style="flex:1;min-width:200px"><span>Buscar</span><input type="text" id="nc-q" data-set="NF:q" data-live="nc" value="${esc(NF.q)}" placeholder="Sala, equipamento, ronda, descrição…"></label></div>

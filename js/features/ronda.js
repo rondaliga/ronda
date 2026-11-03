@@ -216,16 +216,16 @@ async function submitRonda(){
   document.querySelectorAll('.it.miss').forEach(e=>e.classList.remove('miss'));
   if(!its.length){toast('Não há itens para registrar nesta ronda.','bad');return}
   const un=its.filter(([,i])=>!i.r);
-  if(un.length){un.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+un[0][0])?.scrollIntoView({block:'center'});toast(`Faltam ${un.length} item(ns) sem resposta.`,'bad');return}
+  if(un.length){un.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+un[0][0])?.scrollIntoView({block:'center'});toast(un.length===1?'Falta 1 item sem resposta.':`Faltam ${un.length} itens sem resposta.`,'bad');return}
   const bad=its.filter(([,i])=>i.r==='NC'&&(!i.tipoId||!(i.desc||'').trim()));
   if(bad.length){bad.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+bad[0][0])?.scrollIntoView({block:'center'});toast('Informe o tipo e a descrição de cada não conformidade.','bad');return}
   const noJust=its.filter(([,i])=>i.r==='IN'&&!(i.just||'').trim());
   if(noJust.length){noJust.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+noJust[0][0])?.scrollIntoView({block:'center'});document.getElementById('ina-'+noJust[0][0])?.focus({preventScroll:true});toast('Descreva o motivo de cada item marcado como Inacessível.','bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
-  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(`Tire a foto em ${semFoto.length} item(ns) de Temperatura.`,'bad');return}
+  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
-  if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(`Confirme a presença lendo o código de barras em ${pend.length} local(is) antes de finalizar.`,'bad');return}
+  if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código de barras do local antes de finalizar.':`Confirme a presença lendo o código de barras de ${pend.length} locais antes de finalizar.`,'bad');return}
   const b=$('#btn-sub');b.disabled=true;
   /* ts, execId e ids ficam guardados na ronda: se o salvamento falhar no meio e o inspetor
      tentar de novo, os mesmos documentos são sobrescritos (nada fica duplicado) */
@@ -263,12 +263,12 @@ let camStream=null;
 function camClose(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}document.getElementById('cam-ov')?.remove()}
 async function camOpen(k,facing){
   camClose();
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Este navegador não permite abrir a câmera aqui. Use "Da galeria".','bad');return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Este aparelho não permite abrir a câmera aqui. Use "Da galeria".','bad');return}
   try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing||'environment'},width:{ideal:1280},height:{ideal:960}},audio:false})}
   catch(e){const neg=e&&(e.name==='NotAllowedError'||e.name==='SecurityError');
-    toast(neg?'Permissão da câmera negada. Libere a câmera para este site nas configurações do navegador, ou use "Da galeria".':'Não foi possível abrir a câmera ('+((e&&e.name)||'erro')+'). Use "Da galeria".','bad');return}
+    toast(neg?'Permissão da câmera negada. Libere a câmera para este aplicativo nas configurações do aparelho, ou use "Da galeria".':'Não foi possível abrir a câmera ('+((e&&e.name)||'erro')+'). Use "Da galeria".','bad');return}
   const o=document.createElement('div');o.id='cam-ov';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');o.setAttribute('aria-label','Câmera');
-  o.style.cssText='position:fixed;inset:0;z-index:200;background:#000;display:flex;flex-direction:column';
+  o.style.cssText='position:fixed;inset:0;z-index:200;background:#000;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)';
   o.innerHTML=`<video id="cam-v" playsinline muted autoplay style="flex:1;min-height:0;width:100%;object-fit:contain;background:#000"></video>
   <div style="display:flex;gap:10px;justify-content:center;align-items:center;padding:14px;background:#000;flex-wrap:wrap">
   <button type="button" class="btn" id="cam-x">Cancelar</button><button type="button" class="btn pri" id="cam-shot" style="min-width:150px">${ic('cam',18)} Capturar</button><button type="button" class="btn" id="cam-sw">Trocar câmera</button></div>`;

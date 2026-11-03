@@ -10,7 +10,7 @@ const authSide=()=>`<div class="auth-l"><div class="brand"><div class="logo">${i
 <ul><li>${ic('clip')} Rondas com checklists por sala e por equipamento</li><li>${ic('alert')} Não conformidades com foto, severidade e prazo</li><li>${ic('dash')} Painel de indicadores por setor e período</li></ul></div>`;
 
 RH.views={
-  noaccess(){RH.$('#app').innerHTML=`<div class="auth-r" style="min-height:100%"><div class="auth-card"><h1>Ronda Hospitalar</h1><p>Não foi possível abrir o banco de dados neste navegador. Verifique a configuração em js/config.js e recarregue a página.</p></div></div>`},
+  noaccess(){RH.$('#app').innerHTML=`<div class="auth-r" style="min-height:100%"><div class="auth-card"><h1>Ronda Hospitalar</h1><p>Não foi possível abrir o armazenamento de dados neste aparelho. Feche o aplicativo, abra-o novamente e, se o erro continuar, fale com o administrador.</p></div></div>`},
   login(){
     $('#app').innerHTML=`<div class="auth">${authSide()}<div class="auth-r"><form class="auth-card" id="f-login" autocomplete="on">
     <div><h1>Entrar</h1><p style="color:var(--ink2);margin:4px 0 0">Acesse com seu usuário e senha.</p></div>

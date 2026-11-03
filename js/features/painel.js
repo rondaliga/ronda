@@ -96,11 +96,13 @@ function drawLine(){
   <path d="${d}" fill="none" stroke="var(--c1)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${dots}${xt}
   <line id="xh" y1="${T}" y2="${H-B}" stroke="var(--line2)" stroke-dasharray="3 3" visibility="hidden"/><circle id="xd" r="5" fill="var(--c1)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><rect x="${L}" y="${T}" width="${W-L-Rr}" height="${H-T-B}" fill="transparent" id="xr"/></svg>`;
   const svg=el.firstChild,r=$('#xr',svg),xh=$('#xh',svg),xd=$('#xd',svg);
-  r.addEventListener('mousemove',e=>{const b=svg.getBoundingClientRect(),sx=(e.clientX-b.left)*W/b.width;
+  const mv=e=>{const b=svg.getBoundingClientRect(),sx=(e.clientX-b.left)*W/b.width;
     let best=null;pts.forEach(p=>{if(p.v==null)return;if(!best||Math.abs(x(p.i)-sx)<Math.abs(x(best.i)-sx))best=p});if(!best)return;
     xh.setAttribute('x1',x(best.i));xh.setAttribute('x2',x(best.i));xh.setAttribute('visibility','visible');xd.setAttribute('cx',x(best.i));xd.setAttribute('cy',y(best.v));xd.setAttribute('visibility','visible');
-    RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} sala${best.r===1?'':'s'} · ${best.n} NC`,e.clientX,e.clientY)});
-  r.addEventListener('mouseleave',()=>{RH.tip.hidden=true;xh.setAttribute('visibility','hidden');xd.setAttribute('visibility','hidden')});
+    RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} sala${best.r===1?'':'s'} · ${best.n} NC`,e.clientX,e.clientY)};
+  const sai=()=>{RH.tip.hidden=true;xh.setAttribute('visibility','hidden');xd.setAttribute('visibility','hidden')};
+  r.addEventListener('pointermove',mv);r.addEventListener('pointerdown',mv);r.addEventListener('pointerleave',sai);r.addEventListener('pointercancel',sai);
+  if(!r._t){r._t=1;document.addEventListener('pointerdown',ev=>{if(!ev.target.closest||!ev.target.closest('#ch-line'))sai()},{passive:true})}
 }
 RH.after.painel=drawLine;
 Object.assign(RH.ACT,{togCard:el=>{

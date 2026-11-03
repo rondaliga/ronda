@@ -21,7 +21,7 @@ function acessoRonda(m){
 }
 
 /* coluna "Presença": código cadastrado? quantas antenas? */
-const presencaCol=x=>x.codigoLocal?`<span class="mono">${esc(x.codigoLocal)}</span><small>${RH.local.parseBssids(x.bssids).lista.length?RH.local.parseBssids(x.bssids).lista.length+' antena(s)':'sem antena cadastrada'}</small>`:'<span class="pill off">Sem código</span>';
+const presencaCol=x=>x.codigoLocal?`<span class="mono">${esc(x.codigoLocal)}</span><small>${RH.local.parseBssids(x.bssids).lista.length?(n=>n+(n===1?' antena':' antenas'))(RH.local.parseBssids(x.bssids).lista.length):'sem antena cadastrada'}</small>`:'<span class="pill off">Sem código</span>';
 
 const TIPO_CK={sala:'Sala',equipamento:'Equipamento',ambos:'Sala e equipamento'};
 const ENT={
@@ -60,7 +60,7 @@ const ENT={
  users:{col:'users',nome:'Responsáveis e usuários',um:'usuário',
   cols:[['Nome',u=>`<b>${esc(u.nome)}</b><small>${esc(u.cargo||'')}</small>`],['Usuário',u=>`<span class="mono">${esc(u.login||'—')}</span>`],['Perfil',u=>ROLE[u.role]||'—'],['Acesso',u=>u.hash?actPill(u):'<span class="pill off">Sem senha</span>']],
   fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
-   {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: tudo. Gestor: painel, histórico e tratamento de NCs. Inspetor: apenas a tela Nova ronda.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
+   {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: tudo. Gestor: painel, histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
   canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir. Ou apenas desative o usuário.':''))}
 };
 RH.ENT=ENT;
@@ -70,8 +70,8 @@ function backupCard(){
   const L=RH.store,rem=L.mode==='remote';
   return `<div class="card" style="max-width:560px;margin-top:14px"><h3>${rem?'Base compartilhada e backup':'Backup dos dados'}</h3>
   ${rem?`<p style="margin:0 0 6px;color:var(--ink2)"><span class="pill okp"><i></i>Conectado ao banco compartilhado</span><br>Todos os usuários da equipe veem os mesmos dados, atualizados a cada poucos segundos. Mesmo assim, exporte um backup de vez em quando.</p>`
-  :`<p style="margin:0 0 6px;color:var(--ink2)">Neste modo os dados ficam salvos só no navegador deste aparelho e não são compartilhados. Para a equipe usar a mesma base, configure o banco compartilhado (veja o LEIA-ME). Exporte backups com frequência.</p>`}
-  ${L.volatile()?'<p class="err">Atenção: este navegador bloqueou o armazenamento. Os dados serão perdidos ao fechar a aba.</p>':''}
+  :`<p style="margin:0 0 6px;color:var(--ink2)">Neste modo os dados ficam salvos só neste aparelho e não são compartilhados. Para a equipe usar a mesma base, peça ao administrador do sistema para configurar o banco compartilhado. Exporte backups com frequência.</p>`}
+  ${L.volatile()?'<p class="err">Atenção: este aparelho bloqueou o armazenamento. Os dados serão perdidos ao fechar o aplicativo.</p>':''}
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" data-act="exportBackup">Exportar backup (.json)</button><label class="btn" style="cursor:pointer">Importar backup<input class="sr" type="file" accept="application/json,.json" data-import></label>${rem?'<button class="btn" data-act="changeCode">Trocar código de acesso neste aparelho</button>':''}</div></div>`;
 }
 
@@ -93,7 +93,7 @@ RH.pages.cadastros=()=>{
     const E=ENT[st.cadTab],all=[...S[E.col]].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')),bulk=!!BULK[st.cadTab],rows=bulk?visiveis():all;
     const th=bulk?`<th class="th-sel"><input type="checkbox" data-act="selAll" id="sel-all" aria-label="Selecionar todos os itens exibidos"></th>`:'';
     const tr=r=>`<tr data-act="editEnt" data-id="${r.id}"${bulk&&st.sel.has(keyOf(r.id))?' class="sel"':''}>${bulk?`<td class="td-sel" data-act="selRow" data-id="${r.id}"><input type="checkbox" aria-label="Selecionar ${esc(r.nome||'')}" ${st.sel.has(keyOf(r.id))?'checked':''}></td>`:''}${E.cols.map(c=>`<td>${c[1](r)}</td>`).join('')}<td class="td-act"><button type="button" class="btn sm" data-act="dupEnt" data-id="${r.id}" title="Duplicar este cadastro" aria-label="Duplicar ${esc(r.nome||'')}">${ic('copy',14)} Duplicar</button></td></tr>`;
-    body=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><small>${bulk&&rows.length!==all.length?`${rows.length} de ${all.length} exibidos`:`${rows.length} cadastrado${rows.length===1?'':'s'}`} · clique em uma linha para editar ou use Duplicar${bulk?' · marque as caixas para ações em lote':''}</small><span style="display:flex;gap:8px;flex-wrap:wrap">${['salas','equipamentos'].includes(st.cadTab)?`<button class="btn" data-act="etqOpen">${ic('copy',16)} Imprimir etiquetas</button>`:''}<button class="btn pri" data-act="newEnt">${ic('plus',16)} Adicionar ${E.um}</button></span></div>
+    body=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap"><small>${bulk&&rows.length!==all.length?`${rows.length} de ${all.length} exibidos`:`${rows.length} cadastrado${rows.length===1?'':'s'}`} · toque em um cadastro para editar ou use Duplicar${bulk?' · marque as caixas para agir em vários de uma vez':''}</small><span style="display:flex;gap:8px;flex-wrap:wrap">${['salas','equipamentos'].includes(st.cadTab)?`<button class="btn" data-act="etqOpen">${ic('copy',16)} Imprimir etiquetas</button>`:''}<button class="btn pri" data-act="newEnt">${ic('plus',16)} Adicionar ${E.um}</button></span></div>
     ${bulk?filtrosHtml():''}
     ${rows.length?`<div class="tw"><table><thead><tr>${th}${E.cols.map(c=>`<th>${c[0]}</th>`).join('')}<th class="th-act"><span class="sr">Ações</span></th></tr></thead><tbody>${rows.map(tr).join('')}</tbody></table></div>`:all.length?empty('Nenhum cadastro com estes filtros','Ajuste ou limpe os filtros para ver os demais.'):empty(`Nenhum cadastro em ${E.nome}`,'Use o botão Adicionar para criar o primeiro.')}
     ${bulk?`<div class="bulk-spacer"></div><div id="bulk-bar" class="bulkbar" role="region" aria-label="Ações em lote" ${selKeys().length?'':'hidden'}>${barHtml()}</div>`:''}`;
@@ -158,7 +158,7 @@ function barHtml(){
   const det=[ns?plural(ns,'sala','salas'):'',ne?plural(ne,'equipamento','equipamentos'):'',fora?`${fora} fora dos filtros`:''].filter(Boolean).join(' · ');
   const lote=true;
   return `<div class="bulk-n" aria-live="polite"><b>${n}</b> selecionado${n===1?'':'s'}<small>${det}</small></div>
-  <div class="bulk-a">${lote?`<button type="button" class="btn sm" data-act="bkLink">${ic('clip',14)} Vincular a ronda</button><button type="button" class="btn sm" data-act="bkSetor">${ic('set',14)} Alterar setor</button><button type="button" class="btn sm pri" data-act="bkRonda">${ic('plus',14)} Criar ronda com selecionados</button>`:''}<button type="button" class="btn sm bad" data-act="bkDel">${ic('trash',14)} Excluir selecionados</button><button type="button" class="btn sm" data-act="selClear">${ic('x',14)} Limpar</button></div>`}
+  <div class="bulk-a">${lote?`<button type="button" class="btn sm" data-act="bkLink">${ic('clip',14)} Vincular à ronda</button><button type="button" class="btn sm" data-act="bkSetor">${ic('set',14)} Alterar setor</button><button type="button" class="btn sm pri" data-act="bkRonda">${ic('plus',14)} Criar ronda com selecionados</button>`:''}<button type="button" class="btn sm bad" data-act="bkDel">${ic('trash',14)} Excluir selecionados</button><button type="button" class="btn sm" data-act="selClear">${ic('x',14)} Limpar</button></div>`}
 /* atualiza barra, "selecionar todos" e linhas sem redesenhar a tela (mantém foco e rolagem) */
 function refreshSel(){
   const bar=$('#bulk-bar');if(!bar)return;
@@ -193,9 +193,9 @@ function bkLink(){
   const ms=[...S.modelos].sort(porNome);
   if(!ms.length){toast('Cadastre uma ronda antes de vincular.','bad');return}
   st.BM={tipo:'link',keys:ks};
-  modal(`${mHead('Vincular '+plural(ks.length,'item','itens')+' a ronda')}
+  modal(`${mHead('Vincular '+plural(ks.length,'item','itens')+' à ronda')}
   <form id="f-bk-link" autocomplete="off"><div class="mb"><div class="bk-resumo">${nomes(ks,8)}</div>
-  <label class="field"><span>Vincular a *</span><select name="dest" id="bk-dest" data-bk-dest required><option value="">Selecione uma ronda…</option>
+  <label class="field"><span>Vincular à ronda *</span><select name="dest" id="bk-dest" data-bk-dest required><option value="">Selecione uma ronda…</option>
   ${ms.length?`<optgroup label="Rondas (acrescenta ao fim do percurso)">${ms.map(m=>`<option value="m:${esc(m.id)}">${esc(m.nome)}${m.ativo===false?' (inativa)':''}</option>`).join('')}</optgroup>`:''}
   </select></label>
   <div id="bk-prev" aria-live="polite"></div></div>
@@ -260,7 +260,7 @@ function bkRonda(){
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
 const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button><input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Aviso (opcional) — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
 
-/* Setor (salas e equipamentos): sequência de percurso numerada (1°, 2°, ...) */
+/* Setor (salas e equipamentos): sequência de percurso numerada (1º, 2º, ...) */
 const ordNome=k=>{const id=k.slice(2),x=k[0]==='s'?byId(S.salas,id):byId(S.equipamentos,id);return x};
 /* "Liberar com": uma sala/equipamento da ronda funciona como chave; ao ler o código dele (e conferir a antena dele) os vinculados são liberados */
 function libSel(k){
@@ -272,7 +272,7 @@ function libSel(k){
 function ordemHtml(){
   const o=st.M.ordem;
   return o.map((k,i)=>{const x=ordNome(k);if(!x)return '';const sala=k[0]==='s',inat=x.ativo===false?' <small>(inativ'+(sala?'a':'o')+')</small>':'';
-    return `<div class="irow ord-row"><span class="ord-n" aria-label="Posição ${i+1}">${i+1}°</span><span class="ord-t"><span class="tag ${sala?'tag-s':'tag-e'}">${sala?'Sala':'Equipamento'}</span> ${esc(x.nome)}${inat} <small>${esc((sala?x.setor:RH.setorEq(x))||'Sem setor')}</small></span>${libSel(k)}<button type="button" class="ic-btn" data-act="ordUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="ordDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="ordDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button></div>`}).join('')||'<div class="hint" style="margin-bottom:8px">Nenhuma sala ou equipamento. Adicione na ordem em que a inspeção deve ser feita.</div>'}
+    return `<div class="irow ord-row"><span class="ord-n" aria-label="Posição ${i+1}">${i+1}º</span><span class="ord-t"><span class="tag ${sala?'tag-s':'tag-e'}">${sala?'Sala':'Equipamento'}</span> ${esc(x.nome)}${inat} <small>${esc((sala?x.setor:RH.setorEq(x))||'Sem setor')}</small></span>${libSel(k)}<button type="button" class="ic-btn" data-act="ordUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="ordDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="ordDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button></div>`}).join('')||'<div class="hint" style="margin-bottom:8px">Nenhuma sala ou equipamento. Adicione na ordem em que a inspeção deve ser feita.</div>'}
 /* salas e equipamentos já vinculados a outra ronda não podem ser escolhidos novamente */
 const usadosEmOutras=()=>new Set(S.modelos.filter(m=>m.id!==st.M.id).flatMap(m=>RH.ordemDaRonda(m)));
 function ordemOpts(){
@@ -285,7 +285,7 @@ const ordemRefresh=()=>{$('#ord-list').innerHTML=ordemHtml();$('#ord-add').inner
 function salasPicker(f){
   return `<div class="full"><span class="hint" style="font-weight:600;color:var(--ink2)">${esc(f.l)} *</span><div id="ord-list" style="margin-top:6px">${ordemHtml()}</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><select id="ord-add" aria-label="Adicionar sala ou equipamento" style="flex:1;min-width:200px">${ordemOpts()}</select><button type="button" class="btn sm" data-act="ordAdd">${ic('plus',14)} Adicionar</button></div>
-  <small>Itens já vinculados a outra ronda não aparecem na lista. Salas e equipamentos são inspecionados na ordem numerada (1° é o primeiro), com os itens a verificar de cada um.</small>
+  <small>Itens já vinculados a outra ronda não aparecem na lista. Salas e equipamentos são inspecionados na ordem numerada (1º é o primeiro), com os itens a verificar de cada um.</small>
   <small style="display:block;margin-top:4px"><b>Liberar com:</b> para bloquear vários locais e liberá-los todos de uma vez, escolha em cada um a sala/equipamento-chave. Ao ler o código da chave (na antena Wi-Fi dela) todos os vinculados são liberados.</small></div>`}
 
 /* dias da semana + horários em que a ronda deve ser realizada */
@@ -397,7 +397,7 @@ async function saveEnt(form){
   if(M.ent==='salas'||M.ent==='equipamentos')rec.checklistId='';   /* os itens agora ficam no próprio cadastro */
   if(M.ent==='equipamentos'){delete rec.patrimonio;delete rec.categoria;delete rec.obs}   /* campos removidos do cadastro */
   const ok=await RH.safe(async()=>{await RH.put(E.col,id,rec);return true});
-  if(ok){const lote=M.fromBulk;closeModal();if(lote){(data.ordem||[]).forEach(k=>st.sel.delete(k));refreshSel()}toast(lote?`Ronda criada com ${(data.ordem||[]).length} item(ns) da seleção.`:'Cadastro salvo.')}
+  if(ok){const lote=M.fromBulk;closeModal();if(lote){(data.ordem||[]).forEach(k=>st.sel.delete(k));refreshSel()}toast(lote?`Ronda criada com ${plural((data.ordem||[]).length,'item','itens')} da seleção.`:'Cadastro salvo.')}
 }
 
 async function deleteEnt(){
@@ -435,7 +435,7 @@ Object.assign(RH.ACT,{
   bkLink,bkSetor,bkDel,bkDelGo,bkRonda,
   etqOpen,
   etqFmt:el=>{st.etqFmt=el.dataset.v;$('#etq-grid').innerHTML=etqGrid();$('#etq-bar').innerHTML=etqBar()},
-  etqPrint:()=>{document.body.classList.add('print-modal');const f=()=>{document.body.classList.remove('print-modal');removeEventListener('afterprint',f)};addEventListener('afterprint',f);print()},
+  etqPrint:()=>RH.native.imprimirModal('Etiquetas '+ENT[st.cadTab].nome),
   agDias:el=>{document.querySelectorAll('[data-dia]').forEach(c=>{const d=+c.value;c.checked=el.dataset.v==='todos'||(d>=1&&d<=5)})},
   agAddH:()=>{st.M.horarios.push('');$('#ag-horas').innerHTML=horasHtml();const i=document.querySelectorAll('[data-hx]');i[i.length-1]?.focus()},
   agDelH:el=>{st.M.horarios.splice(+el.dataset.i,1);$('#ag-horas').innerHTML=horasHtml()},
@@ -456,7 +456,7 @@ Object.assign(RH.ACT,{
   genPw:()=>{const pw=RH.senhaForte();const i=document.getElementById('ff-senha');i.value=pw;i.classList.add('show');const h=i.closest('label').querySelector('small');if(h)h.textContent='Anote esta senha e entregue ao usuário. Depois de salvar ela não poderá ser exibida de novo.'},
   seedDemo:async el=>{el.disabled=true;st.busy=true;await RH.seedDemo('#seed-prog');st.busy=false;toast('Dados de exemplo carregados.');RH.renderView(true)},
   wipeDemo:async el=>{el.disabled=true;st.busy=true;await RH.wipeDemo();st.busy=false;RH.renderView(true)},
-  exportBackup:async el=>{el.disabled=true;try{const b=new Blob([await RH.store.exportJSON()],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='ronda-hospitalar-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Backup exportado.')}catch(e){toast('Não foi possível exportar o backup.','bad')}el.disabled=false},
+  exportBackup:async el=>{el.disabled=true;try{await RH.native.salvarArquivo('ronda-hospitalar-backup-'+RH.ymd(Date.now())+'.json',await RH.store.exportJSON(),'application/json');toast('Backup exportado.')}catch(e){if(!/cancel/i.test(String(e&&e.message)))toast('Não foi possível exportar o backup.','bad')}el.disabled=false},
   changeCode:()=>RH.store.changeCode(),
   genCodigo:()=>{$('#ff-codigoLocal').value=RH.local.gerarCodigo(st.cadTab==='salas'?'S':'E')},
   capBssid:async el=>{

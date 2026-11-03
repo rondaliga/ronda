@@ -17,8 +17,9 @@ document.addEventListener('mousemove',e=>{const t=e.target.closest&&e.target.clo
 
 /* ---------- janela modal ---------- */
 RH.modal=(html,wide)=>{$('#modal').innerHTML=`<div class="ov" data-act="ovClose"><div class="mod ${wide?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`;
-  const f=$('#modal input:not([type=file]),#modal select,#modal textarea');if(f&&matchMedia('(min-width:700px)').matches)f.focus()};
-RH.closeModal=()=>{$('#modal').innerHTML='';st.M=null};
+  document.body.classList.add('modal-open');RH.labelTables?.($('#modal'));
+  const f=$('#modal input:not([type=file]),#modal select,#modal textarea');if(f&&matchMedia('(min-width:700px) and (pointer:fine)').matches)f.focus()};
+RH.closeModal=()=>{$('#modal').innerHTML='';st.M=null;document.body.classList.remove('modal-open')};
 addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').firstChild)RH.closeModal()});
 
 /* ---------- confirmação em dois toques: devolve true no 2º toque (até 3 s depois) ---------- */

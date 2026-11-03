@@ -81,7 +81,7 @@ def main():
         page.wait_for_selector("#f-ent", state="detached")
         salas = page.evaluate("RH.S.salas.map(s=>[s.nome,s.codigoLocal,s.bssids])")
         check("Código e BSSID gravados normalizados", sorted(salas) == [["UTI 01", "RH-S-UTI01", "aa:bb:cc:dd:ee:01\naa:bb:cc:dd:ff:*"], ["UTI 02", "RH-S-UTI02", "aa:bb:cc:dd:ee:02"]], salas)
-        check("Tabela mostra o código e a contagem de antenas", "RH-S-UTI01" in page.inner_text("table") and "2 antena(s)" in page.inner_text("table"))
+        check("Tabela mostra o código e a contagem de antenas", "RH-S-UTI01" in page.inner_text("table") and "2 antenas" in page.inner_text("table"))
 
         # botão "ler antena deste aparelho": sem provedor (navegador) -> mensagem clara
         page.click("tr[data-act=editEnt]:has-text('UTI 01')"); page.click("#et-presenca"); page.click("[data-act=capBssid]"); page.wait_for_timeout(200)

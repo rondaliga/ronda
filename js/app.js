@@ -7,7 +7,7 @@
 const RH=window.RH;
 const {$,esc,S,st,F,NF,HF,ic}=RH;
 
-const PAGES=[['painel','Painel','dash'],['ronda','Nova ronda','clip'],['historico','Histórico','hist'],['ncs','Não conformidades','alert'],['cadastros','Cadastros','set']];
+const PAGES=[['painel','Painel','dash','Painel'],['ronda','Nova ronda','clip','Ronda'],['historico','Histórico','hist','Histórico'],['ncs','Não conformidades','alert','NCs'],['cadastros','Cadastros','set','Cadastros']];
 const allowedPages=()=>PAGES.filter(p=>RH.access.can(p[0]));
 
 /* ---------- raiz: decide qual tela mostrar ---------- */
@@ -22,12 +22,12 @@ function renderShell(){
   const me=st.me,ini=me.nome.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   if(!RH.access.can(st.page))st.page=RH.access.firstPage();
   $('#app').innerHTML=`<div class="app"><aside class="side"><div class="brand"><div class="logo">${ic('cross',20)}</div><div><b>${esc(S.cfg.hospital||'Ronda Hospitalar')}</b><span>Ronda e conformidade</span></div></div>
-  <nav class="nav" id="nav" aria-label="Principal">${allowedPages().map(p=>`<button data-act="nav" data-p="${p[0]}">${ic(p[2])}<span>${p[1]}</span></button>`).join('')}</nav>
+  <nav class="nav" id="nav" aria-label="Principal">${allowedPages().map(p=>`<button data-act="nav" data-p="${p[0]}">${ic(p[2],22)}<span class="l-full">${p[1]}</span><span class="l-short">${p[3]}</span></button>`).join('')}</nav>
   <div class="side-foot"><div class="me"><div class="avatar">${esc(ini)}</div><div><b>${esc(me.nome)}</b><span>${RH.ROLE[me.role]||''}</span></div></div>
-  <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key')}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema">${ic('moon')}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair">${ic('out')}<span>Sair</span></button></div></div></aside>
+  <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key',20)}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema claro ou escuro">${ic('moon',20)}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair da conta">${ic('out',20)}<span>Sair</span></button></div></div></aside>
   <div class="work"><div class="topbar"><div class="clock" aria-label="Data e horário atuais"><time id="rh-time" class="hora"></time><div class="dt"><b id="rh-date"></b><span id="rh-turno"></span></div></div>
   <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Os dados ficam só neste aparelho"><i></i>Modo local</span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
-  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão 2026.11.01-a</footer></div></div>`;
+  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão 2026.11.02</footer></div></div>`;
   tickClock();clearInterval(RH.clockT);RH.clockT=setInterval(tickClock,1000);
   RH.renderView();
 }
@@ -43,6 +43,9 @@ function tickClock(){
 }
 
 RH.go=p=>{if(!RH.access.can(p))return;st.page=p;try{sessionStorage.setItem('rh_page',p)}catch(e){}RH.renderView(true);scrollTo(0,0)};
+
+/* tabelas viram cartões no celular: cada célula recebe o título da sua coluna (data-label) */
+RH.labelTables=root=>{(root||document).querySelectorAll('table').forEach(t=>{const hs=[...t.querySelectorAll('thead th')].map(h=>(h.textContent||'').trim());t.querySelectorAll('tbody tr').forEach(tr=>{[...tr.children].forEach((td,i)=>{if(hs[i]&&!td.hasAttribute('data-label'))td.setAttribute('data-label',hs[i])})})})};
 
 RH.renderView=(force,auto)=>{
   const m=$('#main');if(!m||st.busy||!st.me)return;
@@ -60,6 +63,7 @@ RH.renderView=(force,auto)=>{
   if(page==='ronda'&&st.R){if(!force&&m.querySelector('.rhead'))return;m.innerHTML=RH.rondaForm();RH.rondaProgress();return}
   const ro=st.canWrite===false?`<div class="banner">Seu acesso é somente leitura: você pode consultar, mas não registrar dados.</div>`:'';
   m.innerHTML=ro+RH.pages[page]();
+  RH.labelTables?.(m);
   RH.after[page]?.();
 };
 

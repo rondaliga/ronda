@@ -4,7 +4,10 @@
 Envie **todo o conteúdo desta pasta** para o seu repositório (mantendo as pastas `css/` e `js/`).
 Alternativa de um arquivo só: `dist/ronda-hospitalar.html` (renomeie para `index.html`).
 O banco compartilhado (Supabase) é configurado em **`js/config.js`** — é o único arquivo que você edita.
-Depois de atualizar o site, recarregue a página com Ctrl+F5 (ou limpe o cache no celular).
+Depois de atualizar o site, feche e abra o app/PWA duas vezes (ou limpe os dados do site no celular) para carregar a nova versão.
+
+## Aplicativos (Android e macOS) e celular
+O sistema é mobile-first. Para gerar o `.apk` (Android) e o `.dmg` (macOS) de graça, veja **`LEIA-ME-APPS.md`**. Arquivos novos: `package.json`, `capacitor.config.json`, `desktop/` (macOS), `android-extras/` (plugin de Wi-Fi), `tools/preparar-*.js`, `.github/workflows/build-apps.yml`, `manifest.webmanifest`, `sw.js` (PWA offline), `js/core/native.js` (recursos do aparelho).
 
 ## Primeiros passos no hospital
 1. **Cadastros → Responsáveis e usuários**: crie os usuários (perfil Inspetor, Gestor ou Administrador).

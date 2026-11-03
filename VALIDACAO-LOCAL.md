@@ -11,19 +11,10 @@
 ## O BSSID só existe no aplicativo Android
 Navegador comum, PWA instalado e iPhone **não** conseguem ler o BSSID. Opções de custo zero:
 
-**Android com Capacitor (APK instalado direto, sem Play Store)**
-```bash
-mkdir ronda-app && cd ronda-app && npm init -y
-npm i @capacitor/core @capacitor/cli @capacitor/android @capgo/capacitor-wifi
-npx cap init "Ronda Hospitalar" br.hospital.ronda --web-dir=www
-mkdir www && cp -r ../ronda-main/{index.html,css,js} www/
-npx cap add android && npx cap sync
-npx cap open android      # Android Studio → Build → Build APK(s)
-```
-- Confira no `AndroidManifest.xml` as permissões `ACCESS_FINE_LOCATION`, `ACCESS_WIFI_STATE` e `CAMERA` (o plugin costuma declará-las; se faltar, adicione).
+**Android (aplicativo .apk, sem Play Store)**
+O projeto já traz tudo pronto: um plugin próprio (`android-extras/RondaWifiPlugin.java`) lê o BSSID e as permissões de câmera e localização são adicionadas automaticamente. Para gerar o `.apk`, siga o `LEIA-ME-APPS.md` (o GitHub compila de graça).
 - O aparelho precisa estar com a **localização ligada** e o app com permissão de localização, senão o Android devolve `02:00:00:00:00:00` (o código trata como "sem permissão").
-- O código usa `window.Capacitor.Plugins.CapacitorWifi.getWifiInfo()` (campo `bssid`). Confirme o nome do plugin no primeiro build; se for diferente, ajuste `bssidBruto()` em `js/core/local.js`.
-- Alternativa sem Capacitor: um WebView Android próprio que exponha `window.RondaNativo.getBssid()` (string ou Promise) — também é detectado.
+- O código usa `window.Capacitor.Plugins.RondaWifi.getBssid()` (campos `valor` ou `motivo`); veja `bssidBruto()` em `js/core/local.js`.
 
 **iPhone**: o plugin não expõe BSSID no iOS e a API da Apple exige entitlement + conta de desenvolvedor paga. No iPhone use a política *Conferir quando o aparelho conseguir ler*: vale só o código (e o hospital vê "Wi-Fi não verificado" no histórico).
 
