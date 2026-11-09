@@ -92,3 +92,9 @@ RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e.py   # testa o arquiv
 - **Presença no local** (código de barras + antena Wi-Fi): veja `VALIDACAO-LOCAL.md`. Campos `codigoLocal` e `bssids` em salas/equipamentos; política `valLocal`/`valBssid` em `config/main`; evidência em `rondas.presenca`.
 
 - **Ações em lote** (Cadastros → Salas, Equipamentos, Checklists): caixa de seleção por linha e "selecionar todos" (só os itens filtrados); filtros por Setor/Andar (Salas) e Setor/Categoria (Equipamentos). A barra flutuante oferece: vincular a ronda (acrescenta ao fim do percurso) ou checklist, alterar setor, criar ronda com os selecionados e excluir (respeita `canDel`). A seleção (`st.sel`, chaves `s:`/`e:`/`c:`) vale entre abas, então salas e equipamentos entram juntos na mesma ronda. Um item só pode estar em uma ronda; os que já estão em outra são ignorados e a janela mostra o motivo. Regras de ronda em `ronda.js` (`RH.rondaPlano`, `RH.rondaAdicionar`). Teste: `python3 tests/bulk.py`.
+
+## Publicação automática (GitHub Pages)
+`.github/workflows/publicar-site.yml` publica o site sozinho a cada push na branch `main` (leva ~1 min; acompanhe em **Actions**).
+Configuração única: no repositório, **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+Cada publicação carimba uma versão nova em `sw.js`; os aparelhos com o app aberto detectam e mostram o aviso **"Nova versão disponível · Atualizar"**.
+Para atualizar o app: envie as alterações para `main` (git push ou "Upload files" no site do GitHub). Os arquivos `dist/` não são usados pelo site publicado.

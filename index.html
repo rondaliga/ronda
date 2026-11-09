@@ -52,6 +52,12 @@
 
 <!-- Aplicação -->
 <script src="js/app.js?v=18"></script>
-<script>if("serviceWorker"in navigator&&/^https?:$/.test(location.protocol)&&!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1"){addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
+<script>if("serviceWorker"in navigator&&/^https?:$/.test(location.protocol)&&!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform())&&location.hostname!=="localhost"&&location.hostname!=="127.0.0.1"){
+/* atualização automática: procura versão nova ao abrir, ao voltar para o app e a cada hora; ao instalar, avisa com um botão "Atualizar" (a ronda em andamento fica salva no rascunho) */
+var tinhaCtl=!!navigator.serviceWorker.controller,avisou=false;
+navigator.serviceWorker.addEventListener("controllerchange",function(){if(!tinhaCtl){tinhaCtl=true;return}if(avisou)return;avisou=true;
+var b=document.createElement("div");b.setAttribute("role","status");b.style.cssText="position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:96;display:flex;gap:12px;align-items:center;justify-content:space-between;background:#0a6c7d;color:#fff;border-radius:12px;padding:12px 14px;font:600 14px system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)";
+b.innerHTML="<span>Nova versão do aplicativo disponível.</span>";var t=document.createElement("button");t.textContent="Atualizar";t.style.cssText="background:#fff;color:#0a6c7d;border:0;border-radius:8px;padding:8px 14px;font:700 14px system-ui,sans-serif;cursor:pointer";t.onclick=function(){location.reload()};b.appendChild(t);document.body.appendChild(b)});
+addEventListener("load",function(){navigator.serviceWorker.register("sw.js").then(function(r){var u=function(){try{r.update()}catch(e){}};setInterval(u,36e5);document.addEventListener("visibilitychange",function(){if(!document.hidden)u()})}).catch(function(){})})}</script>
 </body>
 </html>
