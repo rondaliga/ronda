@@ -650,6 +650,14 @@ button,[data-act],label.btn,.chip,.dia,select{touch-action:manipulation}
 .it-t .ideal{display:block;margin-top:2px;font-weight:400;color:var(--ink2)}
 .it-t .ideal b{color:var(--ink)}
 
+/* aviso no editor: igual ao que o inspetor vê na ronda, mas editável */
+.irow .aviso-edit{flex:1 0 100%;align-items:center}
+.aviso-edit>div{flex:1;min-width:0}
+.irow .aviso-edit .aviso-in{display:block;width:100%;flex:none;margin:2px 0 0;padding:2px 0;border:0;border-bottom:1px dashed var(--warn);border-radius:0;background:transparent;color:inherit;font-size:13.5px;box-shadow:none}
+.aviso-edit .aviso-in::placeholder{color:inherit;opacity:.6}
+.aviso-edit .aviso-in:focus{outline:none;border-bottom-style:solid}
+.aviso-edit .aviso-rm{flex:none;color:inherit}
+
 </style>
 </head>
 <body>
@@ -2651,7 +2659,7 @@ function bkRonda(){
 
 /* ---------- formulário ---------- */
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
-const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button>${it.aviso||it._av?`<input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Aviso — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"><button type="button" class="btn sm aviso-rm" data-act="itAvRm" data-i="${i}">Remover aviso</button>`:`<button type="button" class="btn sm aviso-add" data-act="itAv" data-i="${i}">${ic('plus',14)} Adicionar aviso</button>`}<div class="temp-ideal" data-tempbox="${i}"${RH.ehTemp(it.t)?'':' hidden'}><span>Temperatura ideal</span><input type="text" inputmode="decimal" data-itmin="${i}" value="${esc(it.tmin??'')}" placeholder="mín. ex.: 20" aria-label="Temperatura ideal mínima do item ${i+1} (°C)"><span>a</span><input type="text" inputmode="decimal" data-itmax="${i}" value="${esc(it.tmax??'')}" placeholder="máx. ex.: 24" aria-label="Temperatura ideal máxima do item ${i+1} (°C)"><span>°C</span></div></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
+const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button>${it.aviso||it._av?`<div class="orient aviso aviso-edit" role="note">${ic('alert',18)}<div><b>Aviso</b><input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Digite o aviso que o inspetor verá — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"></div><button type="button" class="ic-btn aviso-rm" data-act="itAvRm" data-i="${i}" aria-label="Remover aviso" title="Remover aviso">${ic('trash',14)}</button></div>`:`<button type="button" class="btn sm aviso-add" data-act="itAv" data-i="${i}">${ic('plus',14)} Adicionar aviso</button>`}<div class="temp-ideal" data-tempbox="${i}"${RH.ehTemp(it.t)?'':' hidden'}><span>Temperatura ideal</span><input type="text" inputmode="decimal" data-itmin="${i}" value="${esc(it.tmin??'')}" placeholder="mín. ex.: 20" aria-label="Temperatura ideal mínima do item ${i+1} (°C)"><span>a</span><input type="text" inputmode="decimal" data-itmax="${i}" value="${esc(it.tmax??'')}" placeholder="máx. ex.: 24" aria-label="Temperatura ideal máxima do item ${i+1} (°C)"><span>°C</span></div></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
 
 /* Setor (salas e equipamentos): sequência de percurso numerada (1º, 2º, ...) */
 const ordNome=k=>{const id=k.slice(2),x=k[0]==='s'?byId(S.salas,id):byId(S.equipamentos,id);return x};

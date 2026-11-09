@@ -632,3 +632,11 @@ button,[data-act],label.btn,.chip,.dia,select{touch-action:manipulation}
 .irow .temp-ideal input{flex:0 0 110px;max-width:110px;font-size:13px}
 .it-t .ideal{display:block;margin-top:2px;font-weight:400;color:var(--ink2)}
 .it-t .ideal b{color:var(--ink)}
+
+/* aviso no editor: igual ao que o inspetor vê na ronda, mas editável */
+.irow .aviso-edit{flex:1 0 100%;align-items:center}
+.aviso-edit>div{flex:1;min-width:0}
+.irow .aviso-edit .aviso-in{display:block;width:100%;flex:none;margin:2px 0 0;padding:2px 0;border:0;border-bottom:1px dashed var(--warn);border-radius:0;background:transparent;color:inherit;font-size:13.5px;box-shadow:none}
+.aviso-edit .aviso-in::placeholder{color:inherit;opacity:.6}
+.aviso-edit .aviso-in:focus{outline:none;border-bottom-style:solid}
+.aviso-edit .aviso-rm{flex:none;color:inherit}
