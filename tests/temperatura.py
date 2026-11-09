@@ -13,12 +13,14 @@ def main():
         page.goto(f"http://127.0.0.1:{T.PORT}/{T.PAGE}"); page.wait_for_selector("#f-setup")
         page.fill("#st-n", "Ana"); page.fill("#st-l", "admin"); page.fill("#st-s", "Senha@123"); page.click("#st-btn"); page.wait_for_selector("#nav")
         page.evaluate("""async()=>{
-          await RH.put('salas','s1',{nome:'Sala 1',setor:'UTI',ativo:true,itens:[{id:'a1',t:'Temperatura ambiente'},{id:'a2',t:'Luz de emergência',aviso:'Fechar e levar as chaves para a portaria.'}]});
-          await RH.put('equipamentos','q1',{nome:'Geladeira',setor:'UTI',ativo:true,itens:[{id:'i1',t:'Temperatura entre 2 e 8 °C'},{id:'i2',t:'Limpeza'},{id:'i3',t:'Porta íntegra'}]});
+          await RH.put('salas','s1',{nome:'Sala 1',setor:'UTI',ativo:true,itens:[{id:'a1',t:'Temperatura ambiente',tmin:20,tmax:24},{id:'a2',t:'Luz de emergência',aviso:'Fechar e levar as chaves para a portaria.'}]});
+          await RH.put('equipamentos','q1',{nome:'Geladeira',setor:'UTI',ativo:true,itens:[{id:'i1',t:'Temperatura entre 2 e 8 °C',tmin:2,tmax:8},{id:'i2',t:'Limpeza'},{id:'i3',t:'Porta íntegra'}]});
           await RH.put('modelos','m1',{nome:'Ronda T',ativo:true,responsavelId:'',dias:[0,1,2,3,4,5,6],horarios:['08:00'],salaIds:['s1'],equipIds:['q1'],ordem:['s:s1','e:q1'],liberacao:{}})}""")
         page.wait_for_timeout(500)
         check("migração Luz→Iluminação", page.evaluate("async()=>{await RH.migrarLuz();await new Promise(r=>setTimeout(r,600));return RH.S.salas.find(s=>s.id==='s1').itens.map(i=>i.t).join('|')}") == "Temperatura ambiente|Iluminação de emergência")
         page.click("#nav [data-p=ronda]"); page.click("[data-act=pickRonda]"); page.wait_for_selector(".rhead")
+        check("temperatura ideal aparece na ronda", "Temperatura ideal: 20 °C a 24 °C" in page.inner_text(".it:has-text('Temperatura ambiente')") and "2 °C a 8 °C" in page.inner_text(".it:has-text('Temperatura entre')"))
+        check("sala não usa mais 'Checklist da sala'", page.locator("text=Checklist da sala").count() == 0 and page.locator(".grp .t b:has-text('Sala 1')").count() == 1)
         for bt in page.query_selector_all(".seg button.c"): bt.click()
         check("foto obrigatória nos itens de Temperatura da sala e do equipamento", page.locator("text=Foto da sala (obrigatória)").count() == 1 and page.locator("text=Foto do equipamento (obrigatória)").count() == 1)
         check("aviso do item aparece na ronda", "Fechar e levar as chaves para a portaria." in page.inner_text(".it:has-text('Iluminação de emerg')") or "Fechar e levar as chaves" in page.inner_text(".bl"))
@@ -40,6 +42,18 @@ def main():
         check("ronda gravada com as fotos (sala e equipamento)", d == 2, d)
         page.locator("tbody tr").first.click(); page.wait_for_selector(".mod"); page.wait_for_timeout(400)
         check("histórico mostra as fotos de temperatura", page.locator(".mod img[data-foto]").count() == 2 and "Fotos de temperatura" in page.inner_text(".mod"))
+        check("histórico mostra a temperatura ideal", "Ideal: 20 °C a 24 °C" in page.inner_text(".mod"))
+        # editor de cadastro: campos de temperatura ideal
+        page.keyboard.press("Escape"); page.evaluate("document.querySelector('.mod')?.remove()")
+        page.evaluate("RH.go('cadastros')"); page.wait_for_timeout(300)
+        page.evaluate("RH.st.cadTab='salas'"); page.evaluate("RH.go('cadastros')"); page.wait_for_timeout(300); page.click("tr[data-id='s1']"); page.wait_for_selector(".irow")
+        check("editor: campo ideal visível só no item de Temperatura", page.locator("[data-tempbox]:visible").count() == 1)
+        page.fill("[data-itmin='0']", "19,5"); page.fill("[data-itmax='0']", "23")
+        page.locator(".irow").nth(1).locator("input[data-itx]").fill("Temperatura da sala"); page.wait_for_timeout(100)
+        check("editor: digitar 'Temperatura' revela o campo", page.locator("[data-tempbox]:visible").count() == 2)
+        page.click("button[type=submit]"); page.wait_for_timeout(600)
+        it = page.evaluate("RH.S.salas.find(s=>s.id==='s1').itens.map(i=>[i.tmin,i.tmax])")
+        check("editor: ideal salvo (19,5 a 23)", it[0] == [19.5, 23], it)
         print("erros:", T.errors)
         b.close()
 main()

@@ -625,3 +625,10 @@ button,[data-act],label.btn,.chip,.dia,select{touch-action:manipulation}
   .nav button[aria-current="page"],.nav button[aria-current="page"]:hover{background:var(--side-active)}
   .ghost-d:hover{background:none}
 }
+
+/* temperatura ideal (cadastro e ronda) */
+.irow .temp-ideal{flex:1 0 100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--ink2)}
+.irow .temp-ideal[hidden]{display:none}
+.irow .temp-ideal input{flex:0 0 110px;max-width:110px;font-size:13px}
+.it-t .ideal{display:block;margin-top:2px;font-weight:400;color:var(--ink2)}
+.it-t .ideal b{color:var(--ink)}
