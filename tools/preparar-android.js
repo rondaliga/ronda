@@ -16,6 +16,6 @@ const pkg='br/hospital/ronda',dir=path.join(app,'src','main','java',...pkg.split
 for(const f of ['RondaWifiPlugin.java','MainActivity.java'])fs.copyFileSync(path.join(raiz,'android-extras',f),path.join(dir,f));
 /* 3) versão (cada build novo precisa de versionCode maior para atualizar por cima) */
 const gr=path.join(app,'build.gradle');let g=fs.readFileSync(gr,'utf8');
-const code=+(process.env.VERSION_CODE||process.env.GITHUB_RUN_NUMBER||1),nome=process.env.VERSION_NAME||'2026.11.2';
+const code=+(process.env.VERSION_CODE||process.env.GITHUB_RUN_NUMBER||1),nome=process.env.VERSION_NAME||(/^refs\/tags\/v/.test(process.env.GITHUB_REF||'')?process.env.GITHUB_REF_NAME.slice(1):require('../package.json').version);
 g=g.replace(/versionCode\s+\d+/,`versionCode ${code}`).replace(/versionName\s+"[^"]*"/,`versionName "${nome}"`);
 fs.writeFileSync(gr,g);console.log('Android preparado: versionCode',code);
