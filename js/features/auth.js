@@ -34,7 +34,7 @@ RH.views={
 RH.ON_SUBMIT['f-login']=async f=>{
   const l=f.login.value.trim().toLowerCase(),u=S.users.find(x=>(x.login||'').toLowerCase()===l&&x.ativo!==false),er=$('#lg-err');er.textContent='';
   if(!u||!u.hash||await RH.hash(f.senha.value,u.salt)!==u.hash){er.textContent='Usuário ou senha incorretos.';return}
-  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);
+  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);setTimeout(()=>RH.limparFotos&&RH.limparFotos(),4000);
   st.screen='';st.page=RH.access.firstPage();try{sessionStorage.removeItem('rh_page');sessionStorage.removeItem('rh_cadtab')}catch(x){}RH.renderRoot();
 };
 

@@ -61,6 +61,25 @@ def main():
         page.click("button[type=submit]"); page.wait_for_timeout(600)
         it = page.evaluate("RH.S.salas.find(s=>s.id==='s1').itens.map(i=>[i.tmin,i.tmax])")
         check("editor: ideal salvo (19,5 a 23)", it[0] == [19.5, 23], it)
+        # limpeza automática de fotos (60 dias)
+        r = page.evaluate("""async()=>{
+          const old=Date.now()-90*864e5, rec=Date.now()-5*864e5;
+          await RH.put('fotos','fo1',{data:'x'}); await RH.put('fotos','fo2',{data:'x'}); await RH.put('fotos','fo3',{data:'x'}); await RH.put('fotos','fo4',{data:'x'});
+          await RH.put('rondas','ro1',{ts:old,itens:[{n:'A',t:'Temperatura',r:'C',thumb:'t',fotoId:'fo1'}]});
+          await RH.put('rondas','ro2',{ts:rec,itens:[{n:'B',t:'Temperatura',r:'C',thumb:'t',fotoId:'fo2'}]});
+          await RH.put('rondas','ro3',{ts:old,itens:[{n:'C',t:'Temperatura',r:'NC',thumb:'t',fotoId:'fo3'}]});
+          await RH.put('ncs','nc3',{ts:old,status:'aberta',fotoId:'fo3',thumb:'t'});
+          await RH.put('ncs','nc4',{ts:old,status:'resolvida',fotoId:'fo4',thumb:'t'});
+          await new Promise(r=>setTimeout(r,300));
+          const n=await RH.limparFotos(true); await new Promise(r=>setTimeout(r,300));
+          const ex=async id=>(await RH.st.db.doc('fotos/'+id).get()).exists;
+          return {n, fo1:await ex('fo1'), fo2:await ex('fo2'), fo3:await ex('fo3'), fo4:await ex('fo4'),
+            ro1:RH.S.rondas.find(x=>x.id==='ro1').itens[0], ro2:RH.S.rondas.find(x=>x.id==='ro2').itens[0].fotoId, ro3:RH.S.rondas.find(x=>x.id==='ro3').itens[0].fotoId,
+            nc4:RH.S.ncs.find(x=>x.id==='nc4').fotoId, nc3:RH.S.ncs.find(x=>x.id==='nc3').fotoId}}""")
+        check("limpeza: ronda antiga perde a foto completa e mantém a miniatura", r["fo1"] is False and r["ro1"].get("fotoId") is None and r["ro1"]["thumb"] == "t", r)
+        check("limpeza: ronda recente permanece", r["fo2"] is True and r["ro2"] == "fo2", r)
+        check("limpeza: foto de NC aberta é preservada", r["fo3"] is True and r["ro3"] == "fo3" and r["nc3"] == "fo3", r)
+        check("limpeza: NC resolvida antiga perde a foto", r["fo4"] is False and r["nc4"] is None, r)
         print("erros:", T.errors)
         b.close()
 main()

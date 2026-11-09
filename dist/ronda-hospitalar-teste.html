@@ -1327,7 +1327,7 @@ function onData(){
         if(!id){const r=JSON.parse(localStorage.getItem('rh_resume')||'null');if(r&&r.uid&&Date.now()-r.ts<9e5){id=r.uid;pg=r.page;sessionStorage.setItem('rh_uid',id)}}
         localStorage.removeItem('rh_resume');
         const u=id&&byId(S.users,id);if(u&&u.ativo!==false){st.me=u;const ct=sessionStorage.getItem('rh_cadtab');if(pg)st.page=pg;if(ct)st.cadTab=ct}}catch(e){}
-      RH.renderRoot();migrarLuz()}
+      RH.renderRoot();migrarLuz();setTimeout(()=>RH.limparFotos&&RH.limparFotos(),4000)}
     return}
   if(st.me){const u=byId(S.users,st.me.id);if(!u||u.ativo===false){RH.logout();return}st.me=u}
   clearTimeout(onData.t);onData.t=setTimeout(()=>RH.renderRoot(true),200);
@@ -1355,6 +1355,36 @@ async function migrarLuz(){
   finally{migrando=false}
 }
 RH.migrarLuz=migrarLuz;
+
+/* ---------- limpeza automática das fotos completas ----------
+   Para poupar o espaço do banco, a foto completa (coleção "fotos") de rondas e de não conformidades RESOLVIDAS
+   com mais de RH.FOTOS_DIAS dias é apagada. A miniatura e o registro da ronda continuam no histórico.
+   Ficam intactas: fotos de não conformidades ainda abertas/em tratamento e fotos de cadastro (equipamentos).
+   Roda sozinha com um administrador logado, no máximo a cada 12 h por aparelho; é idempotente. */
+RH.FOTOS_DIAS=60;
+let limpando=false;
+async function limparFotos(forcar){
+  if(limpando||!st.me||st.me.role!=='admin')return 0;
+  try{if(!forcar&&Date.now()-(+localStorage.getItem('rh_limpeza')||0)<432e5)return 0}catch(e){}
+  limpando=true;let n=0;
+  try{
+    const corte=Date.now()-RH.FOTOS_DIAS*864e5;
+    const protegidas=new Set((S.ncs||[]).filter(x=>x.status!=='resolvida'&&x.fotoId).map(x=>x.fotoId));
+    /* NCs resolvidas e antigas */
+    for(const x of (S.ncs||[]).filter(x=>x.status==='resolvida'&&x.fotoId&&x.ts<corte)){
+      if(!protegidas.has(x.fotoId))await RH.del('fotos',x.fotoId);n++;await RH.upd('ncs',x.id,{fotoId:null})}
+    /* rondas antigas (todas, inclusive além das 1000 mais recentes exibidas) */
+    const antigas=(await st.db.collection('rondas').where('ts','<',corte).get()).docs.map(d=>({id:d.id,...d.data()})).filter(r=>(r.itens||[]).some(i=>i.fotoId));
+    for(const r of antigas){
+      const itens=r.itens.map(i=>{if(!i.fotoId)return i;const{fotoId,...resto}=i;return protegidas.has(fotoId)?i:resto});
+      for(const i of r.itens)if(i.fotoId&&!protegidas.has(i.fotoId)){await RH.del('fotos',i.fotoId);n++}
+      await RH.upd('rondas',r.id,{itens})}
+    try{localStorage.setItem('rh_limpeza',String(Date.now()))}catch(e){}
+  }catch(e){console.error('limpeza de fotos',e)}
+  finally{limpando=false}
+  return n}
+RH.limparFotos=limparFotos;
+setInterval(()=>{if(!document.hidden)limparFotos()},36e5);
 })();
 
 </script>
@@ -2297,7 +2327,7 @@ function openRonda(id){
     comOc.push(`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">${esc(r.salaNome)} <small>${esc(r.setor||'')} · ${pc(r.pct)}</small> ${RH.local.badge(r.presenca)}</h4>
     ${Object.values(g).map(x=>`<div style="margin-top:10px">${x.n===r.salaNome?'':`<b>${esc(x.n)}</b>`}<div style="margin-top:4px">${x.l.map(i=>itemOc(r,i)).join('')}</div></div>`).join('')}</div>`)});
   /* fotos obrigatórias dos itens de Temperatura (conformes; as das NCs já aparecem acima) */
-  const fotosT=e.docs.flatMap(r=>(r.itens||[]).filter(i=>i.r==='C'&&(i.thumb||i.fotoId)).map(i=>`<figure style="margin:0;max-width:160px"><img class="big-img" ${i.fotoId?`data-foto="${esc(i.fotoId)}"`:''} src="${i.thumb?esc(i.thumb):''}" alt="Foto de ${esc(i.n)}" style="width:160px;height:120px;object-fit:cover;border-radius:8px"><figcaption><small><b>${esc(i.n)}</b><br>${esc(i.t)}${i.ideal?`<br>Ideal: ${esc(i.ideal)}`:''}</small></figcaption></figure>`));
+  const fotosT=e.docs.flatMap(r=>(r.itens||[]).filter(i=>i.r==='C'&&(i.thumb||i.fotoId)).map(i=>`<figure style="margin:0;max-width:160px"><img class="big-img" ${i.fotoId?`data-foto="${esc(i.fotoId)}"`:''} src="${i.thumb?esc(i.thumb):''}" alt="Foto de ${esc(i.n)}" style="width:160px;height:120px;object-fit:cover;border-radius:8px"><figcaption><small><b>${esc(i.n)}</b><br>${esc(i.t)}${i.ideal?`<br>Ideal: ${esc(i.ideal)}`:''}${!i.fotoId&&i.thumb?`<br><i>original removida (+${RH.FOTOS_DIAS} dias)</i>`:''}</small></figcaption></figure>`));
   const blocoFotos=fotosT.length?`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">Fotos de temperatura (salas e equipamentos)</h4><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">${fotosT.join('')}</div></div>`:'';
   const porSala=(comOc.length?comOc.join(''):'<div class="empty"><b>Nenhuma não conformidade ou item inacessível</b>Todos os itens desta ronda estavam conformes.</div>');
   const obs=e.docs.map(r=>r.obs).find(Boolean),nNC=ncsDa(e).length;
@@ -2369,7 +2399,7 @@ function openNC(id){
   const orient=n.orient||byId(S.tiposNC,n.tipoId)?.orient||'';
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
   <form id="f-nc" data-id="${n.id}"><div class="mb">
-  ${n.fotoId?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}<small>Carregando foto…</small></div>`:''}
+  ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<small>Carregando foto…</small>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
   ${RH.orientBox(orient)}
   <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
   <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>
@@ -2501,6 +2531,7 @@ RH.pages.cadastros=()=>{
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
     ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
     <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Dados de exemplo</h3><p style="margin:0 0 12px;color:var(--ink2)">${demo?`Há ${demo} registros de exemplo no sistema. Remova-os antes de começar a usar de verdade.`:'Carregue salas, equipamentos, checklists, rondas e 4 semanas de execuções fictícias para conhecer o painel.'}</p>
     <div class="prog-seed" id="seed-prog" hidden><i></i></div>
     ${demo?`<button class="btn bad" data-act="wipeDemo">Remover dados de exemplo</button>`:`<button class="btn" data-act="seedDemo">Carregar dados de exemplo</button>`}</div>${backupCard()}`;
@@ -3019,7 +3050,7 @@ RH.views={
 RH.ON_SUBMIT['f-login']=async f=>{
   const l=f.login.value.trim().toLowerCase(),u=S.users.find(x=>(x.login||'').toLowerCase()===l&&x.ativo!==false),er=$('#lg-err');er.textContent='';
   if(!u||!u.hash||await RH.hash(f.senha.value,u.salt)!==u.hash){er.textContent='Usuário ou senha incorretos.';return}
-  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);
+  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);setTimeout(()=>RH.limparFotos&&RH.limparFotos(),4000);
   st.screen='';st.page=RH.access.firstPage();try{sessionStorage.removeItem('rh_page');sessionStorage.removeItem('rh_cadtab')}catch(x){}RH.renderRoot();
 };
 

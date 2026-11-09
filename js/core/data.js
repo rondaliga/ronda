@@ -33,7 +33,7 @@ function onData(){
         if(!id){const r=JSON.parse(localStorage.getItem('rh_resume')||'null');if(r&&r.uid&&Date.now()-r.ts<9e5){id=r.uid;pg=r.page;sessionStorage.setItem('rh_uid',id)}}
         localStorage.removeItem('rh_resume');
         const u=id&&byId(S.users,id);if(u&&u.ativo!==false){st.me=u;const ct=sessionStorage.getItem('rh_cadtab');if(pg)st.page=pg;if(ct)st.cadTab=ct}}catch(e){}
-      RH.renderRoot();migrarLuz()}
+      RH.renderRoot();migrarLuz();setTimeout(()=>RH.limparFotos&&RH.limparFotos(),4000)}
     return}
   if(st.me){const u=byId(S.users,st.me.id);if(!u||u.ativo===false){RH.logout();return}st.me=u}
   clearTimeout(onData.t);onData.t=setTimeout(()=>RH.renderRoot(true),200);
@@ -61,4 +61,34 @@ async function migrarLuz(){
   finally{migrando=false}
 }
 RH.migrarLuz=migrarLuz;
+
+/* ---------- limpeza automática das fotos completas ----------
+   Para poupar o espaço do banco, a foto completa (coleção "fotos") de rondas e de não conformidades RESOLVIDAS
+   com mais de RH.FOTOS_DIAS dias é apagada. A miniatura e o registro da ronda continuam no histórico.
+   Ficam intactas: fotos de não conformidades ainda abertas/em tratamento e fotos de cadastro (equipamentos).
+   Roda sozinha com um administrador logado, no máximo a cada 12 h por aparelho; é idempotente. */
+RH.FOTOS_DIAS=60;
+let limpando=false;
+async function limparFotos(forcar){
+  if(limpando||!st.me||st.me.role!=='admin')return 0;
+  try{if(!forcar&&Date.now()-(+localStorage.getItem('rh_limpeza')||0)<432e5)return 0}catch(e){}
+  limpando=true;let n=0;
+  try{
+    const corte=Date.now()-RH.FOTOS_DIAS*864e5;
+    const protegidas=new Set((S.ncs||[]).filter(x=>x.status!=='resolvida'&&x.fotoId).map(x=>x.fotoId));
+    /* NCs resolvidas e antigas */
+    for(const x of (S.ncs||[]).filter(x=>x.status==='resolvida'&&x.fotoId&&x.ts<corte)){
+      if(!protegidas.has(x.fotoId))await RH.del('fotos',x.fotoId);n++;await RH.upd('ncs',x.id,{fotoId:null})}
+    /* rondas antigas (todas, inclusive além das 1000 mais recentes exibidas) */
+    const antigas=(await st.db.collection('rondas').where('ts','<',corte).get()).docs.map(d=>({id:d.id,...d.data()})).filter(r=>(r.itens||[]).some(i=>i.fotoId));
+    for(const r of antigas){
+      const itens=r.itens.map(i=>{if(!i.fotoId)return i;const{fotoId,...resto}=i;return protegidas.has(fotoId)?i:resto});
+      for(const i of r.itens)if(i.fotoId&&!protegidas.has(i.fotoId)){await RH.del('fotos',i.fotoId);n++}
+      await RH.upd('rondas',r.id,{itens})}
+    try{localStorage.setItem('rh_limpeza',String(Date.now()))}catch(e){}
+  }catch(e){console.error('limpeza de fotos',e)}
+  finally{limpando=false}
+  return n}
+RH.limparFotos=limparFotos;
+setInterval(()=>{if(!document.hidden)limparFotos()},36e5);
 })();
