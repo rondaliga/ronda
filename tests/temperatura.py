@@ -42,6 +42,10 @@ def main():
         check("ronda gravada com as fotos (sala e equipamento)", d == 2, d)
         page.locator("tbody tr").first.click(); page.wait_for_selector(".mod"); page.wait_for_timeout(400)
         check("histórico mostra as fotos de temperatura", page.locator(".mod img[data-foto]").count() == 2 and "Fotos de temperatura" in page.inner_text(".mod"))
+        page.locator(".mod img[data-foto]").first.click(); page.wait_for_selector("#lightbox img")
+        check("clicar na foto do histórico a amplia", page.locator("#lightbox").count() == 1)
+        page.keyboard.press("Escape"); page.wait_for_timeout(100)
+        check("Esc fecha só a foto (histórico segue aberto)", page.locator("#lightbox").count() == 0 and page.locator(".mod").count() == 1)
         check("histórico mostra a temperatura ideal", "Ideal: 20 °C a 24 °C" in page.inner_text(".mod"))
         # editor de cadastro: campos de temperatura ideal
         page.keyboard.press("Escape"); page.evaluate("document.querySelector('.mod')?.remove()")

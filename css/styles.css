@@ -640,3 +640,9 @@ button,[data-act],label.btn,.chip,.dia,select{touch-action:manipulation}
 .aviso-edit .aviso-in::placeholder{color:inherit;opacity:.6}
 .aviso-edit .aviso-in:focus{outline:none;border-bottom-style:solid}
 .aviso-edit .aviso-rm{flex:none;color:inherit}
+
+/* foto ampliada */
+img.big-img{cursor:zoom-in}
+#lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));cursor:zoom-out}
+#lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;background:#000}
+#lightbox .lb-x{position:absolute;top:calc(10px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.5);color:#fff;font-size:28px;line-height:1;cursor:pointer}

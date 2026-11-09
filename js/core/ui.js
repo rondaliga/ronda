@@ -38,4 +38,19 @@ RH.fmtIdeal=(a,b)=>{const f=n=>String(n).replace('.',',')+' °C';return a!=null&
 /* aviso fixo de um item do checklist (campo "Aviso" do cadastro) */
 RH.avisoBox=txt=>txt?`<div class="orient aviso" role="note">${ic('alert',18)}<div><b>Aviso</b>${esc(txt)}</div></div>`:'';
 RH.orientBox=txt=>txt?`<div class="orient" role="note">${ic('alert',18)}<div><b>Orientação / ação esperada</b>${esc(txt)}</div></div>`:'';
+/* ampliar foto: clicar em qualquer imagem .big-img (histórico, não conformidades) abre em tela cheia; clique, X ou Esc fecham */
+(function(){
+  const fechar=()=>{const l=document.getElementById('lightbox');if(l)l.remove()};
+  document.addEventListener('click',e=>{
+    const l=e.target.closest&&e.target.closest('#lightbox');
+    if(l){fechar();return}
+    const im=e.target.closest&&e.target.closest('img.big-img');
+    if(!im||!im.getAttribute('src'))return;
+    fechar();
+    const d=document.createElement('div');d.id='lightbox';d.setAttribute('role','dialog');d.setAttribute('aria-label','Foto ampliada');
+    d.innerHTML=`<button type="button" class="lb-x" aria-label="Fechar foto">&times;</button><img alt="">`;
+    d.querySelector('img').src=im.currentSrc||im.src;d.querySelector('img').alt=im.alt||'Foto ampliada';
+    document.body.appendChild(d);d.querySelector('.lb-x').focus()});
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('lightbox')){e.stopImmediatePropagation();fechar()}},true);
+})();
 })();

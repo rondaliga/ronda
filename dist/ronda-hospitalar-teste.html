@@ -658,6 +658,12 @@ button,[data-act],label.btn,.chip,.dia,select{touch-action:manipulation}
 .aviso-edit .aviso-in:focus{outline:none;border-bottom-style:solid}
 .aviso-edit .aviso-rm{flex:none;color:inherit}
 
+/* foto ampliada */
+img.big-img{cursor:zoom-in}
+#lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));cursor:zoom-out}
+#lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;background:#000}
+#lightbox .lb-x{position:absolute;top:calc(10px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.5);color:#fff;font-size:28px;line-height:1;cursor:pointer}
+
 </style>
 </head>
 <body>
@@ -1267,6 +1273,21 @@ RH.fmtIdeal=(a,b)=>{const f=n=>String(n).replace('.',',')+' °C';return a!=null&
 /* aviso fixo de um item do checklist (campo "Aviso" do cadastro) */
 RH.avisoBox=txt=>txt?`<div class="orient aviso" role="note">${ic('alert',18)}<div><b>Aviso</b>${esc(txt)}</div></div>`:'';
 RH.orientBox=txt=>txt?`<div class="orient" role="note">${ic('alert',18)}<div><b>Orientação / ação esperada</b>${esc(txt)}</div></div>`:'';
+/* ampliar foto: clicar em qualquer imagem .big-img (histórico, não conformidades) abre em tela cheia; clique, X ou Esc fecham */
+(function(){
+  const fechar=()=>{const l=document.getElementById('lightbox');if(l)l.remove()};
+  document.addEventListener('click',e=>{
+    const l=e.target.closest&&e.target.closest('#lightbox');
+    if(l){fechar();return}
+    const im=e.target.closest&&e.target.closest('img.big-img');
+    if(!im||!im.getAttribute('src'))return;
+    fechar();
+    const d=document.createElement('div');d.id='lightbox';d.setAttribute('role','dialog');d.setAttribute('aria-label','Foto ampliada');
+    d.innerHTML=`<button type="button" class="lb-x" aria-label="Fechar foto">&times;</button><img alt="">`;
+    d.querySelector('img').src=im.currentSrc||im.src;d.querySelector('img').alt=im.alt||'Foto ampliada';
+    document.body.appendChild(d);d.querySelector('.lb-x').focus()});
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('lightbox')){e.stopImmediatePropagation();fechar()}},true);
+})();
 })();
 
 </script>
