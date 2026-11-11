@@ -18,7 +18,6 @@ RH.renderRoot=auto=>{
   if(sc==='app')RH.renderView(false,auto);
 };
 
-RH.VERSAO='1.0.4'; /* manter igual ao "version" do package.json */
 function renderShell(){
   const me=st.me,ini=me.nome.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
   if(!RH.access.can(st.page))st.page=RH.access.firstPage();
@@ -28,7 +27,7 @@ function renderShell(){
   <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key',20)}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema claro ou escuro">${ic('moon',20)}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair da conta">${ic('out',20)}<span>Sair</span></button></div></div></aside>
   <div class="work"><div class="topbar"><div class="clock" aria-label="Data e horário atuais"><time id="rh-time" class="hora"></time><div class="dt"><b id="rh-date"></b><span id="rh-turno"></span></div></div>
   <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Modo local: os dados ficam só neste aparelho"><i></i><span class="t-full">Modo local</span><span class="t-short">Local</span></span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
-  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão ${RH.VERSAO}</footer></div></div>`;
+  <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão ${RH.VERSAO} · publicada em ${RH.VERSAO_DATA.split('-').reverse().join('/')}</footer></div></div>`;
   tickClock();clearInterval(RH.clockT);RH.clockT=setInterval(tickClock,1000);
   RH.renderView();
 }

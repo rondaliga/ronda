@@ -98,3 +98,10 @@ RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e.py   # testa o arquiv
 Configuração única: no repositório, **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 Cada publicação carimba uma versão nova em `sw.js`; os aparelhos com o app aberto detectam e mostram o aviso **"Nova versão disponível · Atualizar"**.
 Para atualizar o app: envie as alterações para `main` (git push ou "Upload files" no site do GitHub). Os arquivos `dist/` não são usados pelo site publicado.
+
+## Como publicar uma nova versão (padrão)
+1. Atualize a versão em todos os lugares de uma vez: `node tools/atualizar-versao.js 1.0.5` (a data é a de hoje; opcional: `... 1.0.5 2026-12-01`).
+   Isso grava em `package.json`, `js/core/versao.js` (rodapé do app: "Versão 1.0.5 · publicada em DD/MM/AAAA"), `index.html` (`?v=`) e `sw.js`.
+2. Envie para `main` (git push). O site publica sozinho, e o GitHub Actions recusa a publicação se as versões estiverem desencontradas.
+3. Para o .apk: crie a release com a tag `v1.0.5` (Releases → Draft a new release). O .apk usa o mesmo número.
+`node tools/atualizar-versao.js --verificar` confere se tudo está igual. Nunca edite a versão à mão.
