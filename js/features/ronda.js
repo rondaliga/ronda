@@ -49,12 +49,12 @@ RH.pages.ronda=()=>{
   ${lista.length?`<div class="salas">${lista.map(m=>{
     const l=lastExec(m.id),late=RH.agenda.atrasada(m,l?l.ts:null),salas=RH.salasDaRonda(m),setores=[...new Set([...salas.map(s=>s.setor||'Sem setor'),...RH.equipsDaRonda(m).map(e=>RH.setorEq(e)||'Sem setor')])].sort((a,b)=>a.localeCompare(b)),prox=RH.agenda.proximo(m,Date.now());
     const ne=RH.equipsDaRonda(m).length;
-    return `<button class="sala" data-act="pickRonda" data-id="${m.id}"><div class="h"><b>${esc(m.nome)}</b>${late?'<span class="pill late">Em atraso</span>':'<span class="pill okp">Em dia</span>'}</div>
+    return `<button class="sala${late?' late':''}" data-act="pickRonda" data-id="${m.id}"><div class="h"><b>${esc(m.nome)}</b>${late?'<span class="pill late">Em atraso</span>':'<span class="pill okp">Em dia</span>'}</div>
     <div class="f"><span>${esc(setores.join(', ')||'—')}</span></div>
     <div class="f"><span>${salas.length} sala${salas.length===1?'':'s'}</span><span>${ne} equipamento${ne===1?'':'s'}</span></div>
     <div class="f"><span>Responsável: ${m.responsavelId?esc(userName(m.responsavelId)):'todos os inspetores'}</span></div>
     <small>${esc(RH.agenda.resumo(m))}${prox?` · próxima: ${RH.agenda.fmtSlot(prox)}`:''}</small>
-    <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small></button>`}).join('')}</div>`:vazio}`;
+    <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small><span class="go">Iniciar ronda →</span></button>`}).join('')}</div>`:vazio}`;
 };
 
 /* ---------- vínculo em lote: salas e equipamentos → ronda ----------

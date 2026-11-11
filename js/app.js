@@ -26,7 +26,7 @@ function renderShell(){
   <div class="side-foot"><div class="me"><div class="avatar">${esc(ini)}</div><div><b>${esc(me.nome)}</b><span>${RH.ROLE[me.role]||''}</span></div></div>
   <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key',20)}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema claro ou escuro">${ic('moon',20)}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair da conta">${ic('out',20)}<span>Sair</span></button></div></div></aside>
   <div class="work"><div class="topbar"><div class="clock" aria-label="Data e horário atuais"><time id="rh-time" class="hora"></time><div class="dt"><b id="rh-date"></b><span id="rh-turno"></span></div></div>
-  <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Os dados ficam só neste aparelho"><i></i>Modo local</span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
+  <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Modo local: os dados ficam só neste aparelho"><i></i><span class="t-full">Modo local</span><span class="t-short">Local</span></span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
   <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão 2026.11.02</footer></div></div>`;
   tickClock();clearInterval(RH.clockT);RH.clockT=setInterval(tickClock,1000);
   RH.renderView();
@@ -38,7 +38,8 @@ function tickClock(){
   const d=new Date(),h=d.getHours(),hh=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   if(t.textContent!==hh){t.textContent=hh;t.dateTime=d.toISOString();
     const ds=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    document.getElementById('rh-date').textContent=ds.charAt(0).toUpperCase()+ds.slice(1);
+    const dc=d.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'}).replace(/\./g,'');
+    document.getElementById('rh-date').innerHTML=`<span class="d-full">${ds.charAt(0).toUpperCase()+ds.slice(1)}</span><span class="d-short">${dc.charAt(0).toUpperCase()+dc.slice(1)}</span>`;
     document.getElementById('rh-turno').textContent='Turno da '+(h>=6&&h<12?'manhã':h>=12&&h<18?'tarde':'noite')}
 }
 

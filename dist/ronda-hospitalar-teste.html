@@ -664,6 +664,53 @@ img.big-img{cursor:zoom-in}
 #lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;background:#000}
 #lightbox .lb-x{position:absolute;top:calc(10px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.5);color:#fff;font-size:28px;line-height:1;cursor:pointer}
 
+/* ===== refinamentos visuais (celular e computador) ===== */
+/* painel: 6 indicadores sem cartão sobrando */
+@media (min-width:901px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1180px){.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}}
+
+/* selo de severidade: palavra dentro de uma pílula legível (cor + texto, sem depender só da cor) */
+.sev{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#3a2a00;background:color-mix(in srgb,var(--s1) 28%,var(--surface))}
+.sev b{display:none}
+.sev.s2{background:color-mix(in srgb,var(--s2) 26%,var(--surface));color:#4a2300}
+.sev.s3{background:color-mix(in srgb,var(--s3) 20%,var(--surface));color:#8a1313}
+.sev.s4{background:var(--s4);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .sev,:root:not([data-theme=light]) .sev.s2,:root:not([data-theme=light]) .sev.s3{color:var(--ink)}}
+:root[data-theme=dark] .sev,:root[data-theme=dark] .sev.s2,:root[data-theme=dark] .sev.s3{color:var(--ink)}
+@media print{.sev{background:none!important;color:#000!important;border:1px solid #000}}
+
+/* cartão de ronda: ação clara e atraso em destaque */
+.sala .go{margin-top:auto;padding-top:6px;color:var(--brand);font-weight:700;font-size:13.5px}
+.sala:hover .go{text-decoration:underline}
+.sala.late{border-left:4px solid var(--warn)}
+@media (max-width:900px){.sala:hover .go{text-decoration:none}.sala .go{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:6px;border-radius:10px;background:var(--brand);color:var(--on-brand,#fff)}}
+
+/* data e "modo local" curtos no celular */
+.clock .d-short,.topbar .t-short{display:none}
+@media (max-width:900px){
+  .topbar{flex-wrap:nowrap;padding:6px 14px;gap:10px}
+  .clock{gap:10px}
+  .clock .d-full{display:none}.clock .d-short{display:inline}
+  .clock .dt{flex-direction:row;flex-wrap:wrap;column-gap:8px;align-items:baseline}
+  .topbar .t-full{display:none}.topbar .t-short{display:inline}
+  .topbar .r .role{display:none}
+}
+
+/* histórico no celular: cartão compacto (ronda + conformidade; data e inspetor; itens e NCs) */
+@media (max-width:700px){
+  .tw-hist tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"ronda conf" "data data" "insp insp" "itens ncs";gap:0;padding:10px 14px}
+  .tw-hist td{padding:2px 0;display:block;text-align:left;width:auto}
+  .tw-hist td::before{display:none}
+  .tw-hist td:nth-child(2){grid-area:ronda;padding-top:0}
+  .tw-hist td:nth-child(4){grid-area:conf;align-self:start;margin-left:10px}
+  .tw-hist td:nth-child(1){grid-area:data;color:var(--muted);font-size:12.5px}
+  .tw-hist td:nth-child(3){grid-area:insp;color:var(--ink2);font-size:13px}
+  .tw-hist td:nth-child(5),.tw-hist td:nth-child(6){font-size:12.5px;color:var(--ink2);padding-top:6px;margin-top:4px;border-top:1px solid var(--line)}
+  .tw-hist td:nth-child(5){grid-area:itens}.tw-hist td:nth-child(6){grid-area:ncs;text-align:right}
+  .tw-hist td:nth-child(5)::before,.tw-hist td:nth-child(6)::before{display:inline;color:inherit;font-size:inherit;font-weight:400;text-transform:none;letter-spacing:0;margin-right:4px}
+  .tw-hist td:nth-child(5)::before{content:"Itens:"}.tw-hist td:nth-child(6)::before{content:"NCs:"}
+}
+
 </style>
 </head>
 <body>
@@ -2008,12 +2055,12 @@ RH.pages.ronda=()=>{
   ${lista.length?`<div class="salas">${lista.map(m=>{
     const l=lastExec(m.id),late=RH.agenda.atrasada(m,l?l.ts:null),salas=RH.salasDaRonda(m),setores=[...new Set([...salas.map(s=>s.setor||'Sem setor'),...RH.equipsDaRonda(m).map(e=>RH.setorEq(e)||'Sem setor')])].sort((a,b)=>a.localeCompare(b)),prox=RH.agenda.proximo(m,Date.now());
     const ne=RH.equipsDaRonda(m).length;
-    return `<button class="sala" data-act="pickRonda" data-id="${m.id}"><div class="h"><b>${esc(m.nome)}</b>${late?'<span class="pill late">Em atraso</span>':'<span class="pill okp">Em dia</span>'}</div>
+    return `<button class="sala${late?' late':''}" data-act="pickRonda" data-id="${m.id}"><div class="h"><b>${esc(m.nome)}</b>${late?'<span class="pill late">Em atraso</span>':'<span class="pill okp">Em dia</span>'}</div>
     <div class="f"><span>${esc(setores.join(', ')||'—')}</span></div>
     <div class="f"><span>${salas.length} sala${salas.length===1?'':'s'}</span><span>${ne} equipamento${ne===1?'':'s'}</span></div>
     <div class="f"><span>Responsável: ${m.responsavelId?esc(userName(m.responsavelId)):'todos os inspetores'}</span></div>
     <small>${esc(RH.agenda.resumo(m))}${prox?` · próxima: ${RH.agenda.fmtSlot(prox)}`:''}</small>
-    <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small></button>`}).join('')}</div>`:vazio}`;
+    <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small><span class="go">Iniciar ronda →</span></button>`}).join('')}</div>`:vazio}`;
 };
 
 /* ---------- vínculo em lote: salas e equipamentos → ronda ----------
@@ -2299,7 +2346,7 @@ RH.pages.historico=()=>{
   return `<div class="top"><div><h1>${propria?'Minhas rondas':'Histórico de rondas'}</h1><p>${ex.length} ronda${ex.length===1?'':'s'} no período${propria?' · somente as realizadas por você':''}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="HF:periodo" data-num="1">${[7,30,90,365].map(d=>`<option value="${d}" ${d===HF.periodo?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Ronda</span><select data-set="HF:ronda"><option value="">Todas as rondas</option>${[...S.modelos].sort((a,b)=>a.nome.localeCompare(b.nome)).map(m=>`<option value="${m.id}" ${m.id===HF.ronda?'selected':''}>${esc(m.nome)}</option>`).join('')}</select></label></div></div>
-  ${ex.length?`<div class="tw"><table><thead><tr><th>Data</th><th>Ronda</th><th>Inspetor</th><th>Conformidade</th><th>Itens</th><th>NCs</th></tr></thead><tbody>${ex.slice(0,200).map(e=>`<tr data-act="rondaOpen" data-id="${esc(e.id)}"><td class="num">${fdt(e.ts)}</td><td><b>${esc(e.nome)}</b><small>${qtd(e)}</small></td><td>${esc(e.inspNome)}</td><td class="num"><span class="pill ${e.pct>=meta?'okp':'st-aberta'}">${pc(e.pct)}</span></td><td class="num">${e.c+e.nc+e.ina}</td><td class="num">${e.nc||'—'}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma ronda no período','Registre uma ronda em Nova ronda.')}`;
+  ${ex.length?`<div class="tw tw-hist"><table><thead><tr><th>Data</th><th>Ronda</th><th>Inspetor</th><th>Conformidade</th><th>Itens</th><th>NCs</th></tr></thead><tbody>${ex.slice(0,200).map(e=>`<tr data-act="rondaOpen" data-id="${esc(e.id)}"><td class="num">${fdt(e.ts)}</td><td><b>${esc(e.nome)}</b><small>${qtd(e)}</small></td><td>${esc(e.inspNome)}</td><td class="num"><span class="pill ${e.pct>=meta?'okp':'st-aberta'}">${pc(e.pct)}</span></td><td class="num">${e.c+e.nc+e.ina}</td><td class="num">${e.nc||'—'}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma ronda no período','Registre uma ronda em Nova ronda.')}`;
 };
 
 /* NCs geradas por uma execução (documentos novos têm execId; antigos, só rondaId) */
@@ -3142,7 +3189,7 @@ function renderShell(){
   <div class="side-foot"><div class="me"><div class="avatar">${esc(ini)}</div><div><b>${esc(me.nome)}</b><span>${RH.ROLE[me.role]||''}</span></div></div>
   <div class="row"><button class="ghost-d" data-act="minhaSenha" aria-label="Alterar minha senha" title="Alterar minha senha">${ic('key',20)}<span>Senha</span></button><button class="ghost-d" data-act="theme" aria-label="Alternar tema claro ou escuro">${ic('moon',20)}<span>Tema</span></button><button class="ghost-d" data-act="logout" aria-label="Sair da conta">${ic('out',20)}<span>Sair</span></button></div></div></aside>
   <div class="work"><div class="topbar"><div class="clock" aria-label="Data e horário atuais"><time id="rh-time" class="hora"></time><div class="dt"><b id="rh-date"></b><span id="rh-turno"></span></div></div>
-  <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Os dados ficam só neste aparelho"><i></i>Modo local</span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
+  <div class="r">${RH.store&&RH.store.mode==='remote'?'':'<span class="sync loc" title="Modo local: os dados ficam só neste aparelho"><i></i><span class="t-full">Modo local</span><span class="t-short">Local</span></span>'}<span class="role">${esc(RH.ROLE[me.role]||'')}</span></div></div>
   <main id="main"></main><footer class="foot">Informações confidenciais · uso interno da instituição · Versão 2026.11.02</footer></div></div>`;
   tickClock();clearInterval(RH.clockT);RH.clockT=setInterval(tickClock,1000);
   RH.renderView();
@@ -3154,7 +3201,8 @@ function tickClock(){
   const d=new Date(),h=d.getHours(),hh=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   if(t.textContent!==hh){t.textContent=hh;t.dateTime=d.toISOString();
     const ds=d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    document.getElementById('rh-date').textContent=ds.charAt(0).toUpperCase()+ds.slice(1);
+    const dc=d.toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'}).replace(/\./g,'');
+    document.getElementById('rh-date').innerHTML=`<span class="d-full">${ds.charAt(0).toUpperCase()+ds.slice(1)}</span><span class="d-short">${dc.charAt(0).toUpperCase()+dc.slice(1)}</span>`;
     document.getElementById('rh-turno').textContent='Turno da '+(h>=6&&h<12?'manhã':h>=12&&h<18?'tarde':'noite')}
 }
 
