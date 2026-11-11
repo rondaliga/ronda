@@ -734,6 +734,28 @@ img.big-img{cursor:zoom-in}
   .nc .right{min-width:112px}
 }
 
+/* temperatura medida na ronda */
+.tempin{margin:8px 0 2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.tempin label{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:600}
+.tempin .tin{display:inline-flex;align-items:center;gap:6px}
+.tempin input{width:110px;font-size:18px;font-weight:700;text-align:center}
+.tempin small{color:var(--ink2);font-size:13px}
+.tempin.dentro{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,var(--surface))}.tempin.dentro small{color:var(--ok);font-weight:700}
+.tempin.fora{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--surface))}.tempin.fora small{color:var(--bad);font-weight:700}
+
+/* ronda: ações do topo, próximo pendente e destaque ao navegar */
+.top-act{display:flex;gap:8px;flex-wrap:wrap}
+.rhead .btn[hidden]{display:none}
+#btn-prox .l-short{display:none}
+@media (max-width:700px){#btn-prox .l-full{display:none}#btn-prox .l-short{display:inline}}
+@keyframes flashbg{0%{box-shadow:0 0 0 3px var(--brand)}100%{box-shadow:0 0 0 3px transparent}}
+.it.flash,.bl.flash{animation:flashbg 1.6s ease-out}
+
+/* armazenamento do banco */
+.arm-bar{height:12px;background:var(--grid);border-radius:99px;overflow:hidden}.arm-bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.arm-banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--surface));font-size:14px}
+.arm-banner.critico{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--surface))}
+
 </style>
 </head>
 <body>
@@ -1046,7 +1068,7 @@ RH.execs=list=>{
 </script>
 <script>
 /* Versão do aplicativo — NÃO edite à mão: use  node tools/atualizar-versao.js 1.0.5  (atualiza todos os lugares). */
-RH.VERSAO='1.0.4';
+RH.VERSAO='1.0.5';
 RH.VERSAO_DATA='2026-11-11';
 
 </script>
@@ -1460,6 +1482,42 @@ async function limparFotos(forcar){
   finally{limpando=false}
   return n}
 RH.limparFotos=limparFotos;
+
+/* ---------- estimativa de uso do banco ----------
+   O app não consegue ler o tamanho real do banco (Supabase). Estima: texto de todos os registros (inclui as miniaturas)
+   + fotos completas × tamanho médio. O administrador pode CALIBRAR com o número real mostrado no Supabase
+   (guarda a diferença como "extra": índices, tabelas do sistema etc.). */
+RH.FOTO_KB=135;   /* foto reduzida (~100 KB) em base64 + custo do registro */
+async function armazenamento(){
+  const limite=+S.cfg.dbLimiteMB||500,extra=Math.max(0,+S.cfg.dbExtraMB||0);
+  const col=async n=>{try{return (await st.db.collection(n).get()).docs.map(d=>d.data())}catch(e){return S[n]||[]}};
+  const [rondas,ncs]=await Promise.all([col('rondas'),col('ncs')]);
+  const outros=Object.keys(S).filter(k=>Array.isArray(S[k])&&k!=='rondas'&&k!=='ncs'&&k!=='fotos');
+  let bytes=JSON.stringify(rondas).length+JSON.stringify(ncs).length;outros.forEach(k=>{bytes+=JSON.stringify(S[k]).length});
+  const ids=new Set(),dia=Date.now()-14*864e5,idsRec=new Set();
+  rondas.forEach(r=>(r.itens||[]).forEach(i=>{if(i.fotoId){ids.add(i.fotoId);if(r.ts>=dia)idsRec.add(i.fotoId)}}));
+  ncs.forEach(n=>{if(n.fotoId){ids.add(n.fotoId);if(n.ts>=dia)idsRec.add(n.fotoId)}});
+  const fotoMB=RH.FOTO_KB/1024,docsMB=bytes/1048576;
+  const bruto=docsMB+ids.size*fotoMB,usado=bruto+extra,fotosDia=idsRec.size/14;
+  const porDia=fotosDia*fotoMB,restante=limite-usado;
+  /* com a limpeza (fotos completas some após N dias), o consumo diário de fotos para de crescer */
+  const estavel=usado-ids.size*fotoMB+fotosDia*RH.FOTOS_DIAS*fotoMB;
+  const pct=Math.min(999,usado/limite*100);
+  return{usadoMB:usado,limiteMB:limite,pct,fotos:ids.size,fotosDia,porDiaMB:porDia,
+    diasRest:porDia>0?Math.max(0,Math.floor(restante/porDia)):null,estavelMB:estavel,
+    estavel:estavel<limite*0.9,extraMB:extra,brutoMB:bruto,
+    nivel:pct>=90?'critico':pct>=70?'atencao':'ok'}}
+RH.armazenamento=armazenamento;
+const mb=n=>n>=100?Math.round(n).toLocaleString('pt-BR'):n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+RH.fmtMB=mb;
+/* aviso no painel (somente administrador) */
+RH.armAviso=async()=>{
+  const el=document.getElementById('arm-aviso');if(!el||!st.me||st.me.role!=='admin')return;
+  let a;try{a=await armazenamento()}catch(e){return}
+  if(a.nivel==='ok'||!document.getElementById('arm-aviso'))return;
+  const prazo=a.diasRest!=null&&!a.estavel?` No ritmo atual (${mb(a.fotosDia)} fotos/dia), restam cerca de <b>${a.diasRest} dias</b>.`:'';
+  document.getElementById('arm-aviso').innerHTML=`<div class="arm-banner ${a.nivel}" role="alert"><div><b>${a.nivel==='critico'?'Armazenamento quase cheio':'Armazenamento do banco em atenção'}: ~${mb(a.usadoMB)} de ${mb(a.limiteMB)} MB (${Math.round(a.pct)}%).</b>${prazo}</div><button class="btn sm" data-act="armVer">Ver detalhes</button></div>`};
+
 setInterval(()=>{if(!document.hidden)limparFotos()},36e5);
 })();
 
@@ -1648,9 +1706,9 @@ async function escanear(titulo){
 
 /* ---------- check-in de um bloco da ronda ---------- */
 /* lê o código e, logo em seguida, a antena Wi-Fi; devolve o registro (ok ou rejeitado) ou null se cancelado */
-async function checkin(bl){
+async function checkin(bl,lidoPronto){
   const alvo=alvoDoBloco(bl);if(!alvo)return null;
-  const lido=await escanear('Leia o código de barras: '+alvo.nome);
+  const lido=lidoPronto!=null?lidoPronto:await escanear('Leia o código de barras: '+alvo.nome);
   if(lido==null)return null;
   const bssid=await lerBssid(),r=validar({alvo,lido,bssid,pol:politica()});
   return {ts:Date.now(),ok:r.ok,codigo:r.codigo,rede:r.rede,msg:r.msg,lido:String(lido).slice(0,80),bssid:bssid.valor||''}}
@@ -1721,7 +1779,9 @@ function gerarCodigo(prefixo,extra){
   let c;do{const b=crypto.getRandomValues(new Uint8Array(6));c=`RH-${prefixo}-`+[...b].map(x=>A[x%A.length]).join('')}while(usados.has(c));
   return c}
 
-RH.local={normCodigo,normBssid,parseBssids,bssidConfere,politica,alvoDoBloco,validar,lerBssid,escanear,checkin,registrar,estado,pendencias,dependentes,evidencia,badge,validaCadastro,gerarCodigo,
+/* acha a sala ou o equipamento dono de um código lido: {tipo:'s'|'e', id, nome} ou null */
+const acharPorCodigo=lido=>{const c=normCodigo(lido);return c&&alvos().find(a=>normCodigo(a.codigoLocal)===c)||null};
+RH.local={acharPorCodigo,normCodigo,normBssid,parseBssids,bssidConfere,politica,alvoDoBloco,validar,lerBssid,escanear,checkin,registrar,estado,pendencias,dependentes,evidencia,badge,validaCadastro,gerarCodigo,
   /* ganchos opcionais: RH.local.leitor = async titulo => texto ; RH.local.provedorBssid = async () => 'aa:bb:..' | {valor,motivo} */
   leitor:null,provedorBssid:null};
 if(typeof module!=='undefined'&&module.exports)module.exports=RH.local;
@@ -1970,7 +2030,8 @@ RH.pages.painel=()=>{
   const rec=S.ncs.filter(okSet).slice(0,6);
   const tile=(l,v,sub,cls='',extra='')=>`<div class="kpi"><label>${l}</label><strong class="${cls}">${v}</strong><small>${sub}</small>${extra}</div>`;
 
-  return `<div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
+  setTimeout(()=>RH.armAviso&&RH.armAviso(),0);
+  return `<div id="arm-aviso"></div><div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="F:periodo" data-num="1">${[7,30,90].map(d=>`<option value="${d}" ${d===days?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
   <div class="tools"><button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
@@ -2084,7 +2145,7 @@ RH.pages.ronda=()=>{
   const vazio=!S.modelos.length
     ?empty('Nenhuma ronda cadastrada',st.me.role==='admin'?'Cadastre as rondas em Cadastros → Rondas (nome, salas e responsável).':'Peça ao administrador para cadastrar as rondas.')
     :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os inspetores quando não há responsável. Fale com o administrador.');
-  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar.</p></div></div>
+  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o QR de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler QR do local</button></div>
   ${st.R?`<div class="banner">Há uma ronda em andamento (${esc(st.R.nome)}). <button class="btn sm" data-act="resumeRonda">Continuar ronda</button></div>`:''}
   ${lista.length?`<div class="salas">${lista.map(m=>{
     const l=lastExec(m.id),late=RH.agenda.atrasada(m,l?l.ts:null),salas=RH.salasDaRonda(m),setores=[...new Set([...salas.map(s=>s.setor||'Sem setor'),...RH.equipsDaRonda(m).map(e=>RH.setorEq(e)||'Sem setor')])].sort((a,b)=>a.localeCompare(b)),prox=RH.agenda.proximo(m,Date.now());
@@ -2143,12 +2204,12 @@ function itensDe(blocos){
    Ao recarregar, fechar a aba ou voltar à tela, ela é restaurada; é apagada ao finalizar ou descartar. */
 const DRAFT_PREFIX='rh_ronda_draft:';
 const draftKey=()=>st.me?DRAFT_PREFIX+st.me.id:null;
-const CAMPOS=['r','tipoId','sev','desc','just','thumb','full'];
+const CAMPOS=['r','tipoId','sev','desc','just','thumb','full','tv','auto','autoDesc'];
 function gravar(k,R,nivel){
   /* nivel 0 = tudo; 1 = sem a foto grande; 2 = sem nenhuma foto (se o armazenamento estiver cheio) */
   const itens={};
   Object.entries(R.itens).forEach(([ik,it])=>{
-    if(!(it.r||it.desc||it.just||it.tipoId))return;
+    if(!(it.r||it.desc||it.just||it.tipoId||it.tv))return;
     const o={};CAMPOS.forEach(c=>{if(it[c]&&!(c==='full'&&nivel>=1)&&!(c==='thumb'&&nivel>=2))o[c]=it[c]});itens[ik]=o});
   localStorage.setItem(k,JSON.stringify({v:1,uid:st.me.id,modeloId:R.modeloId,nome:R.nome,resp:R.resp,obs:R.obs||'',started:R.started,sub:R.sub||null,foco:R.foco||null,chk:R.chk||{},itens,savedAt:Date.now()}))}
 let draftT;
@@ -2183,6 +2244,36 @@ document.addEventListener('click',e=>{const f=e.target.closest&&e.target.closest
 addEventListener('pagehide',saveDraft);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveDraft()});
 
+/* ---------- temperatura medida x faixa ideal ----------
+   Itens de "Temperatura" com faixa ideal cadastrada pedem a leitura (°C). Fora da faixa → vira não conformidade
+   automaticamente (tipo "Temperatura", se existir, e descrição preenchida); dentro da faixa → conforme. */
+const temFaixa=it=>RH.ehTemp(it.t)&&(it.tmin!=null||it.tmax!=null);
+const tempVal=it=>RH.numTemp(it.tv);
+const tempSit=it=>{const v=tempVal(it);if(v==null||!temFaixa(it))return null;if(it.tmin!=null&&v<it.tmin)return 'baixa';if(it.tmax!=null&&v>it.tmax)return 'alta';return 'ok'};
+const fmtT=n=>String(n).replace('.',',')+' °C';
+function aplicaTemp(k){
+  const it=st.R.itens[k];if(it.r==='IN')return;
+  const sit=tempSit(it),v=tempVal(it);
+  if(sit==='baixa'||sit==='alta'){
+    if(it.r==='NC'&&!it.auto)return;                          /* NC marcada à mão: respeita */
+    const desvio=sit==='baixa'?it.tmin-v:v-it.tmax,txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
+    const t=S.tiposNC.find(x=>/temperatura/i.test(x.nome||''));
+    it.r='NC';it.auto=true;
+    if(!it.tipoId&&t)it.tipoId=t.id;
+    it.sev=Math.max(desvio>=5?3:2,(t&&it.tipoId===t.id&&+t.sev)||0);
+    if(!it.desc||it.desc===it.autoDesc)it.desc=txt;
+    it.autoDesc=txt;
+  }else if(it.auto&&it.r==='NC'){                              /* voltou para a faixa (ou leitura apagada): desfaz o que foi automático */
+    if(it.desc===it.autoDesc)it.desc='';
+    it.r=sit==='ok'?'C':'';it.auto=false;it.autoDesc='';it.tipoId='';it.sev=0;
+  }else if(sit==='ok'&&!it.r)it.r='C';
+}
+function tempBox(it,k){
+  if(!RH.ehTemp(it.t)||it.r==='IN')return '';
+  const sit=tempSit(it),faixa=temFaixa(it);
+  const msg=sit==='ok'?'✓ Dentro da faixa ideal':sit==='baixa'?`⚠ Abaixo da faixa ideal (mín. ${fmtT(it.tmin)}) — registrada como não conformidade`:sit==='alta'?`⚠ Acima da faixa ideal (máx. ${fmtT(it.tmax)}) — registrada como não conformidade`:faixa?'Informe a temperatura lida no visor (obrigatório)':'Opcional: registre a temperatura lida';
+  return `<div class="tempin${sit&&sit!=='ok'?' fora':sit==='ok'?' dentro':''}"><label><span>Temperatura medida</span><span class="tin"><input type="text" inputmode="decimal" autocomplete="off" data-tv data-k="${k}" value="${esc(it.tv??'')}" placeholder="ex.: 22,5" aria-label="Temperatura medida em graus Celsius"><b>°C</b></span></label><small>${msg}</small></div>`}
+
 /* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
 const fotoObrig=it=>!!it&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
 const alvoNome=it=>it.a==='e'?'equipamento':'sala';
@@ -2194,6 +2285,7 @@ function itemHtml(k){
   return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}${RH.ehTemp(it.t)&&RH.fmtIdeal(it.tmin,it.tmax)?`<small class="ideal">Temperatura ideal: <b>${RH.fmtIdeal(it.tmin,it.tmax)}</b></small>`:''}</div>
   <div class="seg" role="group" aria-label="Resultado">${[['C','Conforme','c'],['NC','Não conforme','n'],['IN','Inacessível','a']].map(([v,l,c])=>`<button type="button" class="${c}" data-act="res" data-k="${k}" data-r="${v}" aria-pressed="${it.r===v}">${l}</button>`).join('')}</div></div>
   ${RH.avisoBox(it.av)}
+  ${tempBox(it,k)}
   ${nc?`<div class="ncp"><label class="field"><span>Tipo de não conformidade</span><select data-nc="tipoId" data-k="${k}"><option value="">Selecione…</option>${S.tiposNC.map(t=>`<option value="${t.id}" ${it.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select data-nc="sev" data-k="${k}">${[1,2,3,4].map(s=>`<option value="${s}" ${(it.sev||2)==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   ${tipo&&tipo.orient?`<div class="full">${RH.orientBox(tipo.orient)}</div>`:''}
@@ -2238,8 +2330,8 @@ function rondaForm(){
   const hasItems=Object.keys(R.itens).length>0;
   const nSalas=blocos.filter(b=>b.tipo==='sala').length,nEq=blocos.reduce((n,b)=>n+(b.eqIds?b.eqIds.length:0),0);
   return `<div class="top"><div><h1>${esc(R.nome)}</h1><p>${nSalas} sala${nSalas===1?'':'s'} · ${nEq} equipamento${nEq===1?'':'s'} · Início às ${hora(R.started)} · Responsável: ${R.resp?esc(userName(R.resp)):'todos os inspetores'} · Inspetor: ${esc(st.me.nome)}</p></div>
-  <button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div>
-  <div class="rhead"><div class="prog"><b id="prog-t"></b><div class="bar"><i id="prog-b" style="width:0"></i></div></div><button class="btn pri" data-act="submitRonda" id="btn-sub">${ic('check',16)} Finalizar ronda</button></div>
+  <div class="top-act"><button class="btn" data-act="qrIr">${ic('cam',16)} Ler QR do local</button><button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div></div>
+  <div class="rhead"><div class="prog"><b id="prog-t"></b><div class="bar"><i id="prog-b" style="width:0"></i></div></div><button class="btn" data-act="proxPend" id="btn-prox" title="Ir ao próximo item sem resposta"><span class="l-full">Próximo pendente</span><span class="l-short">Próx.</span> ↓</button><button class="btn pri" data-act="submitRonda" id="btn-sub">${ic('check',16)} Finalizar</button></div>
   ${hasItems?blocos.map(blocoHtml).join(''):empty('Esta ronda não tem itens de checklist','Vincule checklists às salas e aos equipamentos em Cadastros.')}
   <div class="card"><label class="field"><span>Observações gerais da ronda (opcional)</span><textarea id="r-obs" data-robs>${esc(R.obs)}</textarea></label></div>`;
 }
@@ -2247,7 +2339,9 @@ RH.rondaForm=rondaForm;
 
 function progress(){
   const v=Object.values(st.R.itens),t=v.length,a=v.filter(x=>x.r).length,n=v.filter(x=>x.r==='NC').length;
-  const pt=$('#prog-t');if(!pt)return;pt.textContent=`${a} de ${t} itens respondidos${n?` · ${n} não conformidade${n>1?'s':''}`:''}`;$('#prog-b').style.width=(t?a/t*100:0)+'%'}
+  const pt=$('#prog-t');if(!pt)return;const pctP=t?Math.round(a/t*100):0;
+  pt.textContent=`${a} de ${t} itens · ${pctP}%${n?` · ${n} NC${n>1?'s':''}`:''}`;$('#prog-b').style.width=(t?a/t*100:0)+'%';
+  const bp=$('#btn-prox');if(bp){bp.hidden=a>=t;}}
 RH.rondaProgress=progress;
 function repaint(k){const e=document.getElementById('it-'+k);if(e)e.outerHTML=itemHtml(k);progress()}
 
@@ -2261,6 +2355,10 @@ async function submitRonda(){
   if(bad.length){bad.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+bad[0][0])?.scrollIntoView({block:'center'});toast('Informe o tipo e a descrição de cada não conformidade.','bad');return}
   const noJust=its.filter(([,i])=>i.r==='IN'&&!(i.just||'').trim());
   if(noJust.length){noJust.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+noJust[0][0])?.scrollIntoView({block:'center'});document.getElementById('ina-'+noJust[0][0])?.focus({preventScroll:true});toast('Descreva o motivo de cada item marcado como Inacessível.','bad');return}
+  const semTemp=its.filter(([,i])=>i.r!=='IN'&&temFaixa(i)&&tempVal(i)==null);
+  if(semTemp.length){semTemp.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.querySelector(`[data-tv][data-k="${semTemp[0][0]}"]`)?.focus();document.getElementById('it-'+semTemp[0][0])?.scrollIntoView({block:'center'});toast(semTemp.length===1?'Informe a temperatura medida no item de Temperatura.':`Informe a temperatura medida em ${semTemp.length} itens de Temperatura.`,'bad');return}
+  const foraC=its.filter(([,i])=>i.r==='C'&&['baixa','alta'].includes(tempSit(i)));
+  if(foraC.length){foraC.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+foraC[0][0])?.scrollIntoView({block:'center'});toast('Há temperatura fora da faixa ideal marcada como conforme. Registre como não conforme ou corrija a leitura.','bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
   if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
@@ -2282,7 +2380,7 @@ async function submitRonda(){
       const presenca=RH.local.evidencia(R,bl);
       for(const [k,i] of mine)if(fotoObrig(i)&&i.full){const fid=mk('f:'+k,'f');await RH.put('fotos',fid,{data:i.full})}
       await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
-        pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.map(([k,i])=>({a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})}))});
+        pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.map(([k,i])=>({a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(RH.ehTemp(i.t)&&tempVal(i)!=null?{tv:tempVal(i)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})}))});
       for(const [k,i] of mine.filter(([,i])=>i.r==='NC')){
         const tipo=byId(S.tiposNC,i.tipoId),eq=i.a==='e'?byId(S.equipamentos,i.i):null;let fotoId=null;
         if(i.full){fotoId=mk('f:'+k,'f');await RH.put('fotos',fotoId,{data:i.full})}
@@ -2325,9 +2423,44 @@ async function camOpen(k,facing){
 }
 addEventListener('pagehide',camClose);
 
+/* ---------- ronda por QR Code ---------- */
+/* localiza o bloco do código lido, confirma a presença com esse mesmo código e rola até ele */
+async function irParaLocal(lido){
+  const a=RH.local.acharPorCodigo(lido);
+  if(!a){toast('Este código não pertence a nenhuma sala ou equipamento cadastrado.','bad');return}
+  const bid=a.tipo==='s'?a.id:'eq:'+a.id,bl=st.R&&st.R.blocos.find(b=>b.id===bid);
+  if(!bl){toast(`"${a.nome}" não faz parte desta ronda.`,'bad');return}
+  const e=RH.local.estado(st.R,bl);
+  if(e.ativo&&!e.semCodigo&&!e.ok&&!e.dependente){
+    const reg=await RH.local.checkin(bl,lido);
+    if(reg&&st.R){RH.local.registrar(st.R,bl.id,reg);saveDraft();if(!reg.ok)toast(reg.msg,'bad');repaintBloco(bl.id)}}
+  const el=document.getElementById('bl-'+bid);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1800);toast(`Local: ${a.nome}`)}}
+
 /* ---------- eventos ---------- */
 Object.assign(RH.ACT,{
   pickRonda:el=>startRonda(el.dataset.id),
+  proxPend:()=>{
+    const R=st.R;if(!R)return;
+    const pend=Object.keys(R.itens).filter(k=>!R.itens[k].r);
+    if(!pend.length){toast('Todos os itens foram respondidos. Revise e finalize a ronda.');document.getElementById('btn-sub')?.focus();return}
+    const hd=(document.querySelector('.rhead')?.getBoundingClientRect().bottom||0)+8;
+    const abaixo=pend.find(k=>{const e=document.getElementById('it-'+k);return e&&e.getBoundingClientRect().top>hd+4});
+    const k=abaixo||pend[0],e=document.getElementById('it-'+k);
+    if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
+  qrIr:async()=>{                                   /* dentro da ronda: lê o QR de um local e vai até ele (confirmando a presença) */
+    if(!st.R)return;
+    const lido=await RH.local.escanear('Leia o QR do local');if(lido==null||!st.R)return;
+    await irParaLocal(lido)},
+  qrIniciar:async()=>{                              /* na lista: lê o QR e abre a ronda a que o local pertence */
+    const lido=await RH.local.escanear('Leia o QR da sala ou do equipamento');if(lido==null)return;
+    const a=RH.local.acharPorCodigo(lido);
+    if(!a){toast('Este código não pertence a nenhuma sala ou equipamento cadastrado.','bad');return}
+    const m=RH.rondaDoItem(a.tipo+':'+a.id);
+    if(!m||!RH.access.rondaVisivel(m,st.me)){toast(`"${a.nome}" não faz parte de nenhuma ronda disponível para você.`,'bad');return}
+    if(st.R&&st.R.modeloId!==m.id){toast(`Há uma ronda em andamento (${st.R.nome}). Finalize ou descarte antes de iniciar "${m.nome}".`,'bad');return}
+    if(!st.R)startRonda(m.id);else RH.renderView(true);
+    await irParaLocal(lido)},
   resumeRonda:()=>RH.renderView(true),
   cancelRonda:()=>{if(RH.confirmArm(RH.ACT.cancelRonda,'Toque de novo para descartar a ronda')){RH.rondaDraft.clear();st.R=null;RH.renderView(true)}},
   chkScan:async el=>{
@@ -2339,12 +2472,18 @@ Object.assign(RH.ACT,{
     repaintBloco(bl.id);RH.local.dependentes(st.R,bl.id).forEach(b=>repaintBloco(b.id))},
   res:el=>{const it=st.R.itens[el.dataset.k];
     {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código de barras do local antes de responder o checklist.','bad');return}}
-    it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
+    if(el.dataset.r==='C'&&['baixa','alta'].includes(tempSit(it))){toast('A temperatura medida está fora da faixa ideal: registre como não conforme ou corrija a leitura.','bad');return}
+    it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
   camOpen:el=>camOpen(el.dataset.k),
   rmFoto:el=>{const it=st.R.itens[el.dataset.k];it.thumb=it.full=null;repaint(el.dataset.k);saveDraft()},
   submitRonda
 });
 RH.ON_CHANGE.push(async el=>{
+  if(el.dataset.tv!=null){
+    const k=el.dataset.k,it=st.R.itens[k],raw=el.value.trim();
+    if(raw!==''&&RH.numTemp(raw)==null){toast('Digite apenas números (ex.: 22,5).','bad');it.tv='';el.value=''}
+    else it.tv=raw===''?'':String(RH.numTemp(raw));
+    aplicaTemp(k);repaint(k);saveDraft();return true}
   if(el.dataset.nc){
     const it=st.R.itens[el.dataset.k],f=el.dataset.nc;it[f]=el.value;
     if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
@@ -2408,7 +2547,7 @@ function openRonda(id){
     comOc.push(`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">${esc(r.salaNome)} <small>${esc(r.setor||'')} · ${pc(r.pct)}</small> ${RH.local.badge(r.presenca)}</h4>
     ${Object.values(g).map(x=>`<div style="margin-top:10px">${x.n===r.salaNome?'':`<b>${esc(x.n)}</b>`}<div style="margin-top:4px">${x.l.map(i=>itemOc(r,i)).join('')}</div></div>`).join('')}</div>`)});
   /* fotos obrigatórias dos itens de Temperatura (conformes; as das NCs já aparecem acima) */
-  const fotosT=e.docs.flatMap(r=>(r.itens||[]).filter(i=>i.r==='C'&&(i.thumb||i.fotoId)).map(i=>`<figure style="margin:0;max-width:160px"><img class="big-img" ${i.fotoId?`data-foto="${esc(i.fotoId)}"`:''} src="${i.thumb?esc(i.thumb):''}" alt="Foto de ${esc(i.n)}" style="width:160px;height:120px;object-fit:cover;border-radius:8px"><figcaption><small><b>${esc(i.n)}</b><br>${esc(i.t)}${i.ideal?`<br>Ideal: ${esc(i.ideal)}`:''}${!i.fotoId&&i.thumb?`<br><i>original removida (+${RH.FOTOS_DIAS} dias)</i>`:''}</small></figcaption></figure>`));
+  const fotosT=e.docs.flatMap(r=>(r.itens||[]).filter(i=>i.r==='C'&&(i.thumb||i.fotoId)).map(i=>`<figure style="margin:0;max-width:160px"><img class="big-img" ${i.fotoId?`data-foto="${esc(i.fotoId)}"`:''} src="${i.thumb?esc(i.thumb):''}" alt="Foto de ${esc(i.n)}" style="width:160px;height:120px;object-fit:cover;border-radius:8px"><figcaption><small><b>${esc(i.n)}</b><br>${esc(i.t)}${i.tv!=null?`<br>Medida: <b>${String(i.tv).replace('.',',')} °C</b>`:''}${i.ideal?`<br>Ideal: ${esc(i.ideal)}`:''}${!i.fotoId&&i.thumb?`<br><i>original removida (+${RH.FOTOS_DIAS} dias)</i>`:''}</small></figcaption></figure>`));
   const blocoFotos=fotosT.length?`<div><h4 style="font-size:15px;border-bottom:2px solid var(--brand);padding-bottom:4px">Fotos de temperatura (salas e equipamentos)</h4><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">${fotosT.join('')}</div></div>`:'';
   const porSala=(comOc.length?comOc.join(''):'<div class="empty"><b>Nenhuma não conformidade ou item inacessível</b>Todos os itens desta ronda estavam conformes.</div>');
   const obs=e.docs.map(r=>r.obs).find(Boolean),nNC=ncsDa(e).length;
@@ -2608,11 +2747,13 @@ RH.pages.cadastros=()=>{
   if(!tabs.includes(st.cadTab))st.cadTab='modelos';
   let body='';
   if(st.cadTab==='hospital'){
+    setTimeout(()=>RH.armCard&&RH.armCard(),0);
     const demo=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs'].reduce((n,c)=>n+S[c].filter(x=>x.demo).length,0);
     body=`<form id="f-cfg" class="card" style="max-width:560px;display:grid;gap:14px"><h3>Dados do hospital</h3><label class="field"><span>Nome do hospital</span><input type="text" name="hospital" value="${esc(S.cfg.hospital||'')}" required></label>
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
     ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
     <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    <div class="card" id="arm-card" style="max-width:560px;margin-top:14px"><h3>Armazenamento do banco</h3><p style="margin:0;color:var(--ink2)">Calculando…</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Dados de exemplo</h3><p style="margin:0 0 12px;color:var(--ink2)">${demo?`Há ${demo} registros de exemplo no sistema. Remova-os antes de começar a usar de verdade.`:'Carregue salas, equipamentos, checklists, rondas e 4 semanas de execuções fictícias para conhecer o painel.'}</p>
     <div class="prog-seed" id="seed-prog" hidden><i></i></div>
@@ -3017,6 +3158,33 @@ RH.ON_SUBMIT['f-ent']=saveEnt;
 RH.ON_SUBMIT['f-cfg']=async f=>{
   const ok=await RH.safe(async()=>{await RH.put('config','main',{...S.cfg,hospital:f.hospital.value.trim(),meta:+f.meta.value||95,valLocal:f.valLocal.value,valBssid:f.valBssid.value});return true});
   if(ok){toast('Dados salvos.');st.screen='';RH.renderRoot()}};
+
+/* ---------- armazenamento do banco (estimativa + calibração) ---------- */
+RH.armCard=async()=>{
+  const el=document.getElementById('arm-card');if(!el)return;
+  let a;try{a=await RH.armazenamento()}catch(e){el.innerHTML='<h3>Armazenamento do banco</h3><p class="err">Não foi possível calcular agora.</p>';return}
+  if(!document.getElementById('arm-card'))return;
+  const mb=RH.fmtMB,cor=a.nivel==='critico'?'var(--bad)':a.nivel==='atencao'?'var(--warn)':'var(--good)';
+  const ritmo=a.fotosDia>0?`${mb(a.fotosDia)} foto${a.fotosDia===1?'':'s'}/dia (média dos últimos 14 dias) ≈ ${mb(a.porDiaMB)} MB/dia`:'Sem fotos novas nos últimos 14 dias';
+  const prev=a.estavel?`Com a limpeza automática de ${RH.FOTOS_DIAS} dias, o uso tende a <b>estabilizar em cerca de ${mb(a.estavelMB)} MB</b>, abaixo do limite.`
+    :(a.diasRest!=null?`No ritmo atual, o limite seria atingido em cerca de <b>${a.diasRest} dias</b>; mesmo com a limpeza, o uso tende a chegar a ~${mb(a.estavelMB)} MB. Considere reduzir as fotos ou ampliar o plano.`:'');
+  el.innerHTML=`<h3>Armazenamento do banco</h3>
+  <div class="arm-bar" role="img" aria-label="Uso estimado ${Math.round(a.pct)}%"><i style="width:${Math.min(100,a.pct)}%;background:${cor}"></i></div>
+  <p style="margin:8px 0 0"><b>~${mb(a.usadoMB)} MB de ${mb(a.limiteMB)} MB</b> (${Math.round(a.pct)}%) · ${a.fotos.toLocaleString('pt-BR')} fotos completas guardadas</p>
+  <p style="margin:4px 0 0;color:var(--ink2)">${ritmo}</p>${prev?`<p style="margin:6px 0 0">${prev}</p>`:''}
+  <p style="margin:10px 0 0;color:var(--ink2);font-size:13px">É uma <b>estimativa</b>. Para deixá-la fiel, copie o tamanho real do banco no Supabase (Reports → Database, ou a consulta <code>select pg_size_pretty(pg_database_size(current_database()))</code>) e calibre abaixo.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:10px">
+    <label class="field" style="margin:0"><span>Limite do plano (MB)</span><input type="number" id="arm-lim" min="50" step="50" value="${a.limiteMB}" style="width:130px"></label>
+    <label class="field" style="margin:0"><span>Tamanho real agora (MB)</span><input type="text" inputmode="decimal" id="arm-real" placeholder="ex.: 180" style="width:130px"></label>
+    <button type="button" class="btn sm" data-act="armSalvar">Salvar</button></div>`};
+Object.assign(RH.ACT,{
+  armVer:()=>{st.cadTab='hospital';RH.go('cadastros')},
+  armSalvar:async()=>{
+    const lim=+document.getElementById('arm-lim')?.value,real=RH.numTemp(document.getElementById('arm-real')?.value);
+    const cfg={...S.cfg};if(lim>=50)cfg.dbLimiteMB=lim;
+    if(real!=null&&real>0){const a=await RH.armazenamento();cfg.dbExtraMB=Math.max(0,Math.round((real-a.brutoMB)*10)/10)}
+    const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
+    if(ok){toast('Armazenamento atualizado.');RH.armCard()}}});
 })();
 
 </script>

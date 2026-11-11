@@ -181,9 +181,9 @@ async function escanear(titulo){
 
 /* ---------- check-in de um bloco da ronda ---------- */
 /* lê o código e, logo em seguida, a antena Wi-Fi; devolve o registro (ok ou rejeitado) ou null se cancelado */
-async function checkin(bl){
+async function checkin(bl,lidoPronto){
   const alvo=alvoDoBloco(bl);if(!alvo)return null;
-  const lido=await escanear('Leia o código de barras: '+alvo.nome);
+  const lido=lidoPronto!=null?lidoPronto:await escanear('Leia o código de barras: '+alvo.nome);
   if(lido==null)return null;
   const bssid=await lerBssid(),r=validar({alvo,lido,bssid,pol:politica()});
   return {ts:Date.now(),ok:r.ok,codigo:r.codigo,rede:r.rede,msg:r.msg,lido:String(lido).slice(0,80),bssid:bssid.valor||''}}
@@ -254,7 +254,9 @@ function gerarCodigo(prefixo,extra){
   let c;do{const b=crypto.getRandomValues(new Uint8Array(6));c=`RH-${prefixo}-`+[...b].map(x=>A[x%A.length]).join('')}while(usados.has(c));
   return c}
 
-RH.local={normCodigo,normBssid,parseBssids,bssidConfere,politica,alvoDoBloco,validar,lerBssid,escanear,checkin,registrar,estado,pendencias,dependentes,evidencia,badge,validaCadastro,gerarCodigo,
+/* acha a sala ou o equipamento dono de um código lido: {tipo:'s'|'e', id, nome} ou null */
+const acharPorCodigo=lido=>{const c=normCodigo(lido);return c&&alvos().find(a=>normCodigo(a.codigoLocal)===c)||null};
+RH.local={acharPorCodigo,normCodigo,normBssid,parseBssids,bssidConfere,politica,alvoDoBloco,validar,lerBssid,escanear,checkin,registrar,estado,pendencias,dependentes,evidencia,badge,validaCadastro,gerarCodigo,
   /* ganchos opcionais: RH.local.leitor = async titulo => texto ; RH.local.provedorBssid = async () => 'aa:bb:..' | {valor,motivo} */
   leitor:null,provedorBssid:null};
 if(typeof module!=='undefined'&&module.exports)module.exports=RH.local;

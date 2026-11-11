@@ -716,3 +716,25 @@ img.big-img{cursor:zoom-in}
   .nc .meta{grid-column:auto;margin-top:0;flex-direction:column;gap:2px;font-size:12.5px}
   .nc .right{min-width:112px}
 }
+
+/* temperatura medida na ronda */
+.tempin{margin:8px 0 2px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.tempin label{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:600}
+.tempin .tin{display:inline-flex;align-items:center;gap:6px}
+.tempin input{width:110px;font-size:18px;font-weight:700;text-align:center}
+.tempin small{color:var(--ink2);font-size:13px}
+.tempin.dentro{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 9%,var(--surface))}.tempin.dentro small{color:var(--ok);font-weight:700}
+.tempin.fora{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--surface))}.tempin.fora small{color:var(--bad);font-weight:700}
+
+/* ronda: ações do topo, próximo pendente e destaque ao navegar */
+.top-act{display:flex;gap:8px;flex-wrap:wrap}
+.rhead .btn[hidden]{display:none}
+#btn-prox .l-short{display:none}
+@media (max-width:700px){#btn-prox .l-full{display:none}#btn-prox .l-short{display:inline}}
+@keyframes flashbg{0%{box-shadow:0 0 0 3px var(--brand)}100%{box-shadow:0 0 0 3px transparent}}
+.it.flash,.bl.flash{animation:flashbg 1.6s ease-out}
+
+/* armazenamento do banco */
+.arm-bar{height:12px;background:var(--grid);border-radius:99px;overflow:hidden}.arm-bar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.arm-banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--surface));font-size:14px}
+.arm-banner.critico{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--surface))}

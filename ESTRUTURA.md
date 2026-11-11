@@ -105,3 +105,9 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 2. Envie para `main` (git push). O site publica sozinho, e o GitHub Actions recusa a publicação se as versões estiverem desencontradas.
 3. Para o .apk: crie a release com a tag `v1.0.5` (Releases → Draft a new release). O .apk usa o mesmo número.
 `node tools/atualizar-versao.js --verificar` confere se tudo está igual. Nunca edite a versão à mão.
+
+## Temperatura medida, QR e armazenamento (v1.0.5)
+- **Temperatura medida:** itens de "Temperatura" pedem a leitura em °C (obrigatória quando há faixa ideal). Fora da faixa vira NC automaticamente (tipo cujo nome contém "Temperatura", se existir); dentro da faixa, conforme. A leitura (`tv`) é gravada no item da ronda e aparece no histórico.
+- **Ronda por QR:** em Nova ronda, "Ler QR do local" abre a ronda a que a sala/equipamento pertence e confirma a presença; dentro da ronda, "Ler QR do local" rola até o local. Usa os códigos de Cadastros → Imprimir etiquetas.
+- **Progresso:** barra fixa no topo com "x de y itens · %" e botão "Próximo pendente".
+- **Armazenamento:** Cadastros → Hospital mostra a estimativa de uso do banco (limite padrão 500 MB; calibre com o tamanho real do Supabase); o painel avisa o administrador a partir de 70%.

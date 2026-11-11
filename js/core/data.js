@@ -90,5 +90,41 @@ async function limparFotos(forcar){
   finally{limpando=false}
   return n}
 RH.limparFotos=limparFotos;
+
+/* ---------- estimativa de uso do banco ----------
+   O app não consegue ler o tamanho real do banco (Supabase). Estima: texto de todos os registros (inclui as miniaturas)
+   + fotos completas × tamanho médio. O administrador pode CALIBRAR com o número real mostrado no Supabase
+   (guarda a diferença como "extra": índices, tabelas do sistema etc.). */
+RH.FOTO_KB=135;   /* foto reduzida (~100 KB) em base64 + custo do registro */
+async function armazenamento(){
+  const limite=+S.cfg.dbLimiteMB||500,extra=Math.max(0,+S.cfg.dbExtraMB||0);
+  const col=async n=>{try{return (await st.db.collection(n).get()).docs.map(d=>d.data())}catch(e){return S[n]||[]}};
+  const [rondas,ncs]=await Promise.all([col('rondas'),col('ncs')]);
+  const outros=Object.keys(S).filter(k=>Array.isArray(S[k])&&k!=='rondas'&&k!=='ncs'&&k!=='fotos');
+  let bytes=JSON.stringify(rondas).length+JSON.stringify(ncs).length;outros.forEach(k=>{bytes+=JSON.stringify(S[k]).length});
+  const ids=new Set(),dia=Date.now()-14*864e5,idsRec=new Set();
+  rondas.forEach(r=>(r.itens||[]).forEach(i=>{if(i.fotoId){ids.add(i.fotoId);if(r.ts>=dia)idsRec.add(i.fotoId)}}));
+  ncs.forEach(n=>{if(n.fotoId){ids.add(n.fotoId);if(n.ts>=dia)idsRec.add(n.fotoId)}});
+  const fotoMB=RH.FOTO_KB/1024,docsMB=bytes/1048576;
+  const bruto=docsMB+ids.size*fotoMB,usado=bruto+extra,fotosDia=idsRec.size/14;
+  const porDia=fotosDia*fotoMB,restante=limite-usado;
+  /* com a limpeza (fotos completas some após N dias), o consumo diário de fotos para de crescer */
+  const estavel=usado-ids.size*fotoMB+fotosDia*RH.FOTOS_DIAS*fotoMB;
+  const pct=Math.min(999,usado/limite*100);
+  return{usadoMB:usado,limiteMB:limite,pct,fotos:ids.size,fotosDia,porDiaMB:porDia,
+    diasRest:porDia>0?Math.max(0,Math.floor(restante/porDia)):null,estavelMB:estavel,
+    estavel:estavel<limite*0.9,extraMB:extra,brutoMB:bruto,
+    nivel:pct>=90?'critico':pct>=70?'atencao':'ok'}}
+RH.armazenamento=armazenamento;
+const mb=n=>n>=100?Math.round(n).toLocaleString('pt-BR'):n.toLocaleString('pt-BR',{maximumFractionDigits:1});
+RH.fmtMB=mb;
+/* aviso no painel (somente administrador) */
+RH.armAviso=async()=>{
+  const el=document.getElementById('arm-aviso');if(!el||!st.me||st.me.role!=='admin')return;
+  let a;try{a=await armazenamento()}catch(e){return}
+  if(a.nivel==='ok'||!document.getElementById('arm-aviso'))return;
+  const prazo=a.diasRest!=null&&!a.estavel?` No ritmo atual (${mb(a.fotosDia)} fotos/dia), restam cerca de <b>${a.diasRest} dias</b>.`:'';
+  document.getElementById('arm-aviso').innerHTML=`<div class="arm-banner ${a.nivel}" role="alert"><div><b>${a.nivel==='critico'?'Armazenamento quase cheio':'Armazenamento do banco em atenção'}: ~${mb(a.usadoMB)} de ${mb(a.limiteMB)} MB (${Math.round(a.pct)}%).</b>${prazo}</div><button class="btn sm" data-act="armVer">Ver detalhes</button></div>`};
+
 setInterval(()=>{if(!document.hidden)limparFotos()},36e5);
 })();

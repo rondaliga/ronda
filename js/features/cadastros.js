@@ -81,11 +81,13 @@ RH.pages.cadastros=()=>{
   if(!tabs.includes(st.cadTab))st.cadTab='modelos';
   let body='';
   if(st.cadTab==='hospital'){
+    setTimeout(()=>RH.armCard&&RH.armCard(),0);
     const demo=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs'].reduce((n,c)=>n+S[c].filter(x=>x.demo).length,0);
     body=`<form id="f-cfg" class="card" style="max-width:560px;display:grid;gap:14px"><h3>Dados do hospital</h3><label class="field"><span>Nome do hospital</span><input type="text" name="hospital" value="${esc(S.cfg.hospital||'')}" required></label>
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
     ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
     <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    <div class="card" id="arm-card" style="max-width:560px;margin-top:14px"><h3>Armazenamento do banco</h3><p style="margin:0;color:var(--ink2)">Calculando…</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Dados de exemplo</h3><p style="margin:0 0 12px;color:var(--ink2)">${demo?`Há ${demo} registros de exemplo no sistema. Remova-os antes de começar a usar de verdade.`:'Carregue salas, equipamentos, checklists, rondas e 4 semanas de execuções fictícias para conhecer o painel.'}</p>
     <div class="prog-seed" id="seed-prog" hidden><i></i></div>
@@ -490,4 +492,31 @@ RH.ON_SUBMIT['f-ent']=saveEnt;
 RH.ON_SUBMIT['f-cfg']=async f=>{
   const ok=await RH.safe(async()=>{await RH.put('config','main',{...S.cfg,hospital:f.hospital.value.trim(),meta:+f.meta.value||95,valLocal:f.valLocal.value,valBssid:f.valBssid.value});return true});
   if(ok){toast('Dados salvos.');st.screen='';RH.renderRoot()}};
+
+/* ---------- armazenamento do banco (estimativa + calibração) ---------- */
+RH.armCard=async()=>{
+  const el=document.getElementById('arm-card');if(!el)return;
+  let a;try{a=await RH.armazenamento()}catch(e){el.innerHTML='<h3>Armazenamento do banco</h3><p class="err">Não foi possível calcular agora.</p>';return}
+  if(!document.getElementById('arm-card'))return;
+  const mb=RH.fmtMB,cor=a.nivel==='critico'?'var(--bad)':a.nivel==='atencao'?'var(--warn)':'var(--good)';
+  const ritmo=a.fotosDia>0?`${mb(a.fotosDia)} foto${a.fotosDia===1?'':'s'}/dia (média dos últimos 14 dias) ≈ ${mb(a.porDiaMB)} MB/dia`:'Sem fotos novas nos últimos 14 dias';
+  const prev=a.estavel?`Com a limpeza automática de ${RH.FOTOS_DIAS} dias, o uso tende a <b>estabilizar em cerca de ${mb(a.estavelMB)} MB</b>, abaixo do limite.`
+    :(a.diasRest!=null?`No ritmo atual, o limite seria atingido em cerca de <b>${a.diasRest} dias</b>; mesmo com a limpeza, o uso tende a chegar a ~${mb(a.estavelMB)} MB. Considere reduzir as fotos ou ampliar o plano.`:'');
+  el.innerHTML=`<h3>Armazenamento do banco</h3>
+  <div class="arm-bar" role="img" aria-label="Uso estimado ${Math.round(a.pct)}%"><i style="width:${Math.min(100,a.pct)}%;background:${cor}"></i></div>
+  <p style="margin:8px 0 0"><b>~${mb(a.usadoMB)} MB de ${mb(a.limiteMB)} MB</b> (${Math.round(a.pct)}%) · ${a.fotos.toLocaleString('pt-BR')} fotos completas guardadas</p>
+  <p style="margin:4px 0 0;color:var(--ink2)">${ritmo}</p>${prev?`<p style="margin:6px 0 0">${prev}</p>`:''}
+  <p style="margin:10px 0 0;color:var(--ink2);font-size:13px">É uma <b>estimativa</b>. Para deixá-la fiel, copie o tamanho real do banco no Supabase (Reports → Database, ou a consulta <code>select pg_size_pretty(pg_database_size(current_database()))</code>) e calibre abaixo.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:10px">
+    <label class="field" style="margin:0"><span>Limite do plano (MB)</span><input type="number" id="arm-lim" min="50" step="50" value="${a.limiteMB}" style="width:130px"></label>
+    <label class="field" style="margin:0"><span>Tamanho real agora (MB)</span><input type="text" inputmode="decimal" id="arm-real" placeholder="ex.: 180" style="width:130px"></label>
+    <button type="button" class="btn sm" data-act="armSalvar">Salvar</button></div>`};
+Object.assign(RH.ACT,{
+  armVer:()=>{st.cadTab='hospital';RH.go('cadastros')},
+  armSalvar:async()=>{
+    const lim=+document.getElementById('arm-lim')?.value,real=RH.numTemp(document.getElementById('arm-real')?.value);
+    const cfg={...S.cfg};if(lim>=50)cfg.dbLimiteMB=lim;
+    if(real!=null&&real>0){const a=await RH.armazenamento();cfg.dbExtraMB=Math.max(0,Math.round((real-a.brutoMB)*10)/10)}
+    const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
+    if(ok){toast('Armazenamento atualizado.');RH.armCard()}}});
 })();

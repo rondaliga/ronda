@@ -44,7 +44,7 @@ RH.pages.ronda=()=>{
   const vazio=!S.modelos.length
     ?empty('Nenhuma ronda cadastrada',st.me.role==='admin'?'Cadastre as rondas em Cadastros → Rondas (nome, salas e responsável).':'Peça ao administrador para cadastrar as rondas.')
     :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os inspetores quando não há responsável. Fale com o administrador.');
-  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar.</p></div></div>
+  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o QR de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler QR do local</button></div>
   ${st.R?`<div class="banner">Há uma ronda em andamento (${esc(st.R.nome)}). <button class="btn sm" data-act="resumeRonda">Continuar ronda</button></div>`:''}
   ${lista.length?`<div class="salas">${lista.map(m=>{
     const l=lastExec(m.id),late=RH.agenda.atrasada(m,l?l.ts:null),salas=RH.salasDaRonda(m),setores=[...new Set([...salas.map(s=>s.setor||'Sem setor'),...RH.equipsDaRonda(m).map(e=>RH.setorEq(e)||'Sem setor')])].sort((a,b)=>a.localeCompare(b)),prox=RH.agenda.proximo(m,Date.now());
@@ -103,12 +103,12 @@ function itensDe(blocos){
    Ao recarregar, fechar a aba ou voltar à tela, ela é restaurada; é apagada ao finalizar ou descartar. */
 const DRAFT_PREFIX='rh_ronda_draft:';
 const draftKey=()=>st.me?DRAFT_PREFIX+st.me.id:null;
-const CAMPOS=['r','tipoId','sev','desc','just','thumb','full'];
+const CAMPOS=['r','tipoId','sev','desc','just','thumb','full','tv','auto','autoDesc'];
 function gravar(k,R,nivel){
   /* nivel 0 = tudo; 1 = sem a foto grande; 2 = sem nenhuma foto (se o armazenamento estiver cheio) */
   const itens={};
   Object.entries(R.itens).forEach(([ik,it])=>{
-    if(!(it.r||it.desc||it.just||it.tipoId))return;
+    if(!(it.r||it.desc||it.just||it.tipoId||it.tv))return;
     const o={};CAMPOS.forEach(c=>{if(it[c]&&!(c==='full'&&nivel>=1)&&!(c==='thumb'&&nivel>=2))o[c]=it[c]});itens[ik]=o});
   localStorage.setItem(k,JSON.stringify({v:1,uid:st.me.id,modeloId:R.modeloId,nome:R.nome,resp:R.resp,obs:R.obs||'',started:R.started,sub:R.sub||null,foco:R.foco||null,chk:R.chk||{},itens,savedAt:Date.now()}))}
 let draftT;
@@ -143,6 +143,36 @@ document.addEventListener('click',e=>{const f=e.target.closest&&e.target.closest
 addEventListener('pagehide',saveDraft);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveDraft()});
 
+/* ---------- temperatura medida x faixa ideal ----------
+   Itens de "Temperatura" com faixa ideal cadastrada pedem a leitura (°C). Fora da faixa → vira não conformidade
+   automaticamente (tipo "Temperatura", se existir, e descrição preenchida); dentro da faixa → conforme. */
+const temFaixa=it=>RH.ehTemp(it.t)&&(it.tmin!=null||it.tmax!=null);
+const tempVal=it=>RH.numTemp(it.tv);
+const tempSit=it=>{const v=tempVal(it);if(v==null||!temFaixa(it))return null;if(it.tmin!=null&&v<it.tmin)return 'baixa';if(it.tmax!=null&&v>it.tmax)return 'alta';return 'ok'};
+const fmtT=n=>String(n).replace('.',',')+' °C';
+function aplicaTemp(k){
+  const it=st.R.itens[k];if(it.r==='IN')return;
+  const sit=tempSit(it),v=tempVal(it);
+  if(sit==='baixa'||sit==='alta'){
+    if(it.r==='NC'&&!it.auto)return;                          /* NC marcada à mão: respeita */
+    const desvio=sit==='baixa'?it.tmin-v:v-it.tmax,txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
+    const t=S.tiposNC.find(x=>/temperatura/i.test(x.nome||''));
+    it.r='NC';it.auto=true;
+    if(!it.tipoId&&t)it.tipoId=t.id;
+    it.sev=Math.max(desvio>=5?3:2,(t&&it.tipoId===t.id&&+t.sev)||0);
+    if(!it.desc||it.desc===it.autoDesc)it.desc=txt;
+    it.autoDesc=txt;
+  }else if(it.auto&&it.r==='NC'){                              /* voltou para a faixa (ou leitura apagada): desfaz o que foi automático */
+    if(it.desc===it.autoDesc)it.desc='';
+    it.r=sit==='ok'?'C':'';it.auto=false;it.autoDesc='';it.tipoId='';it.sev=0;
+  }else if(sit==='ok'&&!it.r)it.r='C';
+}
+function tempBox(it,k){
+  if(!RH.ehTemp(it.t)||it.r==='IN')return '';
+  const sit=tempSit(it),faixa=temFaixa(it);
+  const msg=sit==='ok'?'✓ Dentro da faixa ideal':sit==='baixa'?`⚠ Abaixo da faixa ideal (mín. ${fmtT(it.tmin)}) — registrada como não conformidade`:sit==='alta'?`⚠ Acima da faixa ideal (máx. ${fmtT(it.tmax)}) — registrada como não conformidade`:faixa?'Informe a temperatura lida no visor (obrigatório)':'Opcional: registre a temperatura lida';
+  return `<div class="tempin${sit&&sit!=='ok'?' fora':sit==='ok'?' dentro':''}"><label><span>Temperatura medida</span><span class="tin"><input type="text" inputmode="decimal" autocomplete="off" data-tv data-k="${k}" value="${esc(it.tv??'')}" placeholder="ex.: 22,5" aria-label="Temperatura medida em graus Celsius"><b>°C</b></span></label><small>${msg}</small></div>`}
+
 /* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
 const fotoObrig=it=>!!it&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
 const alvoNome=it=>it.a==='e'?'equipamento':'sala';
@@ -154,6 +184,7 @@ function itemHtml(k){
   return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}${RH.ehTemp(it.t)&&RH.fmtIdeal(it.tmin,it.tmax)?`<small class="ideal">Temperatura ideal: <b>${RH.fmtIdeal(it.tmin,it.tmax)}</b></small>`:''}</div>
   <div class="seg" role="group" aria-label="Resultado">${[['C','Conforme','c'],['NC','Não conforme','n'],['IN','Inacessível','a']].map(([v,l,c])=>`<button type="button" class="${c}" data-act="res" data-k="${k}" data-r="${v}" aria-pressed="${it.r===v}">${l}</button>`).join('')}</div></div>
   ${RH.avisoBox(it.av)}
+  ${tempBox(it,k)}
   ${nc?`<div class="ncp"><label class="field"><span>Tipo de não conformidade</span><select data-nc="tipoId" data-k="${k}"><option value="">Selecione…</option>${S.tiposNC.map(t=>`<option value="${t.id}" ${it.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select data-nc="sev" data-k="${k}">${[1,2,3,4].map(s=>`<option value="${s}" ${(it.sev||2)==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   ${tipo&&tipo.orient?`<div class="full">${RH.orientBox(tipo.orient)}</div>`:''}
@@ -198,8 +229,8 @@ function rondaForm(){
   const hasItems=Object.keys(R.itens).length>0;
   const nSalas=blocos.filter(b=>b.tipo==='sala').length,nEq=blocos.reduce((n,b)=>n+(b.eqIds?b.eqIds.length:0),0);
   return `<div class="top"><div><h1>${esc(R.nome)}</h1><p>${nSalas} sala${nSalas===1?'':'s'} · ${nEq} equipamento${nEq===1?'':'s'} · Início às ${hora(R.started)} · Responsável: ${R.resp?esc(userName(R.resp)):'todos os inspetores'} · Inspetor: ${esc(st.me.nome)}</p></div>
-  <button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div>
-  <div class="rhead"><div class="prog"><b id="prog-t"></b><div class="bar"><i id="prog-b" style="width:0"></i></div></div><button class="btn pri" data-act="submitRonda" id="btn-sub">${ic('check',16)} Finalizar ronda</button></div>
+  <div class="top-act"><button class="btn" data-act="qrIr">${ic('cam',16)} Ler QR do local</button><button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div></div>
+  <div class="rhead"><div class="prog"><b id="prog-t"></b><div class="bar"><i id="prog-b" style="width:0"></i></div></div><button class="btn" data-act="proxPend" id="btn-prox" title="Ir ao próximo item sem resposta"><span class="l-full">Próximo pendente</span><span class="l-short">Próx.</span> ↓</button><button class="btn pri" data-act="submitRonda" id="btn-sub">${ic('check',16)} Finalizar</button></div>
   ${hasItems?blocos.map(blocoHtml).join(''):empty('Esta ronda não tem itens de checklist','Vincule checklists às salas e aos equipamentos em Cadastros.')}
   <div class="card"><label class="field"><span>Observações gerais da ronda (opcional)</span><textarea id="r-obs" data-robs>${esc(R.obs)}</textarea></label></div>`;
 }
@@ -207,7 +238,9 @@ RH.rondaForm=rondaForm;
 
 function progress(){
   const v=Object.values(st.R.itens),t=v.length,a=v.filter(x=>x.r).length,n=v.filter(x=>x.r==='NC').length;
-  const pt=$('#prog-t');if(!pt)return;pt.textContent=`${a} de ${t} itens respondidos${n?` · ${n} não conformidade${n>1?'s':''}`:''}`;$('#prog-b').style.width=(t?a/t*100:0)+'%'}
+  const pt=$('#prog-t');if(!pt)return;const pctP=t?Math.round(a/t*100):0;
+  pt.textContent=`${a} de ${t} itens · ${pctP}%${n?` · ${n} NC${n>1?'s':''}`:''}`;$('#prog-b').style.width=(t?a/t*100:0)+'%';
+  const bp=$('#btn-prox');if(bp){bp.hidden=a>=t;}}
 RH.rondaProgress=progress;
 function repaint(k){const e=document.getElementById('it-'+k);if(e)e.outerHTML=itemHtml(k);progress()}
 
@@ -221,6 +254,10 @@ async function submitRonda(){
   if(bad.length){bad.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+bad[0][0])?.scrollIntoView({block:'center'});toast('Informe o tipo e a descrição de cada não conformidade.','bad');return}
   const noJust=its.filter(([,i])=>i.r==='IN'&&!(i.just||'').trim());
   if(noJust.length){noJust.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+noJust[0][0])?.scrollIntoView({block:'center'});document.getElementById('ina-'+noJust[0][0])?.focus({preventScroll:true});toast('Descreva o motivo de cada item marcado como Inacessível.','bad');return}
+  const semTemp=its.filter(([,i])=>i.r!=='IN'&&temFaixa(i)&&tempVal(i)==null);
+  if(semTemp.length){semTemp.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.querySelector(`[data-tv][data-k="${semTemp[0][0]}"]`)?.focus();document.getElementById('it-'+semTemp[0][0])?.scrollIntoView({block:'center'});toast(semTemp.length===1?'Informe a temperatura medida no item de Temperatura.':`Informe a temperatura medida em ${semTemp.length} itens de Temperatura.`,'bad');return}
+  const foraC=its.filter(([,i])=>i.r==='C'&&['baixa','alta'].includes(tempSit(i)));
+  if(foraC.length){foraC.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+foraC[0][0])?.scrollIntoView({block:'center'});toast('Há temperatura fora da faixa ideal marcada como conforme. Registre como não conforme ou corrija a leitura.','bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
   if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
@@ -242,7 +279,7 @@ async function submitRonda(){
       const presenca=RH.local.evidencia(R,bl);
       for(const [k,i] of mine)if(fotoObrig(i)&&i.full){const fid=mk('f:'+k,'f');await RH.put('fotos',fid,{data:i.full})}
       await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
-        pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.map(([k,i])=>({a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})}))});
+        pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.map(([k,i])=>({a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(RH.ehTemp(i.t)&&tempVal(i)!=null?{tv:tempVal(i)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})}))});
       for(const [k,i] of mine.filter(([,i])=>i.r==='NC')){
         const tipo=byId(S.tiposNC,i.tipoId),eq=i.a==='e'?byId(S.equipamentos,i.i):null;let fotoId=null;
         if(i.full){fotoId=mk('f:'+k,'f');await RH.put('fotos',fotoId,{data:i.full})}
@@ -285,9 +322,44 @@ async function camOpen(k,facing){
 }
 addEventListener('pagehide',camClose);
 
+/* ---------- ronda por QR Code ---------- */
+/* localiza o bloco do código lido, confirma a presença com esse mesmo código e rola até ele */
+async function irParaLocal(lido){
+  const a=RH.local.acharPorCodigo(lido);
+  if(!a){toast('Este código não pertence a nenhuma sala ou equipamento cadastrado.','bad');return}
+  const bid=a.tipo==='s'?a.id:'eq:'+a.id,bl=st.R&&st.R.blocos.find(b=>b.id===bid);
+  if(!bl){toast(`"${a.nome}" não faz parte desta ronda.`,'bad');return}
+  const e=RH.local.estado(st.R,bl);
+  if(e.ativo&&!e.semCodigo&&!e.ok&&!e.dependente){
+    const reg=await RH.local.checkin(bl,lido);
+    if(reg&&st.R){RH.local.registrar(st.R,bl.id,reg);saveDraft();if(!reg.ok)toast(reg.msg,'bad');repaintBloco(bl.id)}}
+  const el=document.getElementById('bl-'+bid);
+  if(el){el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1800);toast(`Local: ${a.nome}`)}}
+
 /* ---------- eventos ---------- */
 Object.assign(RH.ACT,{
   pickRonda:el=>startRonda(el.dataset.id),
+  proxPend:()=>{
+    const R=st.R;if(!R)return;
+    const pend=Object.keys(R.itens).filter(k=>!R.itens[k].r);
+    if(!pend.length){toast('Todos os itens foram respondidos. Revise e finalize a ronda.');document.getElementById('btn-sub')?.focus();return}
+    const hd=(document.querySelector('.rhead')?.getBoundingClientRect().bottom||0)+8;
+    const abaixo=pend.find(k=>{const e=document.getElementById('it-'+k);return e&&e.getBoundingClientRect().top>hd+4});
+    const k=abaixo||pend[0],e=document.getElementById('it-'+k);
+    if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
+  qrIr:async()=>{                                   /* dentro da ronda: lê o QR de um local e vai até ele (confirmando a presença) */
+    if(!st.R)return;
+    const lido=await RH.local.escanear('Leia o QR do local');if(lido==null||!st.R)return;
+    await irParaLocal(lido)},
+  qrIniciar:async()=>{                              /* na lista: lê o QR e abre a ronda a que o local pertence */
+    const lido=await RH.local.escanear('Leia o QR da sala ou do equipamento');if(lido==null)return;
+    const a=RH.local.acharPorCodigo(lido);
+    if(!a){toast('Este código não pertence a nenhuma sala ou equipamento cadastrado.','bad');return}
+    const m=RH.rondaDoItem(a.tipo+':'+a.id);
+    if(!m||!RH.access.rondaVisivel(m,st.me)){toast(`"${a.nome}" não faz parte de nenhuma ronda disponível para você.`,'bad');return}
+    if(st.R&&st.R.modeloId!==m.id){toast(`Há uma ronda em andamento (${st.R.nome}). Finalize ou descarte antes de iniciar "${m.nome}".`,'bad');return}
+    if(!st.R)startRonda(m.id);else RH.renderView(true);
+    await irParaLocal(lido)},
   resumeRonda:()=>RH.renderView(true),
   cancelRonda:()=>{if(RH.confirmArm(RH.ACT.cancelRonda,'Toque de novo para descartar a ronda')){RH.rondaDraft.clear();st.R=null;RH.renderView(true)}},
   chkScan:async el=>{
@@ -299,12 +371,18 @@ Object.assign(RH.ACT,{
     repaintBloco(bl.id);RH.local.dependentes(st.R,bl.id).forEach(b=>repaintBloco(b.id))},
   res:el=>{const it=st.R.itens[el.dataset.k];
     {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código de barras do local antes de responder o checklist.','bad');return}}
-    it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
+    if(el.dataset.r==='C'&&['baixa','alta'].includes(tempSit(it))){toast('A temperatura medida está fora da faixa ideal: registre como não conforme ou corrija a leitura.','bad');return}
+    it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
   camOpen:el=>camOpen(el.dataset.k),
   rmFoto:el=>{const it=st.R.itens[el.dataset.k];it.thumb=it.full=null;repaint(el.dataset.k);saveDraft()},
   submitRonda
 });
 RH.ON_CHANGE.push(async el=>{
+  if(el.dataset.tv!=null){
+    const k=el.dataset.k,it=st.R.itens[k],raw=el.value.trim();
+    if(raw!==''&&RH.numTemp(raw)==null){toast('Digite apenas números (ex.: 22,5).','bad');it.tv='';el.value=''}
+    else it.tv=raw===''?'':String(RH.numTemp(raw));
+    aplicaTemp(k);repaint(k);saveDraft();return true}
   if(el.dataset.nc){
     const it=st.R.itens[el.dataset.k],f=el.dataset.nc;it[f]=el.value;
     if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
