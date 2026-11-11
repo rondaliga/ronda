@@ -6,7 +6,7 @@ Tudo abaixo é **gratuito**: sem Play Store, sem App Store e sem conta de desenv
 
 ## Caminho mais fácil: o GitHub gera os aplicativos para você
 1. Envie esta pasta inteira para o seu repositório no GitHub (público ou privado).
-2. Abra a aba *Actions → "Gerar aplicativos" → Run workflow**. Em cerca de 10 minutos aparecem os arquivos em *Artifacts* (e em **Releases**, se você criar uma tag como `v1.0.2`):
+2. Abra a aba **Actions → "Gerar aplicativos" → Run workflow**. Em cerca de 10 minutos aparecem os arquivos em *Artifacts* (e em **Releases**, se você criar uma tag como `v1.0.2`):
    - `ronda-hospitalar.apk` — Android
    - `Ronda Hospitalar-….dmg` (e `.zip`) — macOS (Intel e Apple Silicon)
 
