@@ -14,7 +14,7 @@ function lista(){
   const l=filtrar();if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
   return `<div class="ncs">${l.slice(0,150).map(n=>{const late=n.status!=='resolvida'&&n.prazo&&n.prazo<Date.now();
     return `<button class="nc s${n.sev}" data-act="ncOpen" data-id="${n.id}">${n.thumb?`<img class="thumb" src="${n.thumb}" alt="">`:`<div class="thumb">${ic('alert',20)}</div>`}
-    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(userName(n.resp))}</span>${n.status!=='resolvida'&&n.prazo?`<span style="${late?'color:var(--bad);font-weight:600':''}">Prazo ${fd(n.prazo)}${late?' (vencido)':''}</span>`:''}</div></div>
+    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(userName(n.resp))}</span>${n.status!=='resolvida'&&n.prazo?`<span style="${late?'color:var(--bad);font-weight:600':''}">Prazo ${fd(n.prazo)}${late?' (vencido)':''}</span>`:''}</div>
     <div class="right">${sevPill(n.sev)}${stPill(n.status)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
 RH.ncList=lista;
 
@@ -22,8 +22,8 @@ RH.pages.ncs=()=>{
   const setores=[...new Set(S.ncs.map(n=>n.setor).filter(Boolean))].sort();
   const opened=S.ncs.filter(n=>n.status!=='resolvida').length;
   return `<div class="top"><div><h1>Não conformidades</h1><p>${opened} em aberto · ${S.ncs.length} registradas</p></div></div>
-  <div class="filters" style="margin-bottom:14px"><div class="chips" role="group" aria-label="Situação">${[['abertas','Não resolvidas'],['aberta','Abertas'],['tratamento','Em tratamento'],['resolvida','Resolvidas'],['todas','Todas']].map(([v,l])=>`<button class="chip" data-act="ncStatus" data-v="${v}" aria-pressed="${NF.status===v}">${l}</button>`).join('')}</div></div>
-  <div class="filters" style="margin-bottom:14px"><label class="field"><span>Severidade</span><select data-set="NF:sev"><option value="">Todas</option>${[4,3,2,1].map(s=>`<option value="${s}" ${NF.sev==s?'selected':''}>${SEV[s]}</option>`).join('')}</select></label>
+  <div class="filters" style="margin-bottom:14px"><div class="chips" role="group" aria-label="Situação">${[['abertas','Não resolvidas'],['aberta','Abertas'],['tratamento','Em tratamento'],['resolvida','Resolvidas'],['todas','Todas']].map(([v,l])=>`<button class="chip" data-act="ncStatus" data-v="${v}" aria-pressed="${NF.status===v}">${l}</button>`).join('')}</div><button type="button" class="btn sm nf-toggle" data-act="ncFiltros" aria-expanded="${!!NF.mais}">${ic('set',16)} Filtros${[NF.sev,NF.setor,NF.q.trim()].filter(Boolean).length?` (${[NF.sev,NF.setor,NF.q.trim()].filter(Boolean).length})`:''}</button></div>
+  <div class="filters nf-extra${NF.mais?' open':''}" style="margin-bottom:14px"><label class="field"><span>Severidade</span><select data-set="NF:sev"><option value="">Todas</option>${[4,3,2,1].map(s=>`<option value="${s}" ${NF.sev==s?'selected':''}>${SEV[s]}</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="NF:setor"><option value="">Todos</option>${setores.map(s=>`<option ${NF.setor===s?'selected':''}>${esc(s)}</option>`).join('')}</select></label>
   <label class="field" style="flex:1;min-width:200px"><span>Buscar</span><input type="text" id="nc-q" data-set="NF:q" data-live="nc" value="${esc(NF.q)}" placeholder="Sala, equipamento, ronda, descrição…"></label></div>
   <div id="nc-list">${lista()}</div>`;
@@ -71,6 +71,7 @@ async function delNC(el){
 
 Object.assign(RH.ACT,{
   ncOpen:el=>openNC(el.dataset.id),
+  ncFiltros:()=>{NF.mais=!NF.mais;RH.renderView()},
   ncStatus:el=>{NF.status=el.dataset.v;RH.renderView()},
   delNC:el=>delNC(el)
 });

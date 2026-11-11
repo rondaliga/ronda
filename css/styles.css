@@ -693,3 +693,26 @@ img.big-img{cursor:zoom-in}
   .tw-hist td:nth-child(5)::before,.tw-hist td:nth-child(6)::before{display:inline;color:inherit;font-size:inherit;font-weight:400;text-transform:none;letter-spacing:0;margin-right:4px}
   .tw-hist td:nth-child(5)::before{content:"Itens:"}.tw-hist td:nth-child(6)::before{content:"NCs:"}
 }
+
+/* Não conformidades no celular: situação em uma linha rolável; severidade, setor e busca atrás do botão Filtros */
+.nf-toggle{display:none}
+@media (max-width:700px){
+  .nf-toggle{display:inline-flex;align-items:center;gap:6px;flex:none}
+  .filters:has(.nf-toggle){flex-wrap:nowrap;gap:8px;align-items:center}
+  .filters:has(.nf-toggle) .chips{flex:1 1 auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .filters:has(.nf-toggle) .chips::-webkit-scrollbar{display:none}
+  .filters:has(.nf-toggle) .chip{flex:none;white-space:nowrap}
+  .nf-extra{display:none!important}.nf-extra.open{display:flex!important}
+}
+
+/* variação dos indicadores */
+.kpi .dl{display:block;margin-top:6px;font-size:12px;font-weight:700}
+.kpi .dl.up{color:var(--ok)}.kpi .dl.dn{color:var(--bad)}.kpi .dl.eq{color:var(--muted);font-weight:500}
+
+/* Não conformidades: texto | local e data | responsável e prazo | selos (colunas no computador) */
+.nc .meta{grid-column:2;margin-top:-8px}
+@media (min-width:901px){
+  .nc{grid-template-columns:auto minmax(0,1.5fr) minmax(230px,1fr) auto;align-items:center;gap:16px}
+  .nc .meta{grid-column:auto;margin-top:0;flex-direction:column;gap:2px;font-size:12.5px}
+  .nc .right{min-width:112px}
+}

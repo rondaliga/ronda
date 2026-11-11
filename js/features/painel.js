@@ -29,6 +29,11 @@ RH.pages.painel=()=>{
   const abertas=S.ncs.filter(n=>n.status!=='resolvida'&&okSet(n)), graves=abertas.filter(n=>n.sev>=3);
   const rz=ns.filter(n=>n.status==='resolvida'&&n.resolvidoEm), tmr=rz.length?rz.reduce((a,n)=>a+(n.resolvidoEm-n.ts),0)/rz.length/36e5:null;
   const nExec=new Set(rs.map(r=>r.execId||r.id)).size;
+  /* período anterior (mesma duração) para as setas de variação */
+  const ini0=start-days*864e5, rs0=S.rondas.filter(r=>r.ts>=ini0&&r.ts<start&&okSet(r));
+  let C0=0,N0=0;rs0.forEach(r=>{C0+=r.c;N0+=r.nc});
+  const pct0=C0+N0?C0/(C0+N0)*100:null, nExec0=new Set(rs0.map(r=>r.execId||r.id)).size;
+  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">= igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
 
   /* salas inspecionadas no período */
   const salas=S.salas.filter(s=>s.ativo!==false&&(!F.setor||s.setor===F.setor));
@@ -50,15 +55,15 @@ RH.pages.painel=()=>{
   const stCol={aberta:'var(--s3)',tratamento:'var(--s1)',resolvida:'var(--good)'};
   const porSala=salas.map(s=>{let c=0,n=0;rs.filter(r=>r.salaId===s.id).forEach(r=>{c+=r.c;n+=r.nc});return {s,p:c+n?c/(c+n)*100:null}}).sort((a,b)=>(a.p??101)-(b.p??101));
   const rec=S.ncs.filter(okSet).slice(0,6);
-  const tile=(l,v,sub,cls='')=>`<div class="kpi"><label>${l}</label><strong class="${cls}">${v}</strong><small>${sub}</small></div>`;
+  const tile=(l,v,sub,cls='',extra='')=>`<div class="kpi"><label>${l}</label><strong class="${cls}">${v}</strong><small>${sub}</small>${extra}</div>`;
 
   return `<div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="F:periodo" data-num="1">${[7,30,90].map(d=>`<option value="${d}" ${d===days?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
   <div class="tools"><button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
   <section class="kpis" aria-label="Indicadores">
-  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc')}
-  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`)}
+  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true))}
+  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true))}
   ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'')}
   ${tile('Tempo médio de resolução',dur(tmr),`${rz.length} NC${rz.length===1?'':'s'} resolvida${rz.length===1?'':'s'}`)}
   ${tile('Cobertura de salas',pc(cob),`${salas.filter(s=>insp.has(s.id)).length} de ${salas.length} salas inspecionadas`)}
