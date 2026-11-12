@@ -756,6 +756,40 @@ img.big-img{cursor:zoom-in}
 .arm-banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--surface));font-size:14px}
 .arm-banner.critico{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--surface))}
 
+/* ===== v1.0.6: tabela de NCs (desktop), minigráficos e esqueletos ===== */
+.nct-wrap{display:none}
+@media (min-width:901px){
+  .nct-wrap{display:block;background:var(--surface);border:1px solid var(--line);border-radius:var(--r,12px);overflow:auto}
+  .ncs.ncs-mob{display:none}
+}
+.nct{width:100%;border-collapse:collapse;font-size:14px}
+.nct th{position:sticky;top:0;background:var(--surface);text-align:left;font-size:12px;color:var(--ink2);font-weight:600;border-bottom:1px solid var(--line);padding:0;white-space:nowrap}
+.nct th .sort{all:unset;box-sizing:border-box;display:flex;gap:6px;align-items:center;padding:10px 12px;cursor:pointer;width:100%}
+.nct th .sort:hover,.nct th .sort.on{color:var(--ink)}
+.nct th .sort:focus-visible{outline:2px solid var(--brand,#0b6bcb);outline-offset:-2px}
+.nct th .sort i{font-style:normal;font-size:10px;opacity:.55} .nct th .sort.on i{opacity:1}
+.nct th:not(:has(.sort)){padding:10px 12px}
+.nct td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.nct tbody tr{cursor:pointer} .nct tbody tr:hover{background:var(--bg2,rgba(127,127,127,.08))}
+.nct tbody tr:focus-visible{outline:2px solid var(--brand,#0b6bcb);outline-offset:-2px}
+.nct tbody tr:last-child td{border-bottom:0}
+.nct td small{display:block;color:var(--muted);font-size:12px}
+.nct td.late{color:var(--bad);font-weight:600} .nct td.late small{color:var(--bad)}
+.nct td.dsc{max-width:210px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi .spark{display:block;width:100%;height:28px;margin-top:8px}
+.sk{display:block;border-radius:8px;background:linear-gradient(90deg,var(--line) 25%,rgba(127,127,127,.12) 50%,var(--line) 75%);background-size:200% 100%;animation:sk 1.3s ease-in-out infinite}
+@keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
+.sk-app{display:flex;min-height:100vh;background:var(--bg)}
+.sk-side{width:220px;padding:20px 16px;display:flex;flex-direction:column;gap:14px;border-right:1px solid var(--line)}
+.sk-logo{height:40px;width:70%} .sk-l{height:22px}
+.sk-main{flex:1;padding:24px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.sk-h{height:34px;width:min(320px,70%)}
+.sk-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.sk-kpis .sk{height:104px;border-radius:12px} .sk-chart{height:240px;border-radius:12px}
+.sk-foto{height:200px;width:100%}
+@media (max-width:900px){.sk-side{display:none}.sk-main{padding:16px}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+
 </style>
 </head>
 <body>
@@ -1075,8 +1109,8 @@ RH.execs=list=>{
 </script>
 <script>
 /* Versão do aplicativo — NÃO edite à mão: use  node tools/atualizar-versao.js 1.0.5  (atualiza todos os lugares). */
-RH.VERSAO='1.0.5';
-RH.VERSAO_DATA='2026-11-11';
+RH.VERSAO='1.0.7';
+RH.VERSAO_DATA='2026-11-12';
 
 </script>
 <script>
@@ -1239,7 +1273,7 @@ const REGRAS=[
  [['calibra'],
   'Retirar o equipamento de uso, sinalizar como "calibração vencida", agendar a calibração com a engenharia clínica e registrar.'],
  [['manutenc','preventiva'],
-  'Sinalizar o equipamento, agendar a manutenção com a engenharia clínica e registrar o chamado e o prazo.'],
+  'Sinalizar o equipamento, agendar a manutenção com a engenharia clínica e registrar o chamado.'],
  [['equipamento','aparelho','falha','defeito','quebrad','avaria','danific','nao liga','monitor','ventilador','bomba','desfibrilador'],
   'Retirar o equipamento de uso, sinalizar como "em manutenção", acionar a engenharia clínica e registrar o chamado.'],
  [['alarme'],
@@ -2028,6 +2062,13 @@ RH.pages.painel=()=>{
   const ser=[];for(let i=0;i<days;i++){ser.push({t:start+i*864e5,c:0,n:0,r:0})}
   rs.forEach(r=>{const i=Math.min(days-1,Math.floor((sod(r.ts)-start)/864e5));if(ser[i]){ser[i].c+=r.c;ser[i].n+=r.nc;ser[i].r++}});
   cache={ser,meta};
+  const nd=ser.map(()=>0);ns.forEach(n=>{const i=Math.min(days-1,Math.max(0,Math.floor((sod(n.ts)-start)/864e5)));nd[i]++});
+  /* minigráfico: linha simples dos valores diários (null = dia sem dados, fica como lacuna) */
+  const spark=(vals,cor)=>{const pts=vals.map((v,i)=>v==null?null:[i,v]).filter(Boolean);if(pts.length<2)return '';
+    const W=120,H=28,mx=Math.max(...pts.map(p=>p[1])),mn=Math.min(...pts.map(p=>p[1])),sp=mx-mn||1,x=i=>2+i*(W-4)/Math.max(1,vals.length-1),y=v=>H-3-(v-mn)/sp*(H-6);
+    let d='',prev=-9;pts.forEach(([i,v])=>{d+=(i-prev===1?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);prev=i});
+    const l=pts[pts.length-1];return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="${d}" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="${x(l[0]).toFixed(1)}" cy="${y(l[1]).toFixed(1)}" r="2.2" fill="${cor}"/></svg>`};
+  const spC=spark(ser.map(d=>d.c+d.n?d.c/(d.c+d.n)*100:null),'var(--brand,#0b6bcb)'),spR=spark(ser.map(d=>d.r),'var(--brand,#0b6bcb)'),spN=spark(nd,'var(--s3,#d97706)');
   const cnt=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x);if(k)m[k]=(m[k]||0)+1});return Object.entries(m).map(([l,v])=>({l,v})).sort((a,b)=>b.v-a.v)};
   const porSetor=cnt(ns,n=>n.setor), porEq=cnt(ns.filter(n=>n.eqNome),n=>n.eqNome+(n.salaNome?' · '+n.salaNome:'')).slice(0,6), porTipo=cnt(ns,n=>n.tipoNome).slice(0,6);
   const sevRows=[4,3,2,1].map(s=>({l:SEV[s],v:ns.filter(n=>n.sev===s).length,c:`var(--s${s})`}));
@@ -2043,9 +2084,9 @@ RH.pages.painel=()=>{
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
   <div class="tools"><button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
   <section class="kpis" aria-label="Indicadores">
-  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true))}
-  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true))}
-  ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'')}
+  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true)+spC)}
+  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
+  ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
   ${tile('Tempo médio de resolução',dur(tmr),`${rz.length} NC${rz.length===1?'':'s'} resolvida${rz.length===1?'':'s'}`)}
   ${tile('Cobertura de salas',pc(cob),`${salas.filter(s=>insp.has(s.id)).length} de ${salas.length} salas inspecionadas`)}
   ${tile('Rondas em atraso',atraso.length,atraso.length?'Veja a lista abaixo':'Todas dentro da agenda',atraso.length?'badc':'good')}
@@ -2393,7 +2434,7 @@ async function submitRonda(){
         if(i.full){fotoId=mk('f:'+k,'f');await RH.put('fotos',fotoId,{data:i.full})}
         const sev=+i.sev||tipo?.sev||2;
         await RH.put('ncs',mk('n:'+k,'n'),{ts,rondaId:rid,execId,modeloId:R.modeloId,modeloNome:R.nome,salaId:sala?sala.id:null,salaNome,setor,eqId:eq?.id||null,eqNome:eq?.nome||'',itemTexto:i.t,
-          tipoId:i.tipoId,tipoNome:tipo?.nome||'',orient:tipo?.orient||'',sev,desc:i.desc.trim(),thumb:i.thumb||null,fotoId,status:'aberta',resp:respSetor||null,prazo:ts+([0,14,7,3,1][sev])*864e5,inspNome:st.me.nome});
+          tipoId:i.tipoId,tipoNome:tipo?.nome||'',orient:tipo?.orient||'',sev,desc:i.desc.trim(),thumb:i.thumb||null,fotoId,status:'aberta',resp:respSetor||null,inspNome:st.me.nome});
         totNC++;
       }
     }return true});
@@ -2589,7 +2630,7 @@ RH.ACT.printRonda=imprimir;
 </script>
 <script>
 /* ==========================================================================
-   Não conformidades: lista com filtros, tratamento (situação, responsável, prazo,
+   Não conformidades: lista com filtros, tratamento (situação, responsável,
    ação corretiva) e exclusão (administrador e gestor, com confirmação).
    ========================================================================== */
 (()=>{
@@ -2600,13 +2641,25 @@ function filtrar(){
   const q=NF.q.trim().toLowerCase();
   return S.ncs.filter(n=>(NF.status==='todas'||(NF.status==='abertas'?n.status!=='resolvida':n.status===NF.status))&&(!NF.sev||n.sev==NF.sev)&&(!NF.setor||n.setor===NF.setor)&&(!q||[n.desc,n.salaNome,n.eqNome,n.tipoNome,n.itemTexto,n.modeloNome].join(' ').toLowerCase().includes(q)))}
 
-function lista(){
-  const l=filtrar();if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
-  return `<div class="ncs">${l.slice(0,150).map(n=>{const late=n.status!=='resolvida'&&n.prazo&&n.prazo<Date.now();
+/* ordenação da tabela (desktop): clique no título da coluna; clicar de novo inverte */
+const COLS=[['sev','Severidade',n=>n.sev||0],['local','Local',n=>((n.eqNome||n.salaNome||'')+' '+(n.setor||'')).toLowerCase()],['tipo','Tipo',n=>(n.tipoNome||'').toLowerCase()],['sit','Situação',n=>({aberta:0,tratamento:1,resolvida:2})[n.status]??9]];
+function ordenar(l){
+  const o=NF.ord;if(!o)return l;const c=COLS.find(x=>x[0]===o.k);if(!c)return l;const f=c[2],dir=o.dir==='desc'?-1:1;
+  return l.map((n,i)=>[n,i]).sort((a,b)=>{const x=f(a[0]),y=f(b[0]);
+    if(x==null&&y==null)return a[1]-b[1];if(x==null)return 1;if(y==null)return -1;   /* sem valor vai sempre ao fim */
+    return (x<y?-1:x>y?1:0)*dir||a[1]-b[1]}).map(x=>x[0])}
+function tabela(l){
+  const o=NF.ord||{};
+  const th=([k,t])=>`<th scope="col" aria-sort="${o.k===k?(o.dir==='desc'?'descending':'ascending'):'none'}"><button type="button" class="sort${o.k===k?' on':''}" data-act="ncOrd" data-k="${k}">${t}<i aria-hidden="true">${o.k===k?(o.dir==='desc'?'▼':'▲'):'↕'}</i></button></th>`;
+  return `<div class="nct-wrap"><table class="nct"><thead><tr>${COLS.slice(0,1).map(th).join('')}${COLS.slice(1,3).map(th).join('')}<th scope="col">Descrição</th>${COLS.slice(3).map(th).join('')}<th scope="col">Responsável</th></tr></thead><tbody>${l.slice(0,150).map(n=>{
+    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+function lista(tab){
+  const l=ordenar(filtrar());if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
+  return (tab?tabela(l):'')+`<div class="ncs${tab?' ncs-mob':''}">${l.slice(0,150).map(n=>{
     return `<button class="nc s${n.sev}" data-act="ncOpen" data-id="${n.id}">${n.thumb?`<img class="thumb" src="${n.thumb}" alt="">`:`<div class="thumb">${ic('alert',20)}</div>`}
-    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(userName(n.resp))}</span>${n.status!=='resolvida'&&n.prazo?`<span style="${late?'color:var(--bad);font-weight:600':''}">Prazo ${fd(n.prazo)}${late?' (vencido)':''}</span>`:''}</div>
+    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(n.resp?userName(n.resp):'Todos')}</span></div>
     <div class="right">${sevPill(n.sev)}${stPill(n.status)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
-RH.ncList=lista;
+RH.ncList=()=>lista(false);
 
 RH.pages.ncs=()=>{
   const setores=[...new Set(S.ncs.map(n=>n.setor).filter(Boolean))].sort();
@@ -2616,7 +2669,7 @@ RH.pages.ncs=()=>{
   <div class="filters nf-extra${NF.mais?' open':''}" style="margin-bottom:14px"><label class="field"><span>Severidade</span><select data-set="NF:sev"><option value="">Todas</option>${[4,3,2,1].map(s=>`<option value="${s}" ${NF.sev==s?'selected':''}>${SEV[s]}</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="NF:setor"><option value="">Todos</option>${setores.map(s=>`<option ${NF.setor===s?'selected':''}>${esc(s)}</option>`).join('')}</select></label>
   <label class="field" style="flex:1;min-width:200px"><span>Buscar</span><input type="text" id="nc-q" data-set="NF:q" data-live="nc" value="${esc(NF.q)}" placeholder="Sala, equipamento, ronda, descrição…"></label></div>
-  <div id="nc-list">${lista()}</div>`;
+  <div id="nc-list">${lista(true)}</div>`;
 };
 
 function openNC(id){
@@ -2626,12 +2679,11 @@ function openNC(id){
   const orient=n.orient||byId(S.tiposNC,n.tipoId)?.orient||'';
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
   <form id="f-nc" data-id="${n.id}"><div class="mb">
-  ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<small>Carregando foto…</small>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
+  ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<i class="sk sk-foto" role="status" aria-label="Carregando foto"></i>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
   ${RH.orientBox(orient)}
   <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
   <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>
-  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">—</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
-  <label class="field"><span>Prazo</span><input type="date" name="prazo" value="${n.prazo?RH.ymd(n.prazo):''}" ${edit?'':'disabled'}></label>
+  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">Todos</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select name="sev" ${edit?'':'disabled'}>${[1,2,3,4].map(s=>`<option value="${s}" ${n.sev==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   <label class="field full"><span>Ação corretiva / resolução</span><textarea name="resolucao" ${edit?'':'disabled'} placeholder="O que foi feito para corrigir?">${esc(n.resolucao||'')}</textarea></label></div>
   ${n.resolvidoEm?`<small>Resolvida em ${fdt(n.resolvidoEm)}</small>`:''}<div class="err" id="nc-err" role="alert"></div></div>
@@ -2642,7 +2694,7 @@ function openNC(id){
 async function saveNC(f){
   const n=byId(S.ncs,f.dataset.id);if(!n||!RH.access.canEditNC())return;
   const fm=new FormData(f),situ=fm.get('status');
-  const d={status:situ,resp:fm.get('resp')||null,sev:+fm.get('sev'),resolucao:(fm.get('resolucao')||'').trim(),prazo:fm.get('prazo')?new Date(fm.get('prazo')+'T12:00:00').getTime():null};
+  const d={status:situ,resp:fm.get('resp')||null,sev:+fm.get('sev'),resolucao:(fm.get('resolucao')||'').trim()};
   if(situ==='resolvida'&&!n.resolvidoEm)d.resolvidoEm=Date.now();
   if(situ!=='resolvida'&&n.resolvidoEm)d.resolvidoEm=null;
   if(situ==='resolvida'&&!d.resolucao){toast('Descreva a ação corretiva para marcar como resolvida.','bad');return}
@@ -2661,12 +2713,14 @@ async function delNC(el){
 
 Object.assign(RH.ACT,{
   ncOpen:el=>openNC(el.dataset.id),
+  ncOrd:el=>{const k=el.dataset.k,o=NF.ord;const d0=k==='sev'?'desc':'asc';NF.ord=!o||o.k!==k?{k,dir:d0}:o.dir===d0?{k,dir:d0==='asc'?'desc':'asc'}:null;$('#nc-list').innerHTML=lista(true)},
   ncFiltros:()=>{NF.mais=!NF.mais;RH.renderView()},
   ncStatus:el=>{NF.status=el.dataset.v;RH.renderView()},
   delNC:el=>delNC(el)
 });
-RH.ON_INPUT.push(el=>{if(el.dataset.live==='nc'){NF.q=el.value;$('#nc-list').innerHTML=lista();return true}return false});
+RH.ON_INPUT.push(el=>{if(el.dataset.live==='nc'){NF.q=el.value;$('#nc-list').innerHTML=lista(true);return true}return false});
 RH.ON_SUBMIT['f-nc']=saveNC;
+addEventListener('keydown',e=>{const tr=e.target.closest&&e.target.closest('tr.s1,tr.s2,tr.s3,tr.s4,tr[data-act="ncOpen"]');if(tr&&(e.key==='Enter'||e.key===' ')&&e.target===tr){e.preventDefault();openNC(tr.dataset.id)}});
 })();
 
 </script>
@@ -2732,7 +2786,7 @@ const ENT={
    {k:'orient',l:'Orientação / ação esperada',t:'textarea',full:1,sugerir:1,hint:'Sugerida automaticamente a partir do nome (você pode editar). Aparece como alerta para o inspetor ao registrar este tipo de não conformidade durante a ronda.'}]},
  users:{col:'users',nome:'Responsáveis e usuários',um:'usuário',
   cols:[['Nome',u=>`<b>${esc(u.nome)}</b><small>${esc(u.cargo||'')}</small>`],['Usuário',u=>`<span class="mono">${esc(u.login||'—')}</span>`],['Perfil',u=>ROLE[u.role]||'—'],['Acesso',u=>u.hash?actPill(u):'<span class="pill off">Sem senha</span>']],
-  fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
+  fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'email',l:'E-mail (para avisos)',t:'email',hint:'Opcional. Recebe os avisos de não conformidade grave e de ronda atrasada, se os avisos por e-mail estiverem ligados.'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
    {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: tudo. Gestor: painel, histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
   canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir. Ou apenas desative o usuário.':''))}
 };
@@ -2754,12 +2808,13 @@ RH.pages.cadastros=()=>{
   if(!tabs.includes(st.cadTab))st.cadTab='modelos';
   let body='';
   if(st.cadTab==='hospital'){
-    setTimeout(()=>RH.armCard&&RH.armCard(),0);
+    setTimeout(()=>{RH.armCard&&RH.armCard();RH.avisosCard&&RH.avisosCard()},0);
     const demo=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs'].reduce((n,c)=>n+S[c].filter(x=>x.demo).length,0);
     body=`<form id="f-cfg" class="card" style="max-width:560px;display:grid;gap:14px"><h3>Dados do hospital</h3><label class="field"><span>Nome do hospital</span><input type="text" name="hospital" value="${esc(S.cfg.hospital||'')}" required></label>
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
     ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
     <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    <div class="card" id="avisos-card" style="max-width:560px;margin-top:14px"><h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Carregando…</p></div>
     <div class="card" id="arm-card" style="max-width:560px;margin-top:14px"><h3>Armazenamento do banco</h3><p style="margin:0;color:var(--ink2)">Calculando…</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Dados de exemplo</h3><p style="margin:0 0 12px;color:var(--ink2)">${demo?`Há ${demo} registros de exemplo no sistema. Remova-os antes de começar a usar de verdade.`:'Carregue salas, equipamentos, checklists, rondas e 4 semanas de execuções fictícias para conhecer o painel.'}</p>
@@ -3184,6 +3239,30 @@ RH.armCard=async()=>{
     <label class="field" style="margin:0"><span>Limite do plano (MB)</span><input type="number" id="arm-lim" min="50" step="50" value="${a.limiteMB}" style="width:130px"></label>
     <label class="field" style="margin:0"><span>Tamanho real agora (MB)</span><input type="text" inputmode="decimal" id="arm-real" placeholder="ex.: 180" style="width:130px"></label>
     <button type="button" class="btn sm" data-act="armSalvar">Salvar</button></div>`};
+/* ---------- avisos por e-mail (configuração; o envio é feito por tools/avisos-email.mjs no GitHub Actions) ---------- */
+RH.avisosCard=async()=>{
+  const el=document.getElementById('avisos-card');if(!el)return;
+  if(RH.store.mode!=='remote'){el.innerHTML='<h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Disponível apenas com o banco compartilhado (os avisos são enviados por um serviço fora do aparelho).</p>';return}
+  const A=S.cfg.avisos||{},sevMin=+A.sevMin||3;
+  let e=null;try{const sn=await st.db.doc('avisos/estado').get();e=sn.exists?sn.data():null}catch(x){}
+  if(!document.getElementById('avisos-card'))return;
+  const falta=S.users.filter(u=>u.ativo!==false&&(u.role==='admin'||S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id))&&!(u.email||'').trim());
+  const quando=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const stat=!e?'<span class="pill off">Serviço ainda não executou</span> Configure o envio no GitHub (veja o guia) e rode o teste.'
+    :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
+  el.innerHTML=`<h3>Avisos por e-mail</h3>
+  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade grave</b> ou uma <b>ronda atrasada</b>. A checagem ocorre a cada ~15 minutos.</p>
+  <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
+  <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
+  <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
+  <p style="margin:10px 0 0">${stat}</p>
+  ${falta.length?`<p style="margin:8px 0 0;color:var(--warn)"><b>Sem e-mail cadastrado:</b> ${falta.map(u=>esc(u.nome)).join(', ')}. Edite o usuário em Responsáveis e usuários.</p>`:''}
+  <div style="margin-top:10px"><button type="button" class="btn sm" data-act="avisosSalvar">Salvar avisos</button></div>`};
+Object.assign(RH.ACT,{
+  avisosSalvar:async()=>{
+    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked}};
+    const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
+    if(ok){toast('Avisos salvos.');RH.avisosCard()}}});
 Object.assign(RH.ACT,{
   armVer:()=>{st.cadTab='hospital';RH.go('cadastros')},
   armSalvar:async()=>{
@@ -3252,7 +3331,7 @@ RH.seedDemo=async barId=>{
         const tp=T.find(t=>t[0]===ti),sev=Math.max(1,Math.min(4,tp[2]+(rnd()<.2?-1:rnd()<.15?1:0)));
         const r=rnd(),age=d,st=age>10?(r<.86?'resolvida':r<.95?'tratamento':'aberta'):age>3?(r<.45?'resolvida':r<.75?'tratamento':'aberta'):(r<.1?'resolvida':r<.4?'tratamento':'aberta');
         const desc={t1:'Superfície com resíduos e limpeza fora do padrão.',t2:'Equipamento apresentou falha durante a verificação.',t3:'Etiqueta de manutenção vencida ou ausente.',t4:'Item com validade expirada encontrado no ponto de uso.',t5:'Temperatura registrada fora da faixa preconizada.',t6:'Alarme sem resposta no teste de funcionamento.',t7:'Rota ou sinalização com obstrução parcial.',t8:'EPI indisponível no ponto de uso.',t9:'Registro do turno incompleto ou sem assinatura.'}[ti];
-        D('ncs','demo_n'+sid+'_'+d+'_'+j,{ts,rondaId:rid,execId,modeloId:'demo_'+mid,modeloNome:mnome,salaId:'demo_'+sid,salaNome:sn,setor,eqId:x.al.eq?'demo_'+x.al.eq[0]:null,eqNome:x.al.eq?x.al.eq[1]:'',itemTexto:x.t,tipoId:'demo_'+ti,tipoNome:tp[1],sev,desc,thumb:null,fotoId:null,status:st,resp:'demo_'+sresp,prazo:ts+[0,14,7,3,1][sev]*day,inspNome:insp,resolucao:st==='resolvida'?'Ação corretiva executada e conferida pelo responsável.':'',resolvidoEm:st==='resolvida'?ts+(4+Math.floor(rnd()*70))*36e5:null});
+        D('ncs','demo_n'+sid+'_'+d+'_'+j,{ts,rondaId:rid,execId,modeloId:'demo_'+mid,modeloNome:mnome,salaId:'demo_'+sid,salaNome:sn,setor,eqId:x.al.eq?'demo_'+x.al.eq[0]:null,eqNome:x.al.eq?x.al.eq[1]:'',itemTexto:x.t,tipoId:'demo_'+ti,tipoNome:tp[1],sev,desc,thumb:null,fotoId:null,status:st,resp:'demo_'+sresp,inspNome:insp,resolucao:st==='resolvida'?'Ação corretiva executada e conferida pelo responsável.':'',resolvidoEm:st==='resolvida'?ts+(4+Math.floor(rnd()*70))*36e5:null});
       });
     });
   });
@@ -3280,7 +3359,7 @@ const {$,esc,S,st,ic}=RH;
 
 const authSide=()=>`<div class="auth-l"><div class="brand"><div class="logo">${ic('cross',20)}</div><div><b>${esc(S.cfg.hospital||'Ronda Hospitalar')}</b><span>Gestão de rondas hospitalares</span></div></div>
 <div><h2>Rondas de segurança e qualidade assistencial.</h2><p>Registre as rondas, trate as não conformidades e acompanhe os indicadores de cada setor.</p></div>
-<ul><li>${ic('clip')} Rondas com checklists por sala e por equipamento</li><li>${ic('alert')} Não conformidades com foto, severidade e prazo</li><li>${ic('dash')} Painel de indicadores por setor e período</li></ul></div>`;
+<ul><li>${ic('clip')} Rondas com checklists por sala e por equipamento</li><li>${ic('alert')} Não conformidades com foto e severidade</li><li>${ic('dash')} Painel de indicadores por setor e período</li></ul></div>`;
 
 RH.views={
   noaccess(){RH.$('#app').innerHTML=`<div class="auth-r" style="min-height:100%"><div class="auth-card"><h1>Ronda Hospitalar</h1><p>Não foi possível abrir o armazenamento de dados neste aparelho. Feche o aplicativo, abra-o novamente e, se o erro continuar, fale com o administrador.</p></div></div>`},
@@ -3470,7 +3549,7 @@ addEventListener('beforeunload',e=>{if(st.R&&st.draftErr){e.preventDefault();e.r
 
 /* ---------- início ---------- */
 try{const th=localStorage.getItem('rh_theme');if(th)document.documentElement.dataset.theme=th}catch(e){}
-$('#app').innerHTML='<div class="auth-r" style="min-height:100%"><p style="color:var(--muted)">Carregando…</p></div>';
+$('#app').innerHTML='<div class="sk-app" role="status" aria-label="Carregando"><aside class="sk-side"><i class="sk sk-logo"></i><i class="sk sk-l"></i><i class="sk sk-l"></i><i class="sk sk-l"></i><i class="sk sk-l"></i></aside><div class="sk-main"><i class="sk sk-h"></i><div class="sk-kpis"><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i></div><i class="sk sk-chart"></i></div></div>';
 try{st.db=await RH.store.open()}catch(e){console.error(e);st.db=null}
 if(!st.db){st.screen='';RH.renderRoot();return}
 RH.syncAll();

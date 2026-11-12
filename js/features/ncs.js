@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Não conformidades: lista com filtros, tratamento (situação, responsável, prazo,
+   Não conformidades: lista com filtros, tratamento (situação, responsável,
    ação corretiva) e exclusão (administrador e gestor, com confirmação).
    ========================================================================== */
 (()=>{
@@ -10,13 +10,25 @@ function filtrar(){
   const q=NF.q.trim().toLowerCase();
   return S.ncs.filter(n=>(NF.status==='todas'||(NF.status==='abertas'?n.status!=='resolvida':n.status===NF.status))&&(!NF.sev||n.sev==NF.sev)&&(!NF.setor||n.setor===NF.setor)&&(!q||[n.desc,n.salaNome,n.eqNome,n.tipoNome,n.itemTexto,n.modeloNome].join(' ').toLowerCase().includes(q)))}
 
-function lista(){
-  const l=filtrar();if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
-  return `<div class="ncs">${l.slice(0,150).map(n=>{const late=n.status!=='resolvida'&&n.prazo&&n.prazo<Date.now();
+/* ordenação da tabela (desktop): clique no título da coluna; clicar de novo inverte */
+const COLS=[['sev','Severidade',n=>n.sev||0],['local','Local',n=>((n.eqNome||n.salaNome||'')+' '+(n.setor||'')).toLowerCase()],['tipo','Tipo',n=>(n.tipoNome||'').toLowerCase()],['sit','Situação',n=>({aberta:0,tratamento:1,resolvida:2})[n.status]??9]];
+function ordenar(l){
+  const o=NF.ord;if(!o)return l;const c=COLS.find(x=>x[0]===o.k);if(!c)return l;const f=c[2],dir=o.dir==='desc'?-1:1;
+  return l.map((n,i)=>[n,i]).sort((a,b)=>{const x=f(a[0]),y=f(b[0]);
+    if(x==null&&y==null)return a[1]-b[1];if(x==null)return 1;if(y==null)return -1;   /* sem valor vai sempre ao fim */
+    return (x<y?-1:x>y?1:0)*dir||a[1]-b[1]}).map(x=>x[0])}
+function tabela(l){
+  const o=NF.ord||{};
+  const th=([k,t])=>`<th scope="col" aria-sort="${o.k===k?(o.dir==='desc'?'descending':'ascending'):'none'}"><button type="button" class="sort${o.k===k?' on':''}" data-act="ncOrd" data-k="${k}">${t}<i aria-hidden="true">${o.k===k?(o.dir==='desc'?'▼':'▲'):'↕'}</i></button></th>`;
+  return `<div class="nct-wrap"><table class="nct"><thead><tr>${COLS.slice(0,1).map(th).join('')}${COLS.slice(1,3).map(th).join('')}<th scope="col">Descrição</th>${COLS.slice(3).map(th).join('')}<th scope="col">Responsável</th></tr></thead><tbody>${l.slice(0,150).map(n=>{
+    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+function lista(tab){
+  const l=ordenar(filtrar());if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
+  return (tab?tabela(l):'')+`<div class="ncs${tab?' ncs-mob':''}">${l.slice(0,150).map(n=>{
     return `<button class="nc s${n.sev}" data-act="ncOpen" data-id="${n.id}">${n.thumb?`<img class="thumb" src="${n.thumb}" alt="">`:`<div class="thumb">${ic('alert',20)}</div>`}
-    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(userName(n.resp))}</span>${n.status!=='resolvida'&&n.prazo?`<span style="${late?'color:var(--bad);font-weight:600':''}">Prazo ${fd(n.prazo)}${late?' (vencido)':''}</span>`:''}</div>
+    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(n.resp?userName(n.resp):'Todos')}</span></div>
     <div class="right">${sevPill(n.sev)}${stPill(n.status)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
-RH.ncList=lista;
+RH.ncList=()=>lista(false);
 
 RH.pages.ncs=()=>{
   const setores=[...new Set(S.ncs.map(n=>n.setor).filter(Boolean))].sort();
@@ -26,7 +38,7 @@ RH.pages.ncs=()=>{
   <div class="filters nf-extra${NF.mais?' open':''}" style="margin-bottom:14px"><label class="field"><span>Severidade</span><select data-set="NF:sev"><option value="">Todas</option>${[4,3,2,1].map(s=>`<option value="${s}" ${NF.sev==s?'selected':''}>${SEV[s]}</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="NF:setor"><option value="">Todos</option>${setores.map(s=>`<option ${NF.setor===s?'selected':''}>${esc(s)}</option>`).join('')}</select></label>
   <label class="field" style="flex:1;min-width:200px"><span>Buscar</span><input type="text" id="nc-q" data-set="NF:q" data-live="nc" value="${esc(NF.q)}" placeholder="Sala, equipamento, ronda, descrição…"></label></div>
-  <div id="nc-list">${lista()}</div>`;
+  <div id="nc-list">${lista(true)}</div>`;
 };
 
 function openNC(id){
@@ -36,12 +48,11 @@ function openNC(id){
   const orient=n.orient||byId(S.tiposNC,n.tipoId)?.orient||'';
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
   <form id="f-nc" data-id="${n.id}"><div class="mb">
-  ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<small>Carregando foto…</small>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
+  ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<i class="sk sk-foto" role="status" aria-label="Carregando foto"></i>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
   ${RH.orientBox(orient)}
   <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
   <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>
-  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">—</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
-  <label class="field"><span>Prazo</span><input type="date" name="prazo" value="${n.prazo?RH.ymd(n.prazo):''}" ${edit?'':'disabled'}></label>
+  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">Todos</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select name="sev" ${edit?'':'disabled'}>${[1,2,3,4].map(s=>`<option value="${s}" ${n.sev==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   <label class="field full"><span>Ação corretiva / resolução</span><textarea name="resolucao" ${edit?'':'disabled'} placeholder="O que foi feito para corrigir?">${esc(n.resolucao||'')}</textarea></label></div>
   ${n.resolvidoEm?`<small>Resolvida em ${fdt(n.resolvidoEm)}</small>`:''}<div class="err" id="nc-err" role="alert"></div></div>
@@ -52,7 +63,7 @@ function openNC(id){
 async function saveNC(f){
   const n=byId(S.ncs,f.dataset.id);if(!n||!RH.access.canEditNC())return;
   const fm=new FormData(f),situ=fm.get('status');
-  const d={status:situ,resp:fm.get('resp')||null,sev:+fm.get('sev'),resolucao:(fm.get('resolucao')||'').trim(),prazo:fm.get('prazo')?new Date(fm.get('prazo')+'T12:00:00').getTime():null};
+  const d={status:situ,resp:fm.get('resp')||null,sev:+fm.get('sev'),resolucao:(fm.get('resolucao')||'').trim()};
   if(situ==='resolvida'&&!n.resolvidoEm)d.resolvidoEm=Date.now();
   if(situ!=='resolvida'&&n.resolvidoEm)d.resolvidoEm=null;
   if(situ==='resolvida'&&!d.resolucao){toast('Descreva a ação corretiva para marcar como resolvida.','bad');return}
@@ -71,10 +82,12 @@ async function delNC(el){
 
 Object.assign(RH.ACT,{
   ncOpen:el=>openNC(el.dataset.id),
+  ncOrd:el=>{const k=el.dataset.k,o=NF.ord;const d0=k==='sev'?'desc':'asc';NF.ord=!o||o.k!==k?{k,dir:d0}:o.dir===d0?{k,dir:d0==='asc'?'desc':'asc'}:null;$('#nc-list').innerHTML=lista(true)},
   ncFiltros:()=>{NF.mais=!NF.mais;RH.renderView()},
   ncStatus:el=>{NF.status=el.dataset.v;RH.renderView()},
   delNC:el=>delNC(el)
 });
-RH.ON_INPUT.push(el=>{if(el.dataset.live==='nc'){NF.q=el.value;$('#nc-list').innerHTML=lista();return true}return false});
+RH.ON_INPUT.push(el=>{if(el.dataset.live==='nc'){NF.q=el.value;$('#nc-list').innerHTML=lista(true);return true}return false});
 RH.ON_SUBMIT['f-nc']=saveNC;
+addEventListener('keydown',e=>{const tr=e.target.closest&&e.target.closest('tr.s1,tr.s2,tr.s3,tr.s4,tr[data-act="ncOpen"]');if(tr&&(e.key==='Enter'||e.key===' ')&&e.target===tr){e.preventDefault();openNC(tr.dataset.id)}});
 })();

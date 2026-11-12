@@ -97,7 +97,7 @@ addEventListener('beforeunload',e=>{if(st.R&&st.draftErr){e.preventDefault();e.r
 
 /* ---------- início ---------- */
 try{const th=localStorage.getItem('rh_theme');if(th)document.documentElement.dataset.theme=th}catch(e){}
-$('#app').innerHTML='<div class="auth-r" style="min-height:100%"><p style="color:var(--muted)">Carregando…</p></div>';
+$('#app').innerHTML='<div class="sk-app" role="status" aria-label="Carregando"><aside class="sk-side"><i class="sk sk-logo"></i><i class="sk sk-l"></i><i class="sk sk-l"></i><i class="sk sk-l"></i><i class="sk sk-l"></i></aside><div class="sk-main"><i class="sk sk-h"></i><div class="sk-kpis"><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i></div><i class="sk sk-chart"></i></div></div>';
 try{st.db=await RH.store.open()}catch(e){console.error(e);st.db=null}
 if(!st.db){st.screen='';RH.renderRoot();return}
 RH.syncAll();

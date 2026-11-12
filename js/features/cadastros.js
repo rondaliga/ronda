@@ -59,7 +59,7 @@ const ENT={
    {k:'orient',l:'Orientação / ação esperada',t:'textarea',full:1,sugerir:1,hint:'Sugerida automaticamente a partir do nome (você pode editar). Aparece como alerta para o inspetor ao registrar este tipo de não conformidade durante a ronda.'}]},
  users:{col:'users',nome:'Responsáveis e usuários',um:'usuário',
   cols:[['Nome',u=>`<b>${esc(u.nome)}</b><small>${esc(u.cargo||'')}</small>`],['Usuário',u=>`<span class="mono">${esc(u.login||'—')}</span>`],['Perfil',u=>ROLE[u.role]||'—'],['Acesso',u=>u.hash?actPill(u):'<span class="pill off">Sem senha</span>']],
-  fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
+  fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'email',l:'E-mail (para avisos)',t:'email',hint:'Opcional. Recebe os avisos de não conformidade grave e de ronda atrasada, se os avisos por e-mail estiverem ligados.'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
    {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: tudo. Gestor: painel, histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
   canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir. Ou apenas desative o usuário.':''))}
 };
@@ -81,12 +81,13 @@ RH.pages.cadastros=()=>{
   if(!tabs.includes(st.cadTab))st.cadTab='modelos';
   let body='';
   if(st.cadTab==='hospital'){
-    setTimeout(()=>RH.armCard&&RH.armCard(),0);
+    setTimeout(()=>{RH.armCard&&RH.armCard();RH.avisosCard&&RH.avisosCard()},0);
     const demo=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs'].reduce((n,c)=>n+S[c].filter(x=>x.demo).length,0);
     body=`<form id="f-cfg" class="card" style="max-width:560px;display:grid;gap:14px"><h3>Dados do hospital</h3><label class="field"><span>Nome do hospital</span><input type="text" name="hospital" value="${esc(S.cfg.hospital||'')}" required></label>
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
     ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
     <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    <div class="card" id="avisos-card" style="max-width:560px;margin-top:14px"><h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Carregando…</p></div>
     <div class="card" id="arm-card" style="max-width:560px;margin-top:14px"><h3>Armazenamento do banco</h3><p style="margin:0;color:var(--ink2)">Calculando…</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Dados de exemplo</h3><p style="margin:0 0 12px;color:var(--ink2)">${demo?`Há ${demo} registros de exemplo no sistema. Remova-os antes de começar a usar de verdade.`:'Carregue salas, equipamentos, checklists, rondas e 4 semanas de execuções fictícias para conhecer o painel.'}</p>
@@ -511,6 +512,30 @@ RH.armCard=async()=>{
     <label class="field" style="margin:0"><span>Limite do plano (MB)</span><input type="number" id="arm-lim" min="50" step="50" value="${a.limiteMB}" style="width:130px"></label>
     <label class="field" style="margin:0"><span>Tamanho real agora (MB)</span><input type="text" inputmode="decimal" id="arm-real" placeholder="ex.: 180" style="width:130px"></label>
     <button type="button" class="btn sm" data-act="armSalvar">Salvar</button></div>`};
+/* ---------- avisos por e-mail (configuração; o envio é feito por tools/avisos-email.mjs no GitHub Actions) ---------- */
+RH.avisosCard=async()=>{
+  const el=document.getElementById('avisos-card');if(!el)return;
+  if(RH.store.mode!=='remote'){el.innerHTML='<h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Disponível apenas com o banco compartilhado (os avisos são enviados por um serviço fora do aparelho).</p>';return}
+  const A=S.cfg.avisos||{},sevMin=+A.sevMin||3;
+  let e=null;try{const sn=await st.db.doc('avisos/estado').get();e=sn.exists?sn.data():null}catch(x){}
+  if(!document.getElementById('avisos-card'))return;
+  const falta=S.users.filter(u=>u.ativo!==false&&(u.role==='admin'||S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id))&&!(u.email||'').trim());
+  const quando=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const stat=!e?'<span class="pill off">Serviço ainda não executou</span> Configure o envio no GitHub (veja o guia) e rode o teste.'
+    :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
+  el.innerHTML=`<h3>Avisos por e-mail</h3>
+  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade grave</b> ou uma <b>ronda atrasada</b>. A checagem ocorre a cada ~15 minutos.</p>
+  <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
+  <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
+  <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
+  <p style="margin:10px 0 0">${stat}</p>
+  ${falta.length?`<p style="margin:8px 0 0;color:var(--warn)"><b>Sem e-mail cadastrado:</b> ${falta.map(u=>esc(u.nome)).join(', ')}. Edite o usuário em Responsáveis e usuários.</p>`:''}
+  <div style="margin-top:10px"><button type="button" class="btn sm" data-act="avisosSalvar">Salvar avisos</button></div>`};
+Object.assign(RH.ACT,{
+  avisosSalvar:async()=>{
+    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked}};
+    const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
+    if(ok){toast('Avisos salvos.');RH.avisosCard()}}});
 Object.assign(RH.ACT,{
   armVer:()=>{st.cadTab='hospital';RH.go('cadastros')},
   armSalvar:async()=>{

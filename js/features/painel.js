@@ -48,6 +48,13 @@ RH.pages.painel=()=>{
   const ser=[];for(let i=0;i<days;i++){ser.push({t:start+i*864e5,c:0,n:0,r:0})}
   rs.forEach(r=>{const i=Math.min(days-1,Math.floor((sod(r.ts)-start)/864e5));if(ser[i]){ser[i].c+=r.c;ser[i].n+=r.nc;ser[i].r++}});
   cache={ser,meta};
+  const nd=ser.map(()=>0);ns.forEach(n=>{const i=Math.min(days-1,Math.max(0,Math.floor((sod(n.ts)-start)/864e5)));nd[i]++});
+  /* minigráfico: linha simples dos valores diários (null = dia sem dados, fica como lacuna) */
+  const spark=(vals,cor)=>{const pts=vals.map((v,i)=>v==null?null:[i,v]).filter(Boolean);if(pts.length<2)return '';
+    const W=120,H=28,mx=Math.max(...pts.map(p=>p[1])),mn=Math.min(...pts.map(p=>p[1])),sp=mx-mn||1,x=i=>2+i*(W-4)/Math.max(1,vals.length-1),y=v=>H-3-(v-mn)/sp*(H-6);
+    let d='',prev=-9;pts.forEach(([i,v])=>{d+=(i-prev===1?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);prev=i});
+    const l=pts[pts.length-1];return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="${d}" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="${x(l[0]).toFixed(1)}" cy="${y(l[1]).toFixed(1)}" r="2.2" fill="${cor}"/></svg>`};
+  const spC=spark(ser.map(d=>d.c+d.n?d.c/(d.c+d.n)*100:null),'var(--brand,#0b6bcb)'),spR=spark(ser.map(d=>d.r),'var(--brand,#0b6bcb)'),spN=spark(nd,'var(--s3,#d97706)');
   const cnt=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x);if(k)m[k]=(m[k]||0)+1});return Object.entries(m).map(([l,v])=>({l,v})).sort((a,b)=>b.v-a.v)};
   const porSetor=cnt(ns,n=>n.setor), porEq=cnt(ns.filter(n=>n.eqNome),n=>n.eqNome+(n.salaNome?' · '+n.salaNome:'')).slice(0,6), porTipo=cnt(ns,n=>n.tipoNome).slice(0,6);
   const sevRows=[4,3,2,1].map(s=>({l:SEV[s],v:ns.filter(n=>n.sev===s).length,c:`var(--s${s})`}));
@@ -63,9 +70,9 @@ RH.pages.painel=()=>{
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
   <div class="tools"><button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
   <section class="kpis" aria-label="Indicadores">
-  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true))}
-  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true))}
-  ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'')}
+  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true)+spC)}
+  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
+  ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
   ${tile('Tempo médio de resolução',dur(tmr),`${rz.length} NC${rz.length===1?'':'s'} resolvida${rz.length===1?'':'s'}`)}
   ${tile('Cobertura de salas',pc(cob),`${salas.filter(s=>insp.has(s.id)).length} de ${salas.length} salas inspecionadas`)}
   ${tile('Rondas em atraso',atraso.length,atraso.length?'Veja a lista abaixo':'Todas dentro da agenda',atraso.length?'badc':'good')}

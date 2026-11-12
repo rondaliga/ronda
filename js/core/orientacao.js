@@ -20,7 +20,7 @@ const REGRAS=[
  [['calibra'],
   'Retirar o equipamento de uso, sinalizar como "calibração vencida", agendar a calibração com a engenharia clínica e registrar.'],
  [['manutenc','preventiva'],
-  'Sinalizar o equipamento, agendar a manutenção com a engenharia clínica e registrar o chamado e o prazo.'],
+  'Sinalizar o equipamento, agendar a manutenção com a engenharia clínica e registrar o chamado.'],
  [['equipamento','aparelho','falha','defeito','quebrad','avaria','danific','nao liga','monitor','ventilador','bomba','desfibrilador'],
   'Retirar o equipamento de uso, sinalizar como "em manutenção", acionar a engenharia clínica e registrar o chamado.'],
  [['alarme'],

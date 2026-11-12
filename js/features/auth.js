@@ -7,7 +7,7 @@ const {$,esc,S,st,ic}=RH;
 
 const authSide=()=>`<div class="auth-l"><div class="brand"><div class="logo">${ic('cross',20)}</div><div><b>${esc(S.cfg.hospital||'Ronda Hospitalar')}</b><span>Gestão de rondas hospitalares</span></div></div>
 <div><h2>Rondas de segurança e qualidade assistencial.</h2><p>Registre as rondas, trate as não conformidades e acompanhe os indicadores de cada setor.</p></div>
-<ul><li>${ic('clip')} Rondas com checklists por sala e por equipamento</li><li>${ic('alert')} Não conformidades com foto, severidade e prazo</li><li>${ic('dash')} Painel de indicadores por setor e período</li></ul></div>`;
+<ul><li>${ic('clip')} Rondas com checklists por sala e por equipamento</li><li>${ic('alert')} Não conformidades com foto e severidade</li><li>${ic('dash')} Painel de indicadores por setor e período</li></ul></div>`;
 
 RH.views={
   noaccess(){RH.$('#app').innerHTML=`<div class="auth-r" style="min-height:100%"><div class="auth-card"><h1>Ronda Hospitalar</h1><p>Não foi possível abrir o armazenamento de dados neste aparelho. Feche o aplicativo, abra-o novamente e, se o erro continuar, fale com o administrador.</p></div></div>`},

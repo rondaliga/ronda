@@ -111,3 +111,16 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - **Ronda por QR:** em Nova ronda, "Ler QR do local" abre a ronda a que a sala/equipamento pertence e confirma a presença; dentro da ronda, "Ler QR do local" rola até o local. Usa os códigos de Cadastros → Imprimir etiquetas.
 - **Progresso:** barra fixa no topo com "x de y itens · %" e botão "Próximo pendente".
 - **Armazenamento:** Cadastros → Hospital mostra a estimativa de uso do banco (limite padrão 500 MB; calibre com o tamanho real do Supabase); o painel avisa o administrador a partir de 70%.
+
+
+## Avisos por e-mail (v1.0.6; prazos removidos na v1.0.7)
+- `tools/avisos-email.mjs` roda a cada ~15 min no GitHub Actions (`.github/workflows/avisos-email.yml`). Lê o banco só pelas RPCs (`rh_pull`, `rh_get`, `rh_put_many`) com o código de acesso, decide quem avisar e envia por Brevo ou Resend (HTTP). O estado (o que já foi avisado) fica em `avisos/estado`.
+- Avisa: NC aberta com severidade >= configurada (padrão Alta) e ronda atrasada. Um e-mail por pessoa reúne tudo. A 1ª execução só grava a linha de base.
+- Configuração no app: Cadastros → Hospital → "Avisos por e-mail" (`cfg.avisos`) e campo e-mail em cada usuário.
+- Segredos do repositório: `RONDA_CODIGO`, `EMAIL_API_KEY`, `EMAIL_FROM`, opcionais `EMAIL_PROVIDER` (brevo|resend), `EMAIL_FROM_NAME`.
+- Teste: `node tests/avisos_test.mjs` (banco e provedor simulados).
+
+## Lista de NCs, minigráficos e esqueletos (v1.0.6; prazos removidos na v1.0.7)
+- `js/features/ncs.js`: tabela ordenável no desktop (`NF.ord`, ação `ncOrd`); no celular continuam os cartões.
+- `js/features/painel.js`: `spark()` desenha o minigráfico dos KPIs. Esqueleto (`.sk`) na carga inicial (`js/app.js`) e na foto da NC.
+- Teste: `python3 tests/painel_ncs.py`.

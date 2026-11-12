@@ -332,9 +332,8 @@ def main():
         logout(page)
         # prazo da NC aparece no dia local, sem adiantar por causa do UTC
         login(page, "admin", "Senha@123")
-        page.evaluate("RH.upd('ncs',RH.S.ncs[0].id,{prazo:Date.parse('2026-10-08T02:30:00Z')})")
         page.click("#nav [data-p=ncs]"); page.click("[data-act=ncOpen]"); page.wait_for_selector("#f-nc")
-        check("Prazo da NC mostra o dia local (07/10), não o do UTC", page.input_value("input[name=prazo]") == "2026-10-07", page.input_value("input[name=prazo]"))
+        check("Formulário da NC não tem mais prazo", page.locator("input[name=prazo]").count() == 0)
 
         # ---- excluir ronda realizada (Histórico)
         page.evaluate("RH.ACT.delRonda({dataset:{id:RH.S.rondas[0].execId,armed:'1'},textContent:''})")  # só para provar o fluxo abaixo
