@@ -772,3 +772,17 @@ img.big-img{cursor:zoom-in}
 .sk-foto{height:200px;width:100%}
 @media (max-width:900px){.sk-side{display:none}.sk-main{padding:16px}}
 @media (prefers-reduced-motion:reduce){.sk{animation:none}}
+
+/* ===== v1.0.8: pendências, NC repetida ===== */
+.pend{max-width:720px;margin-bottom:14px}
+.pend-sum{margin:0 0 8px;color:var(--ink2)} .pend-sum .bad{color:var(--bad)}
+.pend-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pend-l li{display:grid;grid-template-columns:52px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.pend-l .pt{font-variant-numeric:tabular-nums;font-weight:600} .pend-l .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pend-l .pe-feito{opacity:.6} .pend-l .pe-atrasado{border-color:var(--bad)}
+.pill.now{background:var(--ok-bg);color:var(--ok)}
+@media (max-width:520px){.pend-l li{grid-template-columns:44px minmax(0,1fr) auto}.pend-l li .btn{grid-column:1/-1}}
+.rep{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;white-space:nowrap}
+.nct td .rep{display:block;width:max-content}
+.rep-box{margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--ink);font-size:13.5px;border:1px solid var(--warn)}
+.av-imed summary{cursor:pointer}

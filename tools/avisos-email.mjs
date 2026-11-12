@@ -47,7 +47,7 @@ export function criarCliente({url,key,codigo,fetchImpl=fetch}){
     put:(p,d)=>rpc('rh_put_many',{p_items:[{p,d}]})}}
 
 /* ---------- estado guardado no banco (documento avisos/estado) ---------- */
-const novoEstado=()=>({v:1,seq:0,cfg:{},users:{},salas:{},modelos:{},lastRun:{},enviados:{},ultimaExec:0,ultimoEnvio:0,total:0,erro:''});
+const novoEstado=()=>({v:1,seq:0,pend:{},cfg:{},users:{},salas:{},modelos:{},lastRun:{},enviados:{},ultimaExec:0,ultimoEnvio:0,total:0,erro:''});
 const col=p=>p.slice(0,p.indexOf('/')),id=p=>p.slice(p.indexOf('/')+1);
 
 /* aplica as linhas novas do banco ao cache do estado; devolve as NCs novas */
@@ -65,8 +65,14 @@ export function aplicar(estado,rows){
   return ncs}
 
 /* ---------- decisão: quem recebe o quê ---------- */
-export function decidir(estado,ncsNovas,agenda,agora){
-  const av=Object.assign({ativo:false,sevMin:3,copiaAdmin:true},estado.cfg.avisos||{});
+/* Regra de horário por NC: Crítica (4) é avisada na hora; Média (2) e Alta (3) só depois de `horas` (padrão 8 h)
+   do registro, e apenas se ainda estiverem abertas. `estado.pend` guarda as NCs que aguardam esse prazo
+   (e também as que falharam no envio, para tentar de novo). `vencidas` = NCs de `pend` já lidas do banco. */
+export const HORAS_PADRAO=8;
+export function decidir(estado,ncsNovas,agenda,agora,vencidas=[]){
+  const av=Object.assign({ativo:false,sevMin:3,copiaAdmin:true,horas:HORAS_PADRAO},estado.cfg.avisos||{});
+  estado.pend=estado.pend||{};
+  const espera=(+av.horas>=0?+av.horas:HORAS_PADRAO)*36e5;
   const admins=Object.entries(estado.users).filter(([,u])=>u.role==='admin'&&u.ativo&&u.email).map(([i,u])=>({id:i,...u}));
   const dest=uid=>{
     const out=new Map(),u=uid&&estado.users[uid];
@@ -75,9 +81,11 @@ export function decidir(estado,ncsNovas,agenda,agora){
     return [...out.keys()]};
   const itens=[];
   for(const n of ncsNovas){
-    const key='nc:'+n.id;
-    if((+n.sev||0)<av.sevMin||n.status!=='aberta'||agora-(n.ts||0)>36e5*36)continue;
-    itens.push({tipo:'nc',key,para:dest(n.resp),nc:n})}
+    const key='nc:'+n.id,sev=+n.sev||0;
+    if(sev<av.sevMin||n.status!=='aberta'){delete estado.pend[n.id];continue}
+    if(sev>=4){if(agora-(n.ts||0)<=36e5*36)itens.push({tipo:'nc',key,para:dest(n.resp),nc:n});continue}
+    if(!estado.pend[n.id])estado.pend[n.id]={due:(n.ts||agora)+espera}}
+  for(const n of vencidas)itens.push({tipo:'nc',key:'nc:'+n.id,para:dest(n.resp),nc:{...n,horas:Math.max(0,Math.round((agora-(n.ts||agora))/36e5))}});
   for(const [mid,m] of Object.entries(estado.modelos)){
     if(!m.ativo)continue;
     const last=estado.lastRun[mid]??null;
@@ -97,8 +105,9 @@ export function montarEmail({hospital,itens,siteUrl}){
   const L=[],H=[];
   ncs.forEach(({nc:n})=>{
     const local=[n.salaNome,n.eqNome,n.setor].filter(Boolean).join(' · ');
-    L.push(`NÃO CONFORMIDADE ${(SEV[n.sev]||'').toUpperCase()}\n${local}\n${n.tipoNome||''} — ${n.itemTexto||''}\n${n.desc||''}\nRegistrada por ${n.inspNome||'—'} em ${fdt(n.ts)}\n`);
-    H.push(`<div style="border-left:5px solid ${n.sev>=4?'#b4232a':'#d97706'};background:#f6f8f9;padding:12px 14px;margin:0 0 12px;border-radius:6px"><b style="font-size:15px">NC ${esc(SEV[n.sev]||'')} · ${esc(local)}</b><br><span style="color:#46606a">${esc(n.tipoNome||'')}${n.itemTexto?' — '+esc(n.itemTexto):''}</span><p style="margin:8px 0">${esc(n.desc||'')}</p><small style="color:#46606a">Registrada por ${esc(n.inspNome||'—')} em ${esc(fdt(n.ts))}</small></div>`)});
+    const aberta=n.horas>=1?`Ainda aberta ${n.horas} hora${n.horas>1?'s':''} após o registro.\n`:'';
+    L.push(`NÃO CONFORMIDADE ${(SEV[n.sev]||'').toUpperCase()}\n${aberta}${local}\n${n.tipoNome||''} — ${n.itemTexto||''}\n${n.desc||''}\nRegistrada por ${n.inspNome||'—'} em ${fdt(n.ts)}\n`);
+    H.push(`<div style="border-left:5px solid ${n.sev>=4?'#b4232a':'#d97706'};background:#f6f8f9;padding:12px 14px;margin:0 0 12px;border-radius:6px"><b style="font-size:15px">NC ${esc(SEV[n.sev]||'')} · ${esc(local)}</b><br><span style="color:#46606a">${esc(n.tipoNome||'')}${n.itemTexto?' — '+esc(n.itemTexto):''}</span><p style="margin:8px 0">${esc(n.desc||'')}</p>${n.horas>=1?`<p style="margin:0 0 8px;color:#b4232a"><b>Ainda aberta ${n.horas} hora${n.horas>1?'s':''} após o registro.</b></p>`:''}<small style="color:#46606a">Registrada por ${esc(n.inspNome||'—')} em ${esc(fdt(n.ts))}</small></div>`)});
   at.forEach(a=>{
     const quando=a.temAgenda?`prevista para ${fdt(a.slot)}`:'sem execução dentro da periodicidade';
     L.push(`RONDA ATRASADA\n${a.ronda.nome} — ${quando}.\n`);
@@ -135,7 +144,14 @@ export async function rodar({cli,enviar,agenda,agora=Date.now(),siteUrl='',teste
     for(const a of admins){await enviar({para:a.email,assunto:`[Ronda${hospital?' · '+hospital:''}] E-mail de teste`,texto:'Os avisos por e-mail da Ronda Hospitalar estão funcionando.',html:'<p>Os avisos por e-mail da <b>Ronda Hospitalar</b> estão funcionando.</p>'});resumo.enviados++}
     return resumo}
   if(primeira){log('Primeira execução: linha de base registrada (nenhum e-mail enviado).')}
-  const {av,itens}=primeira?{av:{ativo:false},itens:[]}:decidir(estado,ncsNovas,agenda,agora);
+  /* NCs que aguardavam o prazo (ou o reenvio) e já venceram: relê do banco para ver se continuam abertas */
+  estado.pend=estado.pend||{};
+  const venc=[],sevMin=+(estado.cfg.avisos?.sevMin)||3;
+  if(!primeira&&estado.cfg.avisos?.ativo)for(const [pid,p] of Object.entries(estado.pend)){
+    if(p.due>agora)continue;
+    let d;try{d=await cli.get('ncs/'+pid)}catch(e){continue}
+    if(d&&d.status==='aberta'&&(+d.sev||0)>=sevMin&&(p.tent||0)<20)venc.push({id:pid,...d});else delete estado.pend[pid]}
+  const {av,itens}=primeira?{av:{ativo:false},itens:[]}:decidir(estado,ncsNovas,agenda,agora,venc);
   /* 3) envio, agrupado por destinatário; só marca como enviado o que deu certo */
   if(av.ativo){
     const por=new Map();
@@ -147,6 +163,11 @@ export async function rodar({cli,enviar,agenda,agora=Date.now(),siteUrl='',teste
       const m=montarEmail({hospital,itens:lista,siteUrl});
       try{await enviar({para:email,...m});lista.forEach(it=>{estado.enviados[`${it.key}|${email}`]=agora;it.tipo==='nc'?resumo.nc++:resumo.atraso++});resumo.enviados++;estado.ultimoEnvio=agora;estado.erro=''}
       catch(e){resumo.falhas++;estado.erro=String(e.message||e).slice(0,300);log('Falha ao enviar para '+email+': '+estado.erro)}}}
+  /* NC avisada a todos os destinatários sai da fila; se algum envio falhou, volta para tentar de novo */
+  for(const it of itens){if(it.tipo!=='nc')continue;const nid=it.nc.id;
+    if(!it.para.length||it.para.every(e=>estado.enviados[`${it.key}|${e}`]))delete estado.pend[nid];
+    else estado.pend[nid]={due:0,tent:((estado.pend[nid]&&estado.pend[nid].tent)||0)+1}}
+  if(!av.ativo)estado.pend={};
   /* 4) limpeza e gravação do estado */
   Object.keys(estado.enviados).forEach(k=>{if(agora-estado.enviados[k]>864e5*30)delete estado.enviados[k]});
   estado.ultimaExec=agora;estado.total=(estado.total||0)+resumo.enviados;

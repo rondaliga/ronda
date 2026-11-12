@@ -71,13 +71,36 @@ check('--teste envia ao administrador', r.teste&&r.enviados===1&&emails[emails.l
 
 // 7) falha do provedor: não marca como enviado e tenta de novo na próxima execução
 put('config/main',{hospital:'H',avisos:{ativo:true,sevMin:3,copiaAdmin:false}});
-put('ncs/n4',{ts:amanha,sev:3,status:'aberta',resp:'u2',salaNome:'Y',tipoNome:'T'});
+put('ncs/n4',{ts:amanha,sev:4,status:'aberta',resp:'u2',salaNome:'Y',tipoNome:'T'});
 let falha=true;const enviar2=m=>falha?Promise.reject(new Error('provedor fora do ar')):enviar(m);
 r=await rodar({cli,enviar:enviar2,agenda,agora:amanha+120e3});
 check('falha de envio é registrada', r.falhas>=1&&DB.get('avisos/estado').d.erro.includes('provedor'),r);
 falha=false;const n2=emails.length;r=await rodar({cli,enviar:enviar2,agenda,agora:amanha+180e3});
-// a NC n4 já foi "vista" (seq passou), mas o aviso não foi marcado: o próximo ciclo não a reenxerga — registra a limitação
-check('estado não marca como enviado após falha', !Object.keys(DB.get('avisos/estado').d.enviados).some(k=>k.startsWith('nc:n4|')),DB.get('avisos/estado').d.enviados);
+check('após a falha, a NC é reenviada na execução seguinte', emails.length>n2&&emails.slice(n2).some(e=>/Y/.test(e.textContent)),{n2,total:emails.length,r});
+const n3=emails.length;await rodar({cli,enviar:enviar2,agenda,agora:amanha+240e3});
+check('e não é enviada outra vez depois', !emails.slice(n3).some(e=>/\bY\b/.test(e.textContent)));
+
+// 7b) horário por NC: Crítica na hora; Média e Alta só depois de 8 h e se ainda estiverem abertas
+put('config/main',{hospital:'H',avisos:{ativo:true,sevMin:2,copiaAdmin:false}});
+const T0=amanha+3*864e5,nc=(id,sev,sala)=>put('ncs/'+id,{ts:T0,sev,status:'aberta',resp:'u2',salaNome:sala,tipoNome:'T',itemTexto:'Item '+sala});
+nc('d1',3,'SalaD1');nc('d2',2,'SalaD2');nc('d3',3,'SalaD3');nc('d4',4,'SalaD4');
+let k=emails.length;await rodar({cli,enviar,agenda,agora:T0+60e3});
+let txt=emails.slice(k).map(e=>e.textContent).join('\n');
+check('Crítica é avisada na hora', /SalaD4/.test(txt),txt);
+check('Média e Alta não são avisadas na hora', !/SalaD1|SalaD2|SalaD3/.test(txt),txt);
+put('ncs/d3',{ts:T0,sev:3,status:'resolvida',resp:'u2',salaNome:'SalaD3'});
+k=emails.length;await rodar({cli,enviar,agenda,agora:T0+4*36e5});
+check('com 4 h ainda não envia Média/Alta', !emails.slice(k).some(e=>/SalaD1|SalaD2/.test(e.textContent)));
+k=emails.length;await rodar({cli,enviar,agenda,agora:T0+8*36e5+60e3});
+txt=emails.slice(k).map(e=>e.textContent).join('\n');
+check('com 8 h, Média e Alta abertas são avisadas', /SalaD1/.test(txt)&&/SalaD2/.test(txt),txt);
+check('o e-mail informa que continua aberta', /Ainda aberta 8 horas/.test(txt),txt);
+check('NC resolvida antes das 8 h não é avisada', !/SalaD3/.test(txt));
+check('Crítica não é reenviada', !/SalaD4/.test(txt));
+k=emails.length;await rodar({cli,enviar,agenda,agora:T0+9*36e5});
+check('Média/Alta não são reenviadas', !emails.slice(k).some(e=>/SalaD1|SalaD2/.test(e.textContent)));
+const pend=Object.keys(DB.get('avisos/estado').d.pend);
+check('fila de espera fica vazia depois de enviar', pend.length===0,pend);
 
 // 8) provedor Resend (formato da requisição)
 await enviarEmail({provider:'resend',apiKey:'rk',de:'a@b.c',nome:'Ronda',para:'x@y.z',assunto:'S',texto:'t',html:'<p>t</p>',apiUrl:base+'/email'});

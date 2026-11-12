@@ -128,3 +128,26 @@ RH.armAviso=async()=>{
 
 setInterval(()=>{if(!document.hidden)limparFotos()},36e5);
 })();
+
+/* ---------- repetição de não conformidades ----------
+   Mesmo local + mesmo item do checklist = mesmo problema. Conta as NCs dele nos 30 dias que terminam
+   na data de cada NC (a própria incluída). RH.recorr(n) -> {n:ocorrências, datas:[ts anteriores]} */
+RH.REC_DIAS=30;
+RH.recKey=n=>[n.eqId||n.salaId||n.salaNome||'',(n.itemTexto||n.tipoNome||'').trim().toLowerCase()].join('|');
+(()=>{let ref=null,idx=null;
+  const build=()=>{idx=new Map();RH.S.ncs.forEach(n=>{const k=RH.recKey(n);if(!idx.has(k))idx.set(k,[]);idx.get(k).push(n.ts||0)});idx.forEach(l=>l.sort((a,b)=>a-b));ref=RH.S.ncs};
+  RH.recorr=n=>{if(ref!==RH.S.ncs)build();const l=idx.get(RH.recKey(n))||[],t=n.ts||0,j=RH.REC_DIAS*864e5;
+    const ant=l.filter(x=>x<t&&x>t-j);return{n:ant.length+1,datas:ant}};
+  /* grupos que se repetem entre as NCs recebidas: [{l:'Local · item',v:qtd}] */
+  RH.recGrupos=arr=>{const g=new Map();arr.forEach(n=>{const k=RH.recKey(n);if(!g.has(k))g.set(k,{l:(n.eqNome||n.salaNome||'—')+' · '+(n.itemTexto||n.tipoNome||'—'),v:0});g.get(k).v++});
+    return [...g.values()].filter(x=>x.v>=2).sort((a,b)=>b.v-a.v)}})();
+
+/* ---------- aviso imediato (opcional) ----------
+   Ao registrar NCs, pede ao GitHub para rodar já a verificação de avisos, em vez de esperar o agendamento.
+   Precisa de repositório + token (permissão só de Actions) em Cadastros → Hospital → Avisos por e-mail. */
+RH.avisoAgora=()=>{
+  try{const A=RH.S.cfg&&RH.S.cfg.avisos;if(!A||!A.ativo||!A.ghToken||!/^[\w.-]+\/[\w.-]+$/.test(A.repo||''))return;
+    const t=Date.now();if(RH.avisoAgora.t&&t-RH.avisoAgora.t<30000)return;RH.avisoAgora.t=t;
+    fetch(`https://api.github.com/repos/${A.repo}/actions/workflows/avisos-email.yml/dispatches`,{method:'POST',
+      headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+A.ghToken,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+      body:JSON.stringify({ref:A.ref||'main'})}).catch(()=>{})}catch(e){}};

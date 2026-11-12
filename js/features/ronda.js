@@ -39,12 +39,32 @@ RH.thumbEq=thumbEq;
 const visiveis=()=>S.modelos.filter(m=>RH.access.rondaVisivel(m,st.me)).sort((a,b)=>a.nome.localeCompare(b.nome));
 const lastExec=id=>{let l=null;S.rondas.forEach(r=>{if(r.modeloId===id&&(!l||r.ts>l.ts))l=r});return l};
 
+/* pendências de hoje: cada horário previsto das rondas que a pessoa pode fazer */
+const hhmm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+function pendencias(lista){
+  const now=Date.now(),ex={};S.rondas.forEach(r=>{if(r.modeloId)(ex[r.modeloId]=ex[r.modeloId]||new Set()).add(r.ts)});
+  const it=[];
+  lista.forEach(m=>{
+    if(RH.agenda.temAgenda(m))RH.agenda.hoje(m,[...(ex[m.id]||[])],now).forEach(s=>it.push({m,t:s.t,e:s.estado}));
+    else if(RH.agenda.atrasada(m,lastExec(m.id)?.ts??null,now))it.push({m,t:null,e:'atrasado'})});
+  const ord={atrasado:0,agora:1,depois:2,feito:3};
+  it.sort((a,b)=>ord[a.e]-ord[b.e]||(a.t||0)-(b.t||0)||a.m.nome.localeCompare(b.m.nome));
+  return it}
+function pendBox(lista){
+  const it=pendencias(lista);if(!it.length)return `<section class="pend card" aria-label="Pendências de hoje"><h3>Pendências de hoje</h3><p class="pend-sum">Nenhuma ronda prevista para hoje.</p></section>`;
+  const n=e=>it.filter(x=>x.e===e).length,abertas=n('atrasado')+n('agora')+n('depois');
+  const rot={atrasado:['Atrasada','late'],agora:['Agora','now'],depois:['Mais tarde','off'],feito:['Feita','okp']};
+  const sum=[n('atrasado')?`<b class="bad">${n('atrasado')} atrasada${n('atrasado')>1?'s':''}</b>`:'',n('agora')?`<b>${n('agora')} para agora</b>`:'',n('depois')?`${n('depois')} mais tarde`:'',n('feito')?`${n('feito')} feita${n('feito')>1?'s':''}`:''].filter(Boolean).join(' · ');
+  return `<section class="pend card" aria-label="Pendências de hoje"><h3>Pendências de hoje</h3><p class="pend-sum">${abertas?sum:'Tudo em dia hoje · '+n('feito')+' ronda'+(n('feito')>1?'s':'')+' feita'+(n('feito')>1?'s':'')}</p>
+  <ul class="pend-l">${it.map(x=>`<li class="pe-${x.e}"><span class="pt">${x.t?hhmm(x.t):'—'}</span><span class="pn">${esc(x.m.nome)}</span><span class="pill ${rot[x.e][1]}">${rot[x.e][0]}</span>${x.e==='feito'?'':`<button type="button" class="btn sm${x.e==='atrasado'||x.e==='agora'?' pri':''}" data-act="pickRonda" data-id="${x.m.id}">Iniciar</button>`}</li>`).join('')}</ul></section>`}
+
 RH.pages.ronda=()=>{
   const lista=visiveis();
   const vazio=!S.modelos.length
     ?empty('Nenhuma ronda cadastrada',st.me.role==='admin'?'Cadastre as rondas em Cadastros → Rondas (nome, salas e responsável).':'Peça ao administrador para cadastrar as rondas.')
     :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os inspetores quando não há responsável. Fale com o administrador.');
   return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o QR de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler QR do local</button></div>
+  ${lista.length?pendBox(lista):''}
   ${st.R?`<div class="banner">Há uma ronda em andamento (${esc(st.R.nome)}). <button class="btn sm" data-act="resumeRonda">Continuar ronda</button></div>`:''}
   ${lista.length?`<div class="salas">${lista.map(m=>{
     const l=lastExec(m.id),late=RH.agenda.atrasada(m,l?l.ts:null),salas=RH.salasDaRonda(m),setores=[...new Set([...salas.map(s=>s.setor||'Sem setor'),...RH.equipsDaRonda(m).map(e=>RH.setorEq(e)||'Sem setor')])].sort((a,b)=>a.localeCompare(b)),prox=RH.agenda.proximo(m,Date.now());
@@ -268,9 +288,9 @@ async function submitRonda(){
      tentar de novo, os mesmos documentos são sobrescritos (nada fica duplicado) */
   const sub=R.sub||(R.sub={ts:Date.now(),execId:'x'+RH.uid(),ids:{}});
   const ts=sub.ts,execId=sub.execId,mk=(k,pre)=>sub.ids[k]||(sub.ids[k]=pre+RH.uid());
-  let totNC=0;
+  let totNC=0,totCrit=0;
   const ok=await RH.safe(async()=>{
-    totNC=0;
+    totNC=0;totCrit=0;
     for(const bl of R.blocos){
       const sid=bl.id,sala=bl.tipo==='sala'?byId(S.salas,bl.salaId):null,mine=its.filter(([,i])=>i.sid===sid);
       if(!mine.length||(bl.tipo==='sala'&&!sala))continue;
@@ -286,9 +306,10 @@ async function submitRonda(){
         const sev=+i.sev||tipo?.sev||2;
         await RH.put('ncs',mk('n:'+k,'n'),{ts,rondaId:rid,execId,modeloId:R.modeloId,modeloNome:R.nome,salaId:sala?sala.id:null,salaNome,setor,eqId:eq?.id||null,eqNome:eq?.nome||'',itemTexto:i.t,
           tipoId:i.tipoId,tipoNome:tipo?.nome||'',orient:tipo?.orient||'',sev,desc:i.desc.trim(),thumb:i.thumb||null,fotoId,status:'aberta',resp:respSetor||null,inspNome:st.me.nome});
-        totNC++;
+        totNC++;if(sev>=4)totCrit++;
       }
     }return true});
+  if(ok&&totCrit)RH.avisoAgora&&RH.avisoAgora();   /* só a Crítica é avisada na hora; Média/Alta esperam o prazo */
   if(ok){RH.rondaDraft.clear();st.R=null;toast(totNC?`Ronda registrada com ${totNC} não conformidade${totNC>1?'s':''}.`:'Ronda registrada sem não conformidades.');RH.go(RH.access.gerencia()?'historico':'ronda')}
   else b.disabled=false;
 }

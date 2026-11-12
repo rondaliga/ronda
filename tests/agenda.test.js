@@ -1,0 +1,20 @@
+/* Testes da situação dos horários de hoje (sem navegador): node tests/agenda.test.js */
+const assert=require('assert');
+process.env.TZ='America/Fortaleza';
+global.window={RH:{}};
+require('../js/core/agenda.js');
+const A=window.RH.agenda;let n=0;const t=(nome,fn)=>{fn();n++;console.log('  OK  '+nome)};
+const H=36e5,d=h=>new Date(`2026-11-12T${h}:00-03:00`).getTime();
+const m={dias:[0,1,2,3,4,5,6],horarios:['08:00','14:00','20:00'],agendaDesde:d('00:00')-864e5};
+const est=(exec,now)=>A.hoje(m,exec,now).map(x=>x.estado).join(',');
+t('manhã cedo: nada feito, tudo ainda por vir', ()=>assert.strictEqual(est([],d('05:00')),'depois,depois,depois'));
+t('uma hora antes do horário já vale "agora"', ()=>assert.strictEqual(est([],d('07:10')),'agora,depois,depois'));
+t('passou 1 h do horário sem execução: atrasado', ()=>assert.strictEqual(est([],d('09:30')),'atrasado,depois,depois'));
+t('ronda feita às 08:20 conta para as 08:00', ()=>assert.strictEqual(est([d('08:20')],d('09:30')),'feito,depois,depois'));
+t('ronda feita antecipada (07:15) também conta', ()=>assert.strictEqual(est([d('07:15')],d('09:30')),'feito,depois,depois'));
+t('a ronda das 14h não é dada como feita pela das 08h', ()=>assert.strictEqual(est([d('08:20')],d('15:30')),'feito,atrasado,depois'));
+t('uma execução às 13:30 cobre as 14:00, não as 08:00', ()=>assert.strictEqual(est([d('13:30')],d('15:00')),'atrasado,feito,depois'));
+t('horários antes da criação da agenda não contam', ()=>assert.strictEqual(A.hoje({...m,agendaDesde:d('10:00')},[],d('20:30')).map(x=>x.estado).join(','),'atrasado,agora'));
+t('dia que não está na agenda não tem horários', ()=>assert.strictEqual(A.hoje({...m,dias:[0]},[],d('09:00')).length,0));
+t('sem agenda (periodicidade antiga) não gera horários', ()=>assert.strictEqual(A.hoje({freq:24},[],d('09:00')).length,0));
+console.log(`\n${n} testes passaram`);

@@ -790,6 +790,20 @@ img.big-img{cursor:zoom-in}
 @media (max-width:900px){.sk-side{display:none}.sk-main{padding:16px}}
 @media (prefers-reduced-motion:reduce){.sk{animation:none}}
 
+/* ===== v1.0.8: pendências, NC repetida ===== */
+.pend{max-width:720px;margin-bottom:14px}
+.pend-sum{margin:0 0 8px;color:var(--ink2)} .pend-sum .bad{color:var(--bad)}
+.pend-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.pend-l li{display:grid;grid-template-columns:52px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
+.pend-l .pt{font-variant-numeric:tabular-nums;font-weight:600} .pend-l .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pend-l .pe-feito{opacity:.6} .pend-l .pe-atrasado{border-color:var(--bad)}
+.pill.now{background:var(--ok-bg);color:var(--ok)}
+@media (max-width:520px){.pend-l li{grid-template-columns:44px minmax(0,1fr) auto}.pend-l li .btn{grid-column:1/-1}}
+.rep{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;white-space:nowrap}
+.nct td .rep{display:block;width:max-content}
+.rep-box{margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--ink);font-size:13.5px;border:1px solid var(--warn)}
+.av-imed summary{cursor:pointer}
+
 </style>
 </head>
 <body>
@@ -1102,7 +1116,7 @@ RH.execs=list=>{
 </script>
 <script>
 /* Versão do aplicativo — NÃO edite à mão: use  node tools/atualizar-versao.js 1.0.5  (atualiza todos os lugares). */
-RH.VERSAO='1.0.7';
+RH.VERSAO='1.0.9';
 RH.VERSAO_DATA='2026-11-12';
 
 </script>
@@ -1237,9 +1251,20 @@ function atrasada(m,lastTs,now=Date.now()){
   if(now<=s+TOLERA)return false;
   return !(lastTs!=null&&lastTs>=s-ANTECIPA)}
 
+/* horários previstos de HOJE e a situação de cada um (usa as execuções `execTs` da ronda):
+   feito | atrasado | agora (dentro da janela de 1 h antes/depois) | depois */
+function hoje(m,execTs,now=Date.now()){
+  if(!temAgenda(m))return [];
+  const d0=new Date(now);d0.setHours(0,0,0,0);const ini=d0.getTime(),fim=ini+864e5-1;
+  const todos=horarios(m,ini-8*864e5,fim+8*864e5);
+  return horarios(m,ini,fim).filter(t=>!(m.agendaDesde&&t<m.agendaDesde)).map(t=>{
+    const i=todos.indexOf(t),prox=i>=0&&todos[i+1]!=null?todos[i+1]:Infinity;
+    const feito=execTs.some(x=>x>=t-ANTECIPA&&x<prox-ANTECIPA);
+    return{t,estado:feito?'feito':now>t+TOLERA?'atrasado':now>=t-ANTECIPA?'agora':'depois'}})}
+
 const fmtSlot=t=>{const d=new Date(t);return `${DIAS[d.getDay()]} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
 
-RH.agenda={DIAS,DIAS_LONGOS,temAgenda,validaHora,resumo,resumoDias,horarios,ultimo,proximo,atrasada,fmtSlot};
+RH.agenda={DIAS,DIAS_LONGOS,temAgenda,validaHora,resumo,resumoDias,horarios,ultimo,proximo,atrasada,hoje,fmtSlot};
 })();
 
 </script>
@@ -1554,6 +1579,29 @@ RH.armAviso=async()=>{
 
 setInterval(()=>{if(!document.hidden)limparFotos()},36e5);
 })();
+
+/* ---------- repetição de não conformidades ----------
+   Mesmo local + mesmo item do checklist = mesmo problema. Conta as NCs dele nos 30 dias que terminam
+   na data de cada NC (a própria incluída). RH.recorr(n) -> {n:ocorrências, datas:[ts anteriores]} */
+RH.REC_DIAS=30;
+RH.recKey=n=>[n.eqId||n.salaId||n.salaNome||'',(n.itemTexto||n.tipoNome||'').trim().toLowerCase()].join('|');
+(()=>{let ref=null,idx=null;
+  const build=()=>{idx=new Map();RH.S.ncs.forEach(n=>{const k=RH.recKey(n);if(!idx.has(k))idx.set(k,[]);idx.get(k).push(n.ts||0)});idx.forEach(l=>l.sort((a,b)=>a-b));ref=RH.S.ncs};
+  RH.recorr=n=>{if(ref!==RH.S.ncs)build();const l=idx.get(RH.recKey(n))||[],t=n.ts||0,j=RH.REC_DIAS*864e5;
+    const ant=l.filter(x=>x<t&&x>t-j);return{n:ant.length+1,datas:ant}};
+  /* grupos que se repetem entre as NCs recebidas: [{l:'Local · item',v:qtd}] */
+  RH.recGrupos=arr=>{const g=new Map();arr.forEach(n=>{const k=RH.recKey(n);if(!g.has(k))g.set(k,{l:(n.eqNome||n.salaNome||'—')+' · '+(n.itemTexto||n.tipoNome||'—'),v:0});g.get(k).v++});
+    return [...g.values()].filter(x=>x.v>=2).sort((a,b)=>b.v-a.v)}})();
+
+/* ---------- aviso imediato (opcional) ----------
+   Ao registrar NCs, pede ao GitHub para rodar já a verificação de avisos, em vez de esperar o agendamento.
+   Precisa de repositório + token (permissão só de Actions) em Cadastros → Hospital → Avisos por e-mail. */
+RH.avisoAgora=()=>{
+  try{const A=RH.S.cfg&&RH.S.cfg.avisos;if(!A||!A.ativo||!A.ghToken||!/^[\w.-]+\/[\w.-]+$/.test(A.repo||''))return;
+    const t=Date.now();if(RH.avisoAgora.t&&t-RH.avisoAgora.t<30000)return;RH.avisoAgora.t=t;
+    fetch(`https://api.github.com/repos/${A.repo}/actions/workflows/avisos-email.yml/dispatches`,{method:'POST',
+      headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+A.ghToken,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+      body:JSON.stringify({ref:A.ref||'main'})}).catch(()=>{})}catch(e){}};
 
 </script>
 <script>
@@ -2091,6 +2139,7 @@ RH.pages.painel=()=>{
   ${card('situacao','Situação das NCs do período','',ns.length?`<div class="seg-bar" role="img" aria-label="Distribuição por situação">${Object.keys(ST).map(k=>stC[k]?`<i style="flex:${stC[k]};background:${stCol[k]}" data-tip="${ST[k]}: ${stC[k]}"></i>`:'').join('')}</div>
    <div class="legend">${Object.keys(ST).map(k=>`<span><i style="background:${stCol[k]}"></i>${ST[k]} <b>${stC[k]||0}</b> <small>(${Math.round((stC[k]||0)/stT*100)}%)</small></span>`).join('')}</div>`:empty('Sem NCs no período'))}
   ${card('tipos','Tipos de NC mais frequentes','',hbars(porTipo))}
+  ${card('repet','Problemas que se repetem',`no período · mesmo item e local`,(()=>{const g=RH.recGrupos(ns).slice(0,6);return g.length?hbars(g):empty('Nenhum item com 2 ou mais NCs no período')})())}
   ${card('equip','Equipamentos com mais NCs','',hbars(porEq))}
   ${card('atraso','Rondas em atraso','',atraso.length?`<div class="hb">${atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${(m.salaIds||[]).length} sala${(m.salaIds||[]).length===1?'':'s'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'))}
   ${card('sala','Conformidade por sala','ordenado da menor para a maior',porSala.length?`<div class="hb">${porSala.map(x=>`<div class="hb-r" data-tip="${esc(x.s.nome)}: ${pc(x.p)}"><span class="hb-l">${esc(x.s.nome)}</span><span class="hb-t"><i style="width:${x.p??0}%;background:${x.p==null?'transparent':x.p>=meta?'var(--c1)':'var(--s3)'}"></i></span><span class="hb-v">${x.p==null?'—':Math.round(x.p)+'%'}</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Barras vermelhas estão abaixo da meta de ${meta}%.</p>`:empty('Nenhuma sala cadastrada','Cadastre salas em Cadastros.'),'span2')}
@@ -2181,12 +2230,32 @@ RH.thumbEq=thumbEq;
 const visiveis=()=>S.modelos.filter(m=>RH.access.rondaVisivel(m,st.me)).sort((a,b)=>a.nome.localeCompare(b.nome));
 const lastExec=id=>{let l=null;S.rondas.forEach(r=>{if(r.modeloId===id&&(!l||r.ts>l.ts))l=r});return l};
 
+/* pendências de hoje: cada horário previsto das rondas que a pessoa pode fazer */
+const hhmm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+function pendencias(lista){
+  const now=Date.now(),ex={};S.rondas.forEach(r=>{if(r.modeloId)(ex[r.modeloId]=ex[r.modeloId]||new Set()).add(r.ts)});
+  const it=[];
+  lista.forEach(m=>{
+    if(RH.agenda.temAgenda(m))RH.agenda.hoje(m,[...(ex[m.id]||[])],now).forEach(s=>it.push({m,t:s.t,e:s.estado}));
+    else if(RH.agenda.atrasada(m,lastExec(m.id)?.ts??null,now))it.push({m,t:null,e:'atrasado'})});
+  const ord={atrasado:0,agora:1,depois:2,feito:3};
+  it.sort((a,b)=>ord[a.e]-ord[b.e]||(a.t||0)-(b.t||0)||a.m.nome.localeCompare(b.m.nome));
+  return it}
+function pendBox(lista){
+  const it=pendencias(lista);if(!it.length)return `<section class="pend card" aria-label="Pendências de hoje"><h3>Pendências de hoje</h3><p class="pend-sum">Nenhuma ronda prevista para hoje.</p></section>`;
+  const n=e=>it.filter(x=>x.e===e).length,abertas=n('atrasado')+n('agora')+n('depois');
+  const rot={atrasado:['Atrasada','late'],agora:['Agora','now'],depois:['Mais tarde','off'],feito:['Feita','okp']};
+  const sum=[n('atrasado')?`<b class="bad">${n('atrasado')} atrasada${n('atrasado')>1?'s':''}</b>`:'',n('agora')?`<b>${n('agora')} para agora</b>`:'',n('depois')?`${n('depois')} mais tarde`:'',n('feito')?`${n('feito')} feita${n('feito')>1?'s':''}`:''].filter(Boolean).join(' · ');
+  return `<section class="pend card" aria-label="Pendências de hoje"><h3>Pendências de hoje</h3><p class="pend-sum">${abertas?sum:'Tudo em dia hoje · '+n('feito')+' ronda'+(n('feito')>1?'s':'')+' feita'+(n('feito')>1?'s':'')}</p>
+  <ul class="pend-l">${it.map(x=>`<li class="pe-${x.e}"><span class="pt">${x.t?hhmm(x.t):'—'}</span><span class="pn">${esc(x.m.nome)}</span><span class="pill ${rot[x.e][1]}">${rot[x.e][0]}</span>${x.e==='feito'?'':`<button type="button" class="btn sm${x.e==='atrasado'||x.e==='agora'?' pri':''}" data-act="pickRonda" data-id="${x.m.id}">Iniciar</button>`}</li>`).join('')}</ul></section>`}
+
 RH.pages.ronda=()=>{
   const lista=visiveis();
   const vazio=!S.modelos.length
     ?empty('Nenhuma ronda cadastrada',st.me.role==='admin'?'Cadastre as rondas em Cadastros → Rondas (nome, salas e responsável).':'Peça ao administrador para cadastrar as rondas.')
     :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os inspetores quando não há responsável. Fale com o administrador.');
   return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o QR de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler QR do local</button></div>
+  ${lista.length?pendBox(lista):''}
   ${st.R?`<div class="banner">Há uma ronda em andamento (${esc(st.R.nome)}). <button class="btn sm" data-act="resumeRonda">Continuar ronda</button></div>`:''}
   ${lista.length?`<div class="salas">${lista.map(m=>{
     const l=lastExec(m.id),late=RH.agenda.atrasada(m,l?l.ts:null),salas=RH.salasDaRonda(m),setores=[...new Set([...salas.map(s=>s.setor||'Sem setor'),...RH.equipsDaRonda(m).map(e=>RH.setorEq(e)||'Sem setor')])].sort((a,b)=>a.localeCompare(b)),prox=RH.agenda.proximo(m,Date.now());
@@ -2410,9 +2479,9 @@ async function submitRonda(){
      tentar de novo, os mesmos documentos são sobrescritos (nada fica duplicado) */
   const sub=R.sub||(R.sub={ts:Date.now(),execId:'x'+RH.uid(),ids:{}});
   const ts=sub.ts,execId=sub.execId,mk=(k,pre)=>sub.ids[k]||(sub.ids[k]=pre+RH.uid());
-  let totNC=0;
+  let totNC=0,totCrit=0;
   const ok=await RH.safe(async()=>{
-    totNC=0;
+    totNC=0;totCrit=0;
     for(const bl of R.blocos){
       const sid=bl.id,sala=bl.tipo==='sala'?byId(S.salas,bl.salaId):null,mine=its.filter(([,i])=>i.sid===sid);
       if(!mine.length||(bl.tipo==='sala'&&!sala))continue;
@@ -2428,9 +2497,10 @@ async function submitRonda(){
         const sev=+i.sev||tipo?.sev||2;
         await RH.put('ncs',mk('n:'+k,'n'),{ts,rondaId:rid,execId,modeloId:R.modeloId,modeloNome:R.nome,salaId:sala?sala.id:null,salaNome,setor,eqId:eq?.id||null,eqNome:eq?.nome||'',itemTexto:i.t,
           tipoId:i.tipoId,tipoNome:tipo?.nome||'',orient:tipo?.orient||'',sev,desc:i.desc.trim(),thumb:i.thumb||null,fotoId,status:'aberta',resp:respSetor||null,inspNome:st.me.nome});
-        totNC++;
+        totNC++;if(sev>=4)totCrit++;
       }
     }return true});
+  if(ok&&totCrit)RH.avisoAgora&&RH.avisoAgora();   /* só a Crítica é avisada na hora; Média/Alta esperam o prazo */
   if(ok){RH.rondaDraft.clear();st.R=null;toast(totNC?`Ronda registrada com ${totNC} não conformidade${totNC>1?'s':''}.`:'Ronda registrada sem não conformidades.');RH.go(RH.access.gerencia()?'historico':'ronda')}
   else b.disabled=false;
 }
@@ -2645,13 +2715,15 @@ function tabela(l){
   const o=NF.ord||{};
   const th=([k,t])=>`<th scope="col" aria-sort="${o.k===k?(o.dir==='desc'?'descending':'ascending'):'none'}"><button type="button" class="sort${o.k===k?' on':''}" data-act="ncOrd" data-k="${k}">${t}<i aria-hidden="true">${o.k===k?(o.dir==='desc'?'▼':'▲'):'↕'}</i></button></th>`;
   return `<div class="nct-wrap"><table class="nct"><thead><tr>${COLS.slice(0,1).map(th).join('')}${COLS.slice(1,3).map(th).join('')}<th scope="col">Descrição</th>${COLS.slice(3).map(th).join('')}<th scope="col">Responsável</th></tr></thead><tbody>${l.slice(0,150).map(n=>{
-    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}${repSelo(n)}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+/* selo "Repetida ×N" quando o mesmo item do mesmo local teve NC N vezes em 30 dias */
+const repSelo=n=>{const r=RH.recorr(n);return r.n>=2?`<span class="rep" title="${r.n} ocorrências em ${RH.REC_DIAS} dias neste item">↻ Repetida ×${r.n}</span>`:''};
 function lista(tab){
   const l=ordenar(filtrar());if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
   return (tab?tabela(l):'')+`<div class="ncs${tab?' ncs-mob':''}">${l.slice(0,150).map(n=>{
     return `<button class="nc s${n.sev}" data-act="ncOpen" data-id="${n.id}">${n.thumb?`<img class="thumb" src="${n.thumb}" alt="">`:`<div class="thumb">${ic('alert',20)}</div>`}
     <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(n.resp?userName(n.resp):'Todos')}</span></div>
-    <div class="right">${sevPill(n.sev)}${stPill(n.status)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
+    <div class="right">${sevPill(n.sev)}${stPill(n.status)}${repSelo(n)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
 RH.ncList=()=>lista(false);
 
 RH.pages.ncs=()=>{
@@ -2673,6 +2745,7 @@ function openNC(id){
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
   <form id="f-nc" data-id="${n.id}"><div class="mb">
   ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<i class="sk sk-foto" role="status" aria-label="Carregando foto"></i>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
+  ${(()=>{const r=RH.recorr(n);return r.n>=2?`<div class="rep-box" role="note"><b>↻ Problema repetido:</b> esta é a ${r.n}ª ocorrência deste item em ${RH.REC_DIAS} dias (anteriores: ${r.datas.sort((a,b)=>b-a).slice(0,5).map(t=>fd(t)).join(', ')}). Vale investigar a causa, não só corrigir.</div>`:''})()}
   ${RH.orientBox(orient)}
   <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
   <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>
@@ -3244,16 +3317,27 @@ RH.avisosCard=async()=>{
   const stat=!e?'<span class="pill off">Serviço ainda não executou</span> Configure o envio no GitHub (veja o guia) e rode o teste.'
     :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
   el.innerHTML=`<h3>Avisos por e-mail</h3>
-  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade grave</b> ou uma <b>ronda atrasada</b>. A checagem ocorre a cada ~15 minutos.</p>
+  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b>: avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
   <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
   <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
+  <label class="field" style="margin-top:8px"><span>Avisar NC Média e Alta depois de (horas)</span><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" style="width:110px"></label>
   <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
+  <details class="av-imed" style="margin-top:10px"><summary><b>Aviso imediato</b> (opcional)${A.ghToken?' · <span class="pill okp"><i></i>ligado</span>':''}</summary>
+    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja o guia.</p>
+    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="rondaliga/ronda" autocomplete="off" autocapitalize="off"></label>
+    <label class="field"><span>Ramo principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
+    <label class="field"><span>Token do GitHub ${A.ghToken?'(já salvo, deixe em branco para manter)':''}</span><input type="password" id="av-tok" value="" placeholder="${A.ghToken?'••••••••':'github_pat_…'}" autocomplete="new-password" data-lpignore="true" data-1p-ignore></label>
+    ${A.ghToken?'<label class="chk"><input type="checkbox" id="av-tokdel"> Remover o token salvo</label>':''}
+  </details>
   <p style="margin:10px 0 0">${stat}</p>
   ${falta.length?`<p style="margin:8px 0 0;color:var(--warn)"><b>Sem e-mail cadastrado:</b> ${falta.map(u=>esc(u.nome)).join(', ')}. Edite o usuário em Responsáveis e usuários.</p>`:''}
   <div style="margin-top:10px"><button type="button" class="btn sm" data-act="avisosSalvar">Salvar avisos</button></div>`};
 Object.assign(RH.ACT,{
   avisosSalvar:async()=>{
-    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked}};
+    const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok');
+    if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Repositório no formato usuário/nome, ex.: rondaliga/ronda.','bad');return}
+    const ghToken=document.getElementById('av-tokdel')?.checked?'':(tok||A0.ghToken||'');
+    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
     const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
     if(ok){toast('Avisos salvos.');RH.avisosCard()}}});
 Object.assign(RH.ACT,{

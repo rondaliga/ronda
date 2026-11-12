@@ -524,16 +524,27 @@ RH.avisosCard=async()=>{
   const stat=!e?'<span class="pill off">Serviço ainda não executou</span> Configure o envio no GitHub (veja o guia) e rode o teste.'
     :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
   el.innerHTML=`<h3>Avisos por e-mail</h3>
-  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade grave</b> ou uma <b>ronda atrasada</b>. A checagem ocorre a cada ~15 minutos.</p>
+  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b>: avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
   <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
   <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
+  <label class="field" style="margin-top:8px"><span>Avisar NC Média e Alta depois de (horas)</span><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" style="width:110px"></label>
   <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
+  <details class="av-imed" style="margin-top:10px"><summary><b>Aviso imediato</b> (opcional)${A.ghToken?' · <span class="pill okp"><i></i>ligado</span>':''}</summary>
+    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja o guia.</p>
+    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="rondaliga/ronda" autocomplete="off" autocapitalize="off"></label>
+    <label class="field"><span>Ramo principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
+    <label class="field"><span>Token do GitHub ${A.ghToken?'(já salvo, deixe em branco para manter)':''}</span><input type="password" id="av-tok" value="" placeholder="${A.ghToken?'••••••••':'github_pat_…'}" autocomplete="new-password" data-lpignore="true" data-1p-ignore></label>
+    ${A.ghToken?'<label class="chk"><input type="checkbox" id="av-tokdel"> Remover o token salvo</label>':''}
+  </details>
   <p style="margin:10px 0 0">${stat}</p>
   ${falta.length?`<p style="margin:8px 0 0;color:var(--warn)"><b>Sem e-mail cadastrado:</b> ${falta.map(u=>esc(u.nome)).join(', ')}. Edite o usuário em Responsáveis e usuários.</p>`:''}
   <div style="margin-top:10px"><button type="button" class="btn sm" data-act="avisosSalvar">Salvar avisos</button></div>`};
 Object.assign(RH.ACT,{
   avisosSalvar:async()=>{
-    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked}};
+    const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok');
+    if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Repositório no formato usuário/nome, ex.: rondaliga/ronda.','bad');return}
+    const ghToken=document.getElementById('av-tokdel')?.checked?'':(tok||A0.ghToken||'');
+    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
     const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
     if(ok){toast('Avisos salvos.');RH.avisosCard()}}});
 Object.assign(RH.ACT,{

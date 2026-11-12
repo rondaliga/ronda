@@ -21,13 +21,15 @@ function tabela(l){
   const o=NF.ord||{};
   const th=([k,t])=>`<th scope="col" aria-sort="${o.k===k?(o.dir==='desc'?'descending':'ascending'):'none'}"><button type="button" class="sort${o.k===k?' on':''}" data-act="ncOrd" data-k="${k}">${t}<i aria-hidden="true">${o.k===k?(o.dir==='desc'?'▼':'▲'):'↕'}</i></button></th>`;
   return `<div class="nct-wrap"><table class="nct"><thead><tr>${COLS.slice(0,1).map(th).join('')}${COLS.slice(1,3).map(th).join('')}<th scope="col">Descrição</th>${COLS.slice(3).map(th).join('')}<th scope="col">Responsável</th></tr></thead><tbody>${l.slice(0,150).map(n=>{
-    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}${repSelo(n)}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+/* selo "Repetida ×N" quando o mesmo item do mesmo local teve NC N vezes em 30 dias */
+const repSelo=n=>{const r=RH.recorr(n);return r.n>=2?`<span class="rep" title="${r.n} ocorrências em ${RH.REC_DIAS} dias neste item">↻ Repetida ×${r.n}</span>`:''};
 function lista(tab){
   const l=ordenar(filtrar());if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
   return (tab?tabela(l):'')+`<div class="ncs${tab?' ncs-mob':''}">${l.slice(0,150).map(n=>{
     return `<button class="nc s${n.sev}" data-act="ncOpen" data-id="${n.id}">${n.thumb?`<img class="thumb" src="${n.thumb}" alt="">`:`<div class="thumb">${ic('alert',20)}</div>`}
     <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(n.resp?userName(n.resp):'Todos')}</span></div>
-    <div class="right">${sevPill(n.sev)}${stPill(n.status)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
+    <div class="right">${sevPill(n.sev)}${stPill(n.status)}${repSelo(n)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
 RH.ncList=()=>lista(false);
 
 RH.pages.ncs=()=>{
@@ -49,6 +51,7 @@ function openNC(id){
   modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
   <form id="f-nc" data-id="${n.id}"><div class="mb">
   ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<i class="sk sk-foto" role="status" aria-label="Carregando foto"></i>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
+  ${(()=>{const r=RH.recorr(n);return r.n>=2?`<div class="rep-box" role="note"><b>↻ Problema repetido:</b> esta é a ${r.n}ª ocorrência deste item em ${RH.REC_DIAS} dias (anteriores: ${r.datas.sort((a,b)=>b-a).slice(0,5).map(t=>fd(t)).join(', ')}). Vale investigar a causa, não só corrigir.</div>`:''})()}
   ${RH.orientBox(orient)}
   <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
   <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>

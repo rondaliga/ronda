@@ -50,7 +50,18 @@ function atrasada(m,lastTs,now=Date.now()){
   if(now<=s+TOLERA)return false;
   return !(lastTs!=null&&lastTs>=s-ANTECIPA)}
 
+/* horários previstos de HOJE e a situação de cada um (usa as execuções `execTs` da ronda):
+   feito | atrasado | agora (dentro da janela de 1 h antes/depois) | depois */
+function hoje(m,execTs,now=Date.now()){
+  if(!temAgenda(m))return [];
+  const d0=new Date(now);d0.setHours(0,0,0,0);const ini=d0.getTime(),fim=ini+864e5-1;
+  const todos=horarios(m,ini-8*864e5,fim+8*864e5);
+  return horarios(m,ini,fim).filter(t=>!(m.agendaDesde&&t<m.agendaDesde)).map(t=>{
+    const i=todos.indexOf(t),prox=i>=0&&todos[i+1]!=null?todos[i+1]:Infinity;
+    const feito=execTs.some(x=>x>=t-ANTECIPA&&x<prox-ANTECIPA);
+    return{t,estado:feito?'feito':now>t+TOLERA?'atrasado':now>=t-ANTECIPA?'agora':'depois'}})}
+
 const fmtSlot=t=>{const d=new Date(t);return `${DIAS[d.getDay()]} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
 
-RH.agenda={DIAS,DIAS_LONGOS,temAgenda,validaHora,resumo,resumoDias,horarios,ultimo,proximo,atrasada,fmtSlot};
+RH.agenda={DIAS,DIAS_LONGOS,temAgenda,validaHora,resumo,resumoDias,horarios,ultimo,proximo,atrasada,hoje,fmtSlot};
 })();
