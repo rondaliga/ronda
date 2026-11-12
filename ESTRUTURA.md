@@ -128,7 +128,7 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 ## v1.0.8: aviso imediato, NC repetida, pendências de hoje
 - **Aviso imediato (opcional):** `RH.avisoAgora()` (`js/core/data.js`) chama `workflow_dispatch` do GitHub ao registrar uma ronda com NC. Usa `cfg.avisos.repo/ref/ghToken` (Cadastros → Hospital → Avisos por e-mail → Aviso imediato). O token fica no banco, visível aos aparelhos da equipe: use token restrito a este repositório, só com permissão de Actions. Sem token, vale o agendamento (agora a cada 10 min).
 - **NC repetida:** `RH.recKey/recorr/recGrupos` (mesmo local + mesmo item; janela de 30 dias). Selo "Repetida ×N" na lista, aviso no detalhe da NC e cartão "Problemas que se repetem" no painel.
-- **Pendências de hoje:** `RH.agenda.hoje()` (`js/core/agenda.js`) dá a situação de cada horário previsto (feito/atrasado/agora/depois); o bloco aparece no topo de "Nova ronda".
+- **Pendências de hoje:** `RH.agenda.hoje()` (`js/core/agenda.js`) dá a situação de cada horário previsto (feito/atrasado/agora/depois); um alerta compacto de uma linha no topo de "Nova ronda" (vermelho = atrasada, âmbar = agora, azul = próxima, verde = em dia); toque para abrir a lista.
 - Testes: `node tests/agenda.test.js`, `python3 tests/melhorias108.py`.
 
 ## v1.0.9: horário do aviso por severidade

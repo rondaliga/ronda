@@ -774,15 +774,26 @@ img.big-img{cursor:zoom-in}
 @media (prefers-reduced-motion:reduce){.sk{animation:none}}
 
 /* ===== v1.0.8: pendências, NC repetida ===== */
-.pend{max-width:720px;margin-bottom:14px}
-.pend-sum{margin:0 0 8px;color:var(--ink2)} .pend-sum .bad{color:var(--bad)}
-.pend-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.pend-l li{display:grid;grid-template-columns:52px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2)}
-.pend-l .pt{font-variant-numeric:tabular-nums;font-weight:600} .pend-l .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pend-l .pe-feito{opacity:.6} .pend-l .pe-atrasado{border-color:var(--bad)}
 .pill.now{background:var(--ok-bg);color:var(--ok)}
-@media (max-width:520px){.pend-l li{grid-template-columns:44px minmax(0,1fr) auto}.pend-l li .btn{grid-column:1/-1}}
 .rep{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:600;white-space:nowrap}
 .nct td .rep{display:block;width:max-content}
 .rep-box{margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--warn-bg);color:var(--ink);font-size:13.5px;border:1px solid var(--warn)}
 .av-imed summary{cursor:pointer}
+
+/* ===== v1.0.10: pendências em um único alerta compacto ===== */
+.pend{--pc:var(--muted);--pb:var(--surface2);margin:0 0 12px;border:1px solid var(--line);border-left:4px solid var(--pc);border-radius:10px;background:var(--pb);overflow:hidden}
+.pend.bad{--pc:var(--bad);--pb:var(--bad-bg)} .pend.warn{--pc:var(--warn);--pb:var(--warn-bg)} .pend.ok{--pc:var(--ok);--pb:var(--ok-bg)} .pend.info{--pc:var(--brand);--pb:var(--surface2)}
+.pend-h{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:8px 12px;cursor:pointer;color:var(--ink)}
+.pend-h:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.pend-h>svg{flex:none;color:var(--pc)}
+.pend-t{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;font-size:14px}
+.pend-t b{font-weight:600} .pend-t small{color:var(--ink2);font-size:12.5px}
+.pend-c{flex:none;display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--ink2)}
+.pend-l{list-style:none;margin:0;padding:4px 12px 10px;display:grid;gap:0;border-top:1px solid var(--line);background:var(--surface)}
+.pend-l li{display:grid;grid-template-columns:46px minmax(0,1fr) auto 76px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.pend-l li:last-child{border-bottom:0}
+.pend-l .pt{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink2)} .pend-l .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pend-l .btn{min-height:32px;padding:0 10px;justify-self:end}
+.pend-l .pe-feito{opacity:.6}
+@media (max-width:520px){.pend-l li{grid-template-columns:42px minmax(0,1fr) auto}.pend-l li .btn,.pend-l li>span:last-child{grid-column:auto}.pend-l li>span:last-child:empty{display:none}.pend-l li .pill{display:none}.pend-l li.pe-atrasado .pn::after{content:" · atrasada";color:var(--bad);font-weight:600}.pend-l li.pe-feito .pn::after{content:" · feita";color:var(--ok)}}
+.pend-l .pill.late{background:var(--bad-bg);color:var(--bad)}

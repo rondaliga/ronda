@@ -51,12 +51,18 @@ function pendencias(lista){
   it.sort((a,b)=>ord[a.e]-ord[b.e]||(a.t||0)-(b.t||0)||a.m.nome.localeCompare(b.m.nome));
   return it}
 function pendBox(lista){
-  const it=pendencias(lista);if(!it.length)return `<section class="pend card" aria-label="Pendências de hoje"><h3>Pendências de hoje</h3><p class="pend-sum">Nenhuma ronda prevista para hoje.</p></section>`;
-  const n=e=>it.filter(x=>x.e===e).length,abertas=n('atrasado')+n('agora')+n('depois');
-  const rot={atrasado:['Atrasada','late'],agora:['Agora','now'],depois:['Mais tarde','off'],feito:['Feita','okp']};
-  const sum=[n('atrasado')?`<b class="bad">${n('atrasado')} atrasada${n('atrasado')>1?'s':''}</b>`:'',n('agora')?`<b>${n('agora')} para agora</b>`:'',n('depois')?`${n('depois')} mais tarde`:'',n('feito')?`${n('feito')} feita${n('feito')>1?'s':''}`:''].filter(Boolean).join(' · ');
-  return `<section class="pend card" aria-label="Pendências de hoje"><h3>Pendências de hoje</h3><p class="pend-sum">${abertas?sum:'Tudo em dia hoje · '+n('feito')+' ronda'+(n('feito')>1?'s':'')+' feita'+(n('feito')>1?'s':'')}</p>
-  <ul class="pend-l">${it.map(x=>`<li class="pe-${x.e}"><span class="pt">${x.t?hhmm(x.t):'—'}</span><span class="pn">${esc(x.m.nome)}</span><span class="pill ${rot[x.e][1]}">${rot[x.e][0]}</span>${x.e==='feito'?'':`<button type="button" class="btn sm${x.e==='atrasado'||x.e==='agora'?' pri':''}" data-act="pickRonda" data-id="${x.m.id}">Iniciar</button>`}</li>`).join('')}</ul></section>`}
+  const it=pendencias(lista);if(!it.length)return '';
+  const n=e=>it.filter(x=>x.e===e).length,at=n('atrasado'),ag=n('agora'),dp=it.filter(x=>x.e==='depois'),fe=n('feito');
+  const prox=dp.length?hhmm(Math.min(...dp.map(x=>x.t))):'';
+  const plural=(k,a,b)=>k+' '+(k>1?b:a);
+  let nivel,icone,tit,sub='';
+  if(at){nivel='bad';icone='alert';tit=plural(at,'ronda atrasada','rondas atrasadas');sub=ag?plural(ag,'para agora','para agora'):(prox?'próxima às '+prox:'')}
+  else if(ag){nivel='warn';icone='hist';tit=plural(ag,'ronda para fazer agora','rondas para fazer agora');sub=dp.length?'depois, às '+prox:''}
+  else if(dp.length){nivel='info';icone='hist';tit='Próxima ronda às '+prox;sub=fe?plural(fe,'feita hoje','feitas hoje'):''}
+  else{nivel='ok';icone='check';tit='Rondas de hoje em dia';sub=plural(fe,'feita','feitas')}
+  const aberto=!!st.pendOpen,rot={atrasado:['Atrasada','late'],agora:['Agora','now'],depois:['Mais tarde','off'],feito:['Feita','okp']};
+  return `<section class="pend ${nivel}" aria-label="Pendências de hoje"><button type="button" class="pend-h" data-act="pendTog" aria-expanded="${aberto}" aria-controls="pend-l">${ic(icone,18)}<span class="pend-t"><b>${tit}</b>${sub?`<small>${sub}</small>`:''}</span><span class="pend-c">${aberto?'Ocultar':'Ver'}${ic(aberto?'up':'dn',16)}</span></button>
+  ${aberto?`<ul class="pend-l" id="pend-l">${it.map(x=>`<li class="pe-${x.e}"><span class="pt">${x.t?hhmm(x.t):'—'}</span><span class="pn">${esc(x.m.nome)}</span><span class="pill ${rot[x.e][1]}">${rot[x.e][0]}</span>${x.e==='feito'?'<span></span>':`<button type="button" class="btn sm" data-act="pickRonda" data-id="${x.m.id}">Iniciar</button>`}</li>`).join('')}</ul>`:''}</section>`}
 
 RH.pages.ronda=()=>{
   const lista=visiveis();
@@ -358,6 +364,7 @@ async function irParaLocal(lido){
   if(el){el.scrollIntoView({behavior:'smooth',block:'start'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1800);toast(`Local: ${a.nome}`)}}
 
 /* ---------- eventos ---------- */
+Object.assign(RH.ACT,{pendTog:()=>{st.pendOpen=!st.pendOpen;RH.renderView(false,true)}});
 Object.assign(RH.ACT,{
   pickRonda:el=>startRonda(el.dataset.id),
   proxPend:()=>{
