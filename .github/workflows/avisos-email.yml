@@ -1,0 +1,31 @@
+name: Avisos por e-mail
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      teste:
+        description: 'Enviar e-mail de teste aos administradores'
+        type: boolean
+        default: false
+concurrency:
+  group: avisos-email
+  cancel-in-progress: false
+jobs:
+  avisos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verificar e enviar avisos
+        env:
+          RONDA_CODIGO: ${{ secrets.RONDA_CODIGO }}
+          EMAIL_API_KEY: ${{ secrets.EMAIL_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+          TZ: America/Fortaleza
+        run: node tools/avisos-email.mjs ${{ inputs.teste && '--teste' || '' }}
