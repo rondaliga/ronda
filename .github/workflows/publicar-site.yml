@@ -1,4 +1,6 @@
 name: Publicar site (GitHub Pages)
+# A cada envio (push) para a branch main, o site é montado e publicado sozinho.
+# Também pode ser executado à mão em: Actions → Publicar site → Run workflow.
 on:
   push:
     branches: [main]
@@ -23,16 +25,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: Conferir a versão
+      - name: Conferir a versão (package.json, rodapé, index.html e sw.js iguais)
         run: node tools/atualizar-versao.js --verificar
-      - name: Instalar dependências
+      - name: Instalar dependências (leitor de código de barras offline)
         run: npm install --no-audit --no-fund
       - name: Montar o site (pasta www)
         run: node tools/preparar-www.js
       - name: Carimbar a versão no service worker
-        run: sed -i "s/^const V='[^']*'/const V='ronda-${GITHUB_SHA::7}'/" www/sw.js
+        # cada publicação ganha uma versão nova => os aparelhos detectam e oferecem a atualização
+        run: sed -i "s/^const V='[^']*'/const V='ronda-${GITHUB_SHA::7}'/" www/sw.js && grep -n "^const V" www/sw.js
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with: { path: www }
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
