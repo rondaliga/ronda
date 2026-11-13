@@ -11,7 +11,7 @@ Tudo abaixo é **gratuito**: sem Play Store, sem App Store e sem conta de desenv
    - `Ronda Hospitalar-….dmg` (e `.zip`) — macOS (Intel e Apple Silicon)
 
 ### Instalar no Android
-Envie o `.apk` ao celular (WhatsApp, e-mail, Drive), toque nele e permita "Instalar apps desconhecidos" quando o Android pedir. Na primeira vez, aceite as permissões de **câmera** e **localização** (a localização é exigida pelo Android para ler a antena Wi-Fi).
+Envie o `.apk` ao celular (WhatsApp, e-mail, Drive), toque nele e permita "Instalar apps desconhecidos" quando o Android pedir. Na primeira vez, aceite as permissões de **câmera** e **localização** (a localização é exigida pelo Android para ler o ponto de acesso Wi-Fi).
 
 ### Instalar no macOS
 Abra o `.dmg` e arraste para *Aplicativos*. Como o app não é assinado pela Apple (isso custa US$ 99/ano), na primeira abertura: **botão direito no app → Abrir → Abrir**. Se aparecer "danificado", rode no Terminal: `xattr -cr "/Applications/Ronda Hospitalar.app"`.
@@ -22,6 +22,8 @@ Sem chave própria, cada build sai com uma assinatura diferente e o Android **n�
 keytool -genkeypair -v -keystore ronda.jks -alias ronda -keyalg RSA -keysize 2048 -validity 10000
 base64 -w0 ronda.jks      # no macOS: base64 -i ronda.jks
 ```
+Quando o `keytool` pedir a senha da chave, use **a mesma senha do keystore** (o fluxo de trabalho usa uma única senha para os dois).
+
 No GitHub: **Settings → Secrets and variables → Actions → New repository secret** e crie `ANDROID_KEYSTORE_BASE64` (o texto do base64), `ANDROID_KEYSTORE_PASSWORD` (a senha) e `ANDROID_KEY_ALIAS` (`ronda`). **Guarde o arquivo `ronda.jks` e a senha em local seguro** — sem eles não há como publicar atualizações.
 
 ## Construir no seu próprio computador (opcional)
@@ -36,14 +38,14 @@ npm run desktop:mac     # gera o .dmg (precisa ser feito em um Mac)
 ```
 
 ## Sem instalar nada: PWA
-No Chrome do Android, abra o endereço do site (GitHub Pages) → menu ⋮ → **Instalar app**. Funciona sem internet depois da primeira abertura. Limite: o navegador não lê o BSSID do Wi-Fi (só o app `.apk` lê).
+No Chrome do Android, abra o endereço do site (GitHub Pages) → menu ⋮ → **Instalar app**. O app abre sem internet depois da primeira abertura, mas os dados só sincronizam com o banco compartilhado quando há conexão. Limite: o navegador não lê o BSSID do Wi-Fi (só o app `.apk` lê).
 
 ## O que muda em cada aparelho
 | Recurso | Android (.apk) | macOS | PWA/Navegador |
 |---|---|---|---|
 | Layout de celular | ✅ | ✅ (janela estreita) | ✅ |
 | Câmera e leitor de código | ✅ | ✅ | ✅ |
-| Antena Wi-Fi (BSSID) | ✅ | ❌ | ❌ |
+| Ponto de acesso Wi-Fi (BSSID) | ✅ | ❌ | ❌ |
 | Botão Voltar do Android | ✅ | — | — |
 | Backup (.json) | menu Compartilhar | baixa o arquivo | baixa o arquivo |
 | Relatório / etiquetas | gera arquivo HTML para compartilhar (abra no Chrome → Imprimir/PDF) | imprime direto | imprime direto |

@@ -12,7 +12,7 @@ const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''
 /* [palavras-chave (sem acento), orientação]. Vence a regra com mais palavras encontradas. */
 const REGRAS=[
  [['maos','lavagem das','higiene das','antissepsia das','cinco momentos'],
-  'Higienizar as mãos com água e sabonete ou álcool 70% nos 5 momentos da assistência, repor insumos faltantes e orientar a equipe no ato.'],
+  'Higienizar as mãos com água e sabonete ou preparação alcoólica (álcool em gel 70%) nos 5 momentos da assistência (OMS/Anvisa), repor insumos faltantes e orientar a equipe no ato.'],
  [['higien','limpez','sujo','sujeira','poeira','desinfec','assepsia'],
   'Refazer a limpeza e a desinfecção do local com o produto padronizado, registrar no checklist e avisar a chefia do setor.'],
  [['esteriliz','autoclave','termodesinfec','indicador biologico','indicador quimico'],
@@ -46,7 +46,7 @@ const REGRAS=[
  [['ar condicionado','climatiza','ventilacao','exaustor','pressao'],
   'Verificar o funcionamento e a temperatura do ambiente, acionar a manutenção e registrar; avaliar a continuidade das atividades.'],
  [['praga','inseto','barata','rato','roedor','mosquito'],
-  'Isolar e higienizar a área, avisar a Higiene/CCIH para acionar o controle de pragas e registrar a ocorrência.'],
+  'Isolar e higienizar a área, avisar o Serviço de Higiene e Limpeza e a CCIH/SCIH para acionar o controle de pragas e registrar a ocorrência.'],
  [['identifica','etiqueta','rotulo','placa','pulseira'],
   'Identificar ou etiquetar corretamente o item no ato, conferir os dados e orientar a equipe.'],
  [['registro','document','assinatura','prontuario','preench','checklist','formulario','impresso'],

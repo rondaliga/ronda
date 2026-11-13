@@ -1,5 +1,5 @@
 /* Service worker: deixa o app abrir sem internet (PWA). Os dados continuam no banco (local ou Supabase). */
-const V='ronda-v1.0.10';
+const V='ronda-v1.0.11';
 const ARQ=['./','index.html','manifest.webmanifest','css/styles.css','icons/icon-192.png','icons/icon-512.png','js/config.js','js/app.js',
 'js/core/data-layer.js','js/core/utils.js','js/core/state.js','js/core/versao.js','js/core/access.js','js/core/security.js','js/core/agenda.js','js/core/orientacao.js','js/core/images.js','js/core/ui.js','js/core/data.js','js/core/local.js','js/core/barcode.js','js/core/native.js',
 'js/features/painel.js','js/features/ronda.js','js/features/historico.js','js/features/ncs.js','js/features/cadastros.js','js/features/seed.js','js/features/auth.js','js/features/conta.js'];

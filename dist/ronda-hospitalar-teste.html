@@ -1127,8 +1127,8 @@ RH.execs=list=>{
 </script>
 <script>
 /* Versão do aplicativo — NÃO edite à mão: use  node tools/atualizar-versao.js 1.0.5  (atualiza todos os lugares). */
-RH.VERSAO='1.0.10';
-RH.VERSAO_DATA='2026-11-12';
+RH.VERSAO='1.0.11';
+RH.VERSAO_DATA='2026-11-13';
 
 </script>
 <script>
@@ -1144,7 +1144,7 @@ RH.VERSAO_DATA='2026-11-12';
    os usuários com acesso a Nova ronda. Perfil desconhecido é tratado como Inspetor (menor privilégio).
 
    Atenção: estas regras controlam a INTERFACE. O banco compartilhado é protegido
-   apenas pelo código de acesso da equipe (veja LEIA-ME.md).
+   apenas pelo código de acesso da equipe (veja ESTRUTURA.md).
    ========================================================================== */
 (()=>{
 const RH=window.RH,st=RH.st;
@@ -1178,7 +1178,8 @@ RH.access={
 <script>
 /* ==========================================================================
    Núcleo · senhas
-   - hash   : guarda apenas o hash PBKDF2-SHA256 (60 mil iterações) com sal por usuário.
+   - hash   : guarda apenas o hash PBKDF2-SHA256 (600 mil iterações em senhas novas; contas antigas, com 60 mil, são atualizadas no próximo login)
+              com sal por usuário.
               Requer HTTPS (ou localhost), pois usa crypto.subtle.
    - checkSenha : regra de senha do sistema (mínimo 8 caracteres e 1 símbolo especial).
    - senhaForte : gera uma senha aleatória que cumpre a regra.
@@ -1186,10 +1187,16 @@ RH.access={
 (()=>{
 const RH=window.RH;
 const enc=s=>new TextEncoder().encode(s);
-RH.hash=async(pw,salt)=>{
+RH.HASH_ITER=600000;   /* iterações das senhas novas; o valor de cada conta fica em u.iter (ausente = 60 mil, contas antigas) */
+RH.hash=async(pw,salt,iter)=>{
   const k=await crypto.subtle.importKey('raw',enc(pw),'PBKDF2',false,['deriveBits']);
-  const b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc(salt),iterations:60000,hash:'SHA-256'},k,256);
+  const b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc(salt),iterations:iter||60000,hash:'SHA-256'},k,256);
   return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')};
+
+/* após um login correto, regrava o hash de uma conta antiga com o número atual de iterações */
+RH.rehash=async(u,pw)=>{
+  if((u.iter||60000)>=RH.HASH_ITER)return;
+  try{const salt=RH.uid()+RH.uid(),hash=await RH.hash(pw,salt,RH.HASH_ITER);await RH.upd('users',u.id,{salt,hash,iter:RH.HASH_ITER})}catch(e){console.error('atualização do hash',e)}};
 
 RH.SENHA_REGRA='Mínimo de 8 caracteres, com pelo menos 1 símbolo especial (ex.: ! @ # $ % & *).';
 /* devolve '' se a senha é válida; senão, a mensagem do problema. Símbolo = qualquer caractere que não seja letra ou número */
@@ -1294,7 +1301,7 @@ const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''
 /* [palavras-chave (sem acento), orientação]. Vence a regra com mais palavras encontradas. */
 const REGRAS=[
  [['maos','lavagem das','higiene das','antissepsia das','cinco momentos'],
-  'Higienizar as mãos com água e sabonete ou álcool 70% nos 5 momentos da assistência, repor insumos faltantes e orientar a equipe no ato.'],
+  'Higienizar as mãos com água e sabonete ou preparação alcoólica (álcool em gel 70%) nos 5 momentos da assistência (OMS/Anvisa), repor insumos faltantes e orientar a equipe no ato.'],
  [['higien','limpez','sujo','sujeira','poeira','desinfec','assepsia'],
   'Refazer a limpeza e a desinfecção do local com o produto padronizado, registrar no checklist e avisar a chefia do setor.'],
  [['esteriliz','autoclave','termodesinfec','indicador biologico','indicador quimico'],
@@ -1328,7 +1335,7 @@ const REGRAS=[
  [['ar condicionado','climatiza','ventilacao','exaustor','pressao'],
   'Verificar o funcionamento e a temperatura do ambiente, acionar a manutenção e registrar; avaliar a continuidade das atividades.'],
  [['praga','inseto','barata','rato','roedor','mosquito'],
-  'Isolar e higienizar a área, avisar a Higiene/CCIH para acionar o controle de pragas e registrar a ocorrência.'],
+  'Isolar e higienizar a área, avisar o Serviço de Higiene e Limpeza e a CCIH/SCIH para acionar o controle de pragas e registrar a ocorrência.'],
  [['identifica','etiqueta','rotulo','placa','pulseira'],
   'Identificar ou etiquetar corretamente o item no ato, conferir os dados e orientar a equipe.'],
  [['registro','document','assinatura','prontuario','preench','checklist','formulario','impresso'],
@@ -1469,6 +1476,9 @@ RH.orientBox=txt=>txt?`<div class="orient" role="note">${ic('alert',18)}<div><b>
 (()=>{
 const RH=window.RH,{S,st,COLS,byId}=RH;
 
+/* só as 1000 rondas/NCs mais recentes são carregadas; telas com períodos longos avisam quando o limite é atingido */
+RH.LIMITE=1000;
+RH.avisoLimite=cols=>cols.some(c=>(S[c]||[]).length>=RH.LIMITE)?`<div class="banner" role="note">Exibindo apenas os ${RH.LIMITE} registros mais recentes: períodos longos podem estar incompletos.</div>`:'';
 RH.put=(c,id,d)=>st.db.doc(`${c}/${id}`).set(d);
 RH.upd=(c,id,d)=>st.db.doc(`${c}/${id}`).update(d);
 RH.del=(c,id)=>st.db.doc(`${c}/${id}`).delete();
@@ -1481,7 +1491,7 @@ RH.safe=async fn=>{
 
 const ready={};
 function sync(col){
-  let q=st.db.collection(col);if(col==='rondas'||col==='ncs')q=q.orderBy('ts','desc').limit(1000);
+  let q=st.db.collection(col);if(col==='rondas'||col==='ncs')q=q.orderBy('ts','desc').limit(RH.LIMITE);
   q.onSnapshot(s=>{const rows=s.docs.map(d=>({id:d.id,...d.data()}));
     if(col==='config')S.cfg=rows.find(r=>r.id==='main')||{};else S[col]=rows;
     ready[col]=true;onData()},e=>{console.error(col,e);ready[col]=true;onData()});
@@ -1701,17 +1711,17 @@ function validar({alvo,lido,bssid,pol}){
   const lista=parseBssids(alvo.bssids).lista;
   if(!lista.length)return R(true,'ok','Código confere.','sem_cadastro');
   if(bssid&&bssid.ok)return bssidConfere(bssid.valor,lista)
-    ?R(true,'ok','Código e antena Wi-Fi conferem.','confere')
-    :R(false,'rede_fora',`Você está conectado a uma antena Wi-Fi que não pertence a "${alvo.nome}".`,'fora');
-  if(pol&&pol.bssid==='exigir')return R(false,'rede_indisponivel',(bssid&&bssid.msg)||'Não foi possível identificar a antena Wi-Fi deste aparelho.','indisponivel');
-  return R(true,'ok','Código confere (antena Wi-Fi não verificada neste aparelho).','indisponivel')}
+    ?R(true,'ok','Código e ponto de acesso Wi-Fi conferem.','confere')
+    :R(false,'rede_fora',`Você está conectado a um ponto de acesso Wi-Fi que não pertence a "${alvo.nome}".`,'fora');
+  if(pol&&pol.bssid==='exigir')return R(false,'rede_indisponivel',(bssid&&bssid.msg)||'Não foi possível identificar o ponto de acesso Wi-Fi deste aparelho.','indisponivel');
+  return R(true,'ok','Código confere (ponto de acesso Wi-Fi não verificado neste aparelho).','indisponivel')}
 
 /* ---------- leitura do BSSID (camada nativa) ---------- */
 const MSG_BSSID={
-  navegador:'Este navegador não permite ler a antena Wi-Fi. Use o aplicativo da Ronda (Android).',
-  permissao:'Permita o acesso à localização e deixe a localização do aparelho ligada para identificar a antena Wi-Fi.',
+  navegador:'Este navegador não permite ler o ponto de acesso Wi-Fi. Use o aplicativo da Ronda (Android).',
+  permissao:'Permita o acesso à localização e deixe a localização do aparelho ligada para identificar o ponto de acesso Wi-Fi.',
   semwifi:'O aparelho não está conectado a uma rede Wi-Fi.',
-  erro:'Não foi possível ler a antena Wi-Fi.'};
+  erro:'Não foi possível ler o ponto de acesso Wi-Fi.'};
 const comTempo=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
 
 async function bssidBruto(){
@@ -1778,7 +1788,7 @@ async function escanear(titulo){
   return new Promise(resolve=>{
     const o=document.createElement('div');o.id='scan-ov';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');o.setAttribute('aria-label','Leitor de código de barras');
     o.style.cssText='position:fixed;inset:0;z-index:210;background:#000;display:flex;flex-direction:column;color:#fff';
-    o.innerHTML=`<div style="padding:12px 16px;font-weight:600">${RH.esc(titulo||'Leia o código de barras do local')}</div>
+    o.innerHTML=`<div style="padding:12px 16px;font-weight:600">${RH.esc(titulo||'Leia o código do local')}</div>
       <div style="position:relative;flex:1;min-height:0"><video id="scan-v" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;background:#000"></video>
       <div style="position:absolute;left:8%;right:8%;top:38%;height:24%;border:2px solid #4cc27f;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.35)"></div></div>
       <div id="scan-msg" style="padding:10px 16px;text-align:center;font-size:13px">Aponte a câmera para a etiqueta fixada no local.</div>
@@ -1801,7 +1811,7 @@ async function escanear(titulo){
 /* lê o código e, logo em seguida, a antena Wi-Fi; devolve o registro (ok ou rejeitado) ou null se cancelado */
 async function checkin(bl,lidoPronto){
   const alvo=alvoDoBloco(bl);if(!alvo)return null;
-  const lido=lidoPronto!=null?lidoPronto:await escanear('Leia o código de barras: '+alvo.nome);
+  const lido=lidoPronto!=null?lidoPronto:await escanear('Leia o código do local: '+alvo.nome);
   if(lido==null)return null;
   const bssid=await lerBssid(),r=validar({alvo,lido,bssid,pol:politica()});
   return {ts:Date.now(),ok:r.ok,codigo:r.codigo,rede:r.rede,msg:r.msg,lido:String(lido).slice(0,80),bssid:bssid.valor||''}}
@@ -1850,7 +1860,7 @@ function badge(p){
   const t=(c,x)=>`<span class="pill ${c}" title="Presença no local">${x}</span>`;
   if(p.status==='confirmada'){
     const n=(p.falhas||[]).length?` · ${p.falhas.length} leitura${p.falhas.length>1?'s':''} rejeitada${p.falhas.length>1?'s':''}`:'';
-    return p.rede==='confere'?t('okp','Presença: código + Wi-Fi'+n):t(p.rede==='indisponivel'?'late':'okp','Presença: código'+(p.rede==='indisponivel'?' (Wi-Fi não verificado)':'')+n)}
+    return p.rede==='confere'?t('okp','Presença: código + Wi-Fi'+n):t(p.rede==='indisponivel'?'late':'okp','Presença: código'+(p.rede==='indisponivel'?' (ponto de acesso não verificado)':'')+n)}
   if(p.status==='sem_codigo')return t('off','Local sem código');
   return t('late','Presença não confirmada')}
 
@@ -1864,7 +1874,7 @@ function validaCadastro(data,ent,id){
     if(dup)return `O código ${c} já está em uso por "${dup.nome}". Cada local precisa de um código único.`}
   data.codigoLocal=c;
   const p=parseBssids(data.bssids);
-  if(p.invalidos.length)return 'BSSID inválido: '+p.invalidos.join(', ')+'. Use aa:bb:cc:dd:ee:ff (ou aa:bb:cc:*:*:* para várias antenas do mesmo fabricante).';
+  if(p.invalidos.length)return 'BSSID inválido: '+p.invalidos.join(', ')+'. Use aa:bb:cc:dd:ee:ff (ou aa:bb:cc:*:*:* para vários pontos de acesso do mesmo fabricante).';
   data.bssids=p.lista.join('\n');
   return ''}
 function gerarCodigo(prefixo,extra){
@@ -2090,7 +2100,7 @@ RH.pages.painel=()=>{
   const setores=[...new Set(S.salas.map(s=>s.setor).filter(Boolean))].sort();
   const okSet=x=>!F.setor||x.setor===F.setor;
   const rs=S.rondas.filter(r=>r.ts>=start&&okSet(r)), ns=S.ncs.filter(n=>n.ts>=start&&okSet(n));
-  let C=0,N=0;rs.forEach(r=>{C+=r.c;N+=r.nc});
+  let C=0,N=0,I=0;rs.forEach(r=>{C+=r.c;N+=r.nc;I+=(r.ina||0)+(r.na||0)});
   const pct=C+N?C/(C+N)*100:null, meta=+S.cfg.meta||95;
   const abertas=S.ncs.filter(n=>n.status!=='resolvida'&&okSet(n)), graves=abertas.filter(n=>n.sev>=3);
   const rz=ns.filter(n=>n.status==='resolvida'&&n.resolvidoEm), tmr=rz.length?rz.reduce((a,n)=>a+(n.resolvidoEm-n.ts),0)/rz.length/36e5:null;
@@ -2099,7 +2109,7 @@ RH.pages.painel=()=>{
   const ini0=start-days*864e5, rs0=S.rondas.filter(r=>r.ts>=ini0&&r.ts<start&&okSet(r));
   let C0=0,N0=0;rs0.forEach(r=>{C0+=r.c;N0+=r.nc});
   const pct0=C0+N0?C0/(C0+N0)*100:null, nExec0=new Set(rs0.map(r=>r.execId||r.id)).size;
-  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">= igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
+  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">Igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
 
   /* salas inspecionadas no período */
   const salas=S.salas.filter(s=>s.ativo!==false&&(!F.setor||s.setor===F.setor));
@@ -2131,14 +2141,14 @@ RH.pages.painel=()=>{
   const tile=(l,v,sub,cls='',extra='')=>`<div class="kpi"><label>${l}</label><strong class="${cls}">${v}</strong><small>${sub}</small>${extra}</div>`;
 
   setTimeout(()=>RH.armAviso&&RH.armAviso(),0);
-  return `<div id="arm-aviso"></div><div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
+  return `<div id="arm-aviso"></div>${RH.avisoLimite(['rondas','ncs'])}<div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="F:periodo" data-num="1">${[7,30,90].map(d=>`<option value="${d}" ${d===days?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
   <div class="tools"><button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
   <section class="kpis" aria-label="Indicadores">
   ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true)+spC)}
-  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
-  ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
+  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados${I?` · ${I.toLocaleString('pt-BR')} inacessíve${I===1?'l':'is'}`:''}`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
+  ${tile('NCs não resolvidas',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
   ${tile('Tempo médio de resolução',dur(tmr),`${rz.length} NC${rz.length===1?'':'s'} resolvida${rz.length===1?'':'s'}`)}
   ${tile('Cobertura de salas',pc(cob),`${salas.filter(s=>insp.has(s.id)).length} de ${salas.length} salas inspecionadas`)}
   ${tile('Rondas em atraso',atraso.length,atraso.length?'Veja a lista abaixo':'Todas dentro da agenda',atraso.length?'badc':'good')}
@@ -2152,7 +2162,7 @@ RH.pages.painel=()=>{
   ${card('tipos','Tipos de NC mais frequentes','',hbars(porTipo))}
   ${card('repet','Problemas que se repetem',`no período · mesmo item e local`,(()=>{const g=RH.recGrupos(ns).slice(0,6);return g.length?hbars(g):empty('Nenhum item com 2 ou mais NCs no período')})())}
   ${card('equip','Equipamentos com mais NCs','',hbars(porEq))}
-  ${card('atraso','Rondas em atraso','',atraso.length?`<div class="hb">${atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${(m.salaIds||[]).length} sala${(m.salaIds||[]).length===1?'':'s'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'))}
+  ${card('atraso','Rondas em atraso','',atraso.length?`<div class="hb">${atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${RH.ordemDaRonda(m).length} ${RH.ordemDaRonda(m).length===1?'local':'locais'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'))}
   ${card('sala','Conformidade por sala','ordenado da menor para a maior',porSala.length?`<div class="hb">${porSala.map(x=>`<div class="hb-r" data-tip="${esc(x.s.nome)}: ${pc(x.p)}"><span class="hb-l">${esc(x.s.nome)}</span><span class="hb-t"><i style="width:${x.p??0}%;background:${x.p==null?'transparent':x.p>=meta?'var(--c1)':'var(--s3)'}"></i></span><span class="hb-v">${x.p==null?'—':Math.round(x.p)+'%'}</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Barras vermelhas estão abaixo da meta de ${meta}%.</p>`:empty('Nenhuma sala cadastrada','Cadastre salas em Cadastros.'),'span2')}
   ${card('recentes','Não conformidades recentes','',rec.length?`<div class="tw" style="border:0"><table><thead><tr><th>Data</th><th>Local</th><th>Descrição</th><th>Severidade</th><th>Situação</th></tr></thead><tbody>${rec.map(n=>`<tr data-act="ncOpen" data-id="${n.id}"><td class="num">${fdt(n.ts)}</td><td>${esc(n.eqNome||n.salaNome)}<small>${esc(n.eqNome?n.salaNome:n.setor||'')}</small></td><td>${esc((n.desc||n.itemTexto||'').slice(0,80))}</td><td>${sevPill(n.sev)}</td><td>${stPill(n.status)}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma não conformidade registrada'),'span2')}
   </section>`;
@@ -2179,7 +2189,7 @@ function drawLine(){
   const mv=e=>{const b=svg.getBoundingClientRect(),sx=(e.clientX-b.left)*W/b.width;
     let best=null;pts.forEach(p=>{if(p.v==null)return;if(!best||Math.abs(x(p.i)-sx)<Math.abs(x(best.i)-sx))best=p});if(!best)return;
     xh.setAttribute('x1',x(best.i));xh.setAttribute('x2',x(best.i));xh.setAttribute('visibility','visible');xd.setAttribute('cx',x(best.i));xd.setAttribute('cy',y(best.v));xd.setAttribute('visibility','visible');
-    RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} sala${best.r===1?'':'s'} · ${best.n} NC`,e.clientX,e.clientY)};
+    RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} ${best.r===1?'local':'locais'} · ${best.n} NC`,e.clientX,e.clientY)};
   const sai=()=>{RH.tip.hidden=true;xh.setAttribute('visibility','hidden');xd.setAttribute('visibility','hidden')};
   r.addEventListener('pointermove',mv);r.addEventListener('pointerdown',mv);r.addEventListener('pointerleave',sai);r.addEventListener('pointercancel',sai);
   if(!r._t){r._t=1;document.addEventListener('pointerdown',ev=>{if(!ev.target.closest||!ev.target.closest('#ch-line'))sai()},{passive:true})}
@@ -2206,7 +2216,7 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(RH.
 
    Regras de acesso:
    - ronda com responsável  → só ele a vê e realiza;
-   - ronda com responsável "Todos" → todos os usuários com acesso à tela (todos os inspetores).
+   - ronda com responsável "Todos" → todos os usuários com acesso à tela (todos os usuários).
    Ao finalizar, gera um documento em `rondas` por sala visitada (todos com o mesmo
    execId, modeloId e modeloNome) e uma não conformidade em `ncs` para cada item NC.
    ========================================================================== */
@@ -2258,7 +2268,7 @@ function pendBox(lista){
   const prox=dp.length?hhmm(Math.min(...dp.map(x=>x.t))):'';
   const plural=(k,a,b)=>k+' '+(k>1?b:a);
   let nivel,icone,tit,sub='';
-  if(at){nivel='bad';icone='alert';tit=plural(at,'ronda atrasada','rondas atrasadas');sub=ag?plural(ag,'para agora','para agora'):(prox?'próxima às '+prox:'')}
+  if(at){nivel='bad';icone='alert';tit=plural(at,'ronda atrasada','rondas atrasadas');sub=ag?plural(ag,'ronda para fazer agora','rondas para fazer agora'):(prox?'próxima às '+prox:'')}
   else if(ag){nivel='warn';icone='hist';tit=plural(ag,'ronda para fazer agora','rondas para fazer agora');sub=dp.length?'depois, às '+prox:''}
   else if(dp.length){nivel='info';icone='hist';tit='Próxima ronda às '+prox;sub=fe?plural(fe,'feita hoje','feitas hoje'):''}
   else{nivel='ok';icone='check';tit='Rondas de hoje em dia';sub=plural(fe,'feita','feitas')}
@@ -2270,8 +2280,8 @@ RH.pages.ronda=()=>{
   const lista=visiveis();
   const vazio=!S.modelos.length
     ?empty('Nenhuma ronda cadastrada',st.me.role==='admin'?'Cadastre as rondas em Cadastros → Rondas (nome, salas e responsável).':'Peça ao administrador para cadastrar as rondas.')
-    :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os inspetores quando não há responsável. Fale com o administrador.');
-  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o QR de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler QR do local</button></div>
+    :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os usuários quando não há responsável. Fale com o administrador.');
+  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o código (QR Code) de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler código do local</button></div>
   ${lista.length?pendBox(lista):''}
   ${st.R?`<div class="banner">Há uma ronda em andamento (${esc(st.R.nome)}). <button class="btn sm" data-act="resumeRonda">Continuar ronda</button></div>`:''}
   ${lista.length?`<div class="salas">${lista.map(m=>{
@@ -2280,7 +2290,7 @@ RH.pages.ronda=()=>{
     return `<button class="sala${late?' late':''}" data-act="pickRonda" data-id="${m.id}"><div class="h"><b>${esc(m.nome)}</b>${late?'<span class="pill late">Em atraso</span>':'<span class="pill okp">Em dia</span>'}</div>
     <div class="f"><span>${esc(setores.join(', ')||'—')}</span></div>
     <div class="f"><span>${salas.length} sala${salas.length===1?'':'s'}</span><span>${ne} equipamento${ne===1?'':'s'}</span></div>
-    <div class="f"><span>Responsável: ${m.responsavelId?esc(userName(m.responsavelId)):'todos os inspetores'}</span></div>
+    <div class="f"><span>Responsável: ${m.responsavelId?esc(userName(m.responsavelId)):'todos os usuários'}</span></div>
     <small>${esc(RH.agenda.resumo(m))}${prox?` · próxima: ${RH.agenda.fmtSlot(prox)}`:''}</small>
     <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small><span class="go">Iniciar ronda →</span></button>`}).join('')}</div>`:vazio}`;
 };
@@ -2383,11 +2393,11 @@ function aplicaTemp(k){
   const sit=tempSit(it),v=tempVal(it);
   if(sit==='baixa'||sit==='alta'){
     if(it.r==='NC'&&!it.auto)return;                          /* NC marcada à mão: respeita */
-    const desvio=sit==='baixa'?it.tmin-v:v-it.tmax,txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
+    const txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
     const t=S.tiposNC.find(x=>/temperatura/i.test(x.nome||''));
     it.r='NC';it.auto=true;
     if(!it.tipoId&&t)it.tipoId=t.id;
-    it.sev=Math.max(desvio>=5?3:2,(t&&it.tipoId===t.id&&+t.sev)||0);
+    it.sev=4;                                                 /* temperatura fora da faixa ideal: sempre Crítica */
     if(!it.desc||it.desc===it.autoDesc)it.desc=txt;
     it.autoDesc=txt;
   }else if(it.auto&&it.r==='NC'){                              /* voltou para a faixa (ou leitura apagada): desfaz o que foi automático */
@@ -2398,7 +2408,7 @@ function aplicaTemp(k){
 function tempBox(it,k){
   if(!RH.ehTemp(it.t)||it.r==='IN')return '';
   const sit=tempSit(it),faixa=temFaixa(it);
-  const msg=sit==='ok'?'✓ Dentro da faixa ideal':sit==='baixa'?`⚠ Abaixo da faixa ideal (mín. ${fmtT(it.tmin)}) — registrada como não conformidade`:sit==='alta'?`⚠ Acima da faixa ideal (máx. ${fmtT(it.tmax)}) — registrada como não conformidade`:faixa?'Informe a temperatura lida no visor (obrigatório)':'Opcional: registre a temperatura lida';
+  const msg=sit==='ok'?'✓ Dentro da faixa ideal':sit==='baixa'?`⚠ Abaixo da faixa ideal (mín. ${fmtT(it.tmin)}) — registrada como não conformidade crítica`:sit==='alta'?`⚠ Acima da faixa ideal (máx. ${fmtT(it.tmax)}) — registrada como não conformidade crítica`:faixa?'Informe a temperatura lida no visor (obrigatório)':'Opcional: registre a temperatura lida';
   return `<div class="tempin${sit&&sit!=='ok'?' fora':sit==='ok'?' dentro':''}"><label><span>Temperatura medida</span><span class="tin"><input type="text" inputmode="decimal" autocomplete="off" data-tv data-k="${k}" value="${esc(it.tv??'')}" placeholder="ex.: 22,5" aria-label="Temperatura medida em graus Celsius"><b>°C</b></span></label><small>${msg}</small></div>`}
 
 /* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
@@ -2426,14 +2436,14 @@ function itemHtml(k){
 
 /* ---------- presença no local (código de barras + antena Wi-Fi) ---------- */
 const hora=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-const REDE={confere:'antena Wi-Fi conferida',indisponivel:'antena Wi-Fi não verificada',sem_cadastro:'local sem antena cadastrada',nao_exigida:''};
+const REDE={confere:'ponto de acesso Wi-Fi conferido',indisponivel:'ponto de acesso Wi-Fi não verificado',sem_cadastro:'local sem ponto de acesso cadastrado',nao_exigida:''};
 function chkHtml(bl,e){
   if(!e.ativo)return '';
   if(e.semCodigo)return '';   /* local sem código cadastrado: nada a mostrar (a ausência aparece no cadastro e no histórico) */
   if(e.ok)return `<div class="chk-box ok"><span class="pill okp"><i></i>Presença confirmada${e.dependente?' em '+esc(e.alvo.nome):''} às ${hora(e.ok.ts)}</span><small>${esc(REDE[e.ok.rede]||'')}</small></div>`;
   const f=e.falhas[e.falhas.length-1];
   const nDep=RH.local.dependentes(st.R,bl.id).length,alvoId=e.viaId||bl.id;
-  const msg=e.dependente?`Leia o código de barras de ${esc(e.alvo.nome)} para liberar este local.`:nDep?`Leia o código de barras para liberar este local e mais ${nDep} do grupo.`:'Leia o código de barras do local para liberar o checklist.';
+  const msg=e.dependente?`Leia o código de ${esc(e.alvo.nome)} para liberar este local.`:nDep?`Leia o código do local para liberar este local e mais ${nDep} do grupo.`:'Leia o código do local para liberar o checklist.';
   return `<div class="chk-box pend${e.bloqueado?' blk':''}"><div><b>${e.bloqueado?msg:'Presença no local ainda não confirmada (opcional).'}</b>${f?`<div class="err" role="alert">${esc(f.msg)}</div>`:''}</div>
     <button type="button" class="btn pri sm" data-act="chkScan" data-id="${esc(alvoId)}">${ic('cam',16)} Ler código${e.dependente?' de '+esc(e.alvo.nome):' do local'}</button></div>`}
 
@@ -2456,8 +2466,8 @@ function rondaForm(){
   const R=st.R,blocos=R.blocos;
   const hasItems=Object.keys(R.itens).length>0;
   const nSalas=blocos.filter(b=>b.tipo==='sala').length,nEq=blocos.reduce((n,b)=>n+(b.eqIds?b.eqIds.length:0),0);
-  return `<div class="top"><div><h1>${esc(R.nome)}</h1><p>${nSalas} sala${nSalas===1?'':'s'} · ${nEq} equipamento${nEq===1?'':'s'} · Início às ${hora(R.started)} · Responsável: ${R.resp?esc(userName(R.resp)):'todos os inspetores'} · Inspetor: ${esc(st.me.nome)}</p></div>
-  <div class="top-act"><button class="btn" data-act="qrIr">${ic('cam',16)} Ler QR do local</button><button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div></div>
+  return `<div class="top"><div><h1>${esc(R.nome)}</h1><p>${nSalas} sala${nSalas===1?'':'s'} · ${nEq} equipamento${nEq===1?'':'s'} · Início às ${hora(R.started)} · Responsável: ${R.resp?esc(userName(R.resp)):'todos os usuários'} · Inspetor: ${esc(st.me.nome)}</p></div>
+  <div class="top-act"><button class="btn" data-act="qrIr">${ic('cam',16)} Ler código do local</button><button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div></div>
   <div class="rhead"><div class="prog"><b id="prog-t"></b><div class="bar"><i id="prog-b" style="width:0"></i></div></div><button class="btn" data-act="proxPend" id="btn-prox" title="Ir ao próximo item sem resposta"><span class="l-full">Próximo pendente</span><span class="l-short">Próx.</span> ↓</button><button class="btn pri" data-act="submitRonda" id="btn-sub">${ic('check',16)} Finalizar</button></div>
   ${hasItems?blocos.map(blocoHtml).join(''):empty('Esta ronda não tem itens de checklist','Vincule checklists às salas e aos equipamentos em Cadastros.')}
   <div class="card"><label class="field"><span>Observações gerais da ronda (opcional)</span><textarea id="r-obs" data-robs>${esc(R.obs)}</textarea></label></div>`;
@@ -2490,7 +2500,7 @@ async function submitRonda(){
   if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
-  if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código de barras do local antes de finalizar.':`Confirme a presença lendo o código de barras de ${pend.length} locais antes de finalizar.`,'bad');return}
+  if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código do local antes de finalizar.':`Confirme a presença lendo o código de ${pend.length} locais antes de finalizar.`,'bad');return}
   const b=$('#btn-sub');b.disabled=true;
   /* ts, execId e ids ficam guardados na ronda: se o salvamento falhar no meio e o inspetor
      tentar de novo, os mesmos documentos são sobrescritos (nada fica duplicado) */
@@ -2579,10 +2589,10 @@ Object.assign(RH.ACT,{
     if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
   qrIr:async()=>{                                   /* dentro da ronda: lê o QR de um local e vai até ele (confirmando a presença) */
     if(!st.R)return;
-    const lido=await RH.local.escanear('Leia o QR do local');if(lido==null||!st.R)return;
+    const lido=await RH.local.escanear('Leia o código do local');if(lido==null||!st.R)return;
     await irParaLocal(lido)},
   qrIniciar:async()=>{                              /* na lista: lê o QR e abre a ronda a que o local pertence */
-    const lido=await RH.local.escanear('Leia o QR da sala ou do equipamento');if(lido==null)return;
+    const lido=await RH.local.escanear('Leia o código da sala ou do equipamento');if(lido==null)return;
     const a=RH.local.acharPorCodigo(lido);
     if(!a){toast('Este código não pertence a nenhuma sala ou equipamento cadastrado.','bad');return}
     const m=RH.rondaDoItem(a.tipo+':'+a.id);
@@ -2600,7 +2610,7 @@ Object.assign(RH.ACT,{
     if(reg){RH.local.registrar(st.R,bl.id,reg);saveDraft();toast(reg.ok?'Presença confirmada.':reg.msg,reg.ok?'':'bad')}
     repaintBloco(bl.id);RH.local.dependentes(st.R,bl.id).forEach(b=>repaintBloco(b.id))},
   res:el=>{const it=st.R.itens[el.dataset.k];
-    {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código de barras do local antes de responder o checklist.','bad');return}}
+    {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código do local antes de responder o checklist.','bad');return}}
     if(el.dataset.r==='C'&&['baixa','alta'].includes(tempSit(it))){toast('A temperatura medida está fora da faixa ideal: registre como não conforme ou corrija a leitura.','bad');return}
     it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
   camOpen:el=>camOpen(el.dataset.k),
@@ -2615,7 +2625,7 @@ RH.ON_CHANGE.push(async el=>{
     aplicaTemp(k);repaint(k);saveDraft();return true}
   if(el.dataset.nc){
     const it=st.R.itens[el.dataset.k],f=el.dataset.nc;it[f]=el.value;
-    if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
+    if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t&&!it.auto)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
     saveDraft();return true}
   if(el.dataset.ncFoto!=null){
     if(el.files[0]){try{Object.assign(st.R.itens[el.dataset.k],await RH.processImg(el.files[0]));repaint(el.dataset.k);saveDraft()}catch(err){toast('Não foi possível ler a imagem.','bad')}}
@@ -2645,10 +2655,10 @@ RH.pages.historico=()=>{
   const from=Date.now()-HF.periodo*864e5,propria=RH.access.soPropriasRondas();
   const ex=RH.execs(visiveis().filter(r=>r.ts>=from&&(!HF.ronda||r.modeloId===HF.ronda)));
   const meta=+S.cfg.meta||95;
-  return `<div class="top"><div><h1>${propria?'Minhas rondas':'Histórico de rondas'}</h1><p>${ex.length} ronda${ex.length===1?'':'s'} no período${propria?' · somente as realizadas por você':''}</p></div>
+  return `${RH.avisoLimite(['rondas'])}<div class="top"><div><h1>${propria?'Minhas rondas':'Histórico de rondas'}</h1><p>${ex.length} ronda${ex.length===1?'':'s'} no período${propria?' · somente as realizadas por você':''}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="HF:periodo" data-num="1">${[7,30,90,365].map(d=>`<option value="${d}" ${d===HF.periodo?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Ronda</span><select data-set="HF:ronda"><option value="">Todas as rondas</option>${[...S.modelos].sort((a,b)=>a.nome.localeCompare(b.nome)).map(m=>`<option value="${m.id}" ${m.id===HF.ronda?'selected':''}>${esc(m.nome)}</option>`).join('')}</select></label></div></div>
-  ${ex.length?`<div class="tw tw-hist"><table><thead><tr><th>Data</th><th>Ronda</th><th>Inspetor</th><th>Conformidade</th><th>Itens</th><th>NCs</th></tr></thead><tbody>${ex.slice(0,200).map(e=>`<tr data-act="rondaOpen" data-id="${esc(e.id)}"><td class="num">${fdt(e.ts)}</td><td><b>${esc(e.nome)}</b><small>${qtd(e)}</small></td><td>${esc(e.inspNome)}</td><td class="num"><span class="pill ${e.pct>=meta?'okp':'st-aberta'}">${pc(e.pct)}</span></td><td class="num">${e.c+e.nc+e.ina}</td><td class="num">${e.nc||'—'}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma ronda no período','Registre uma ronda em Nova ronda.')}`;
+  ${ex.length?`<div class="tw tw-hist"><table><thead><tr><th>Data</th><th>Ronda</th><th>Inspetor</th><th>Conformidade</th><th>Itens</th><th>NCs</th></tr></thead><tbody>${ex.slice(0,200).map(e=>`<tr data-act="rondaOpen" data-id="${esc(e.id)}"><td class="num">${fdt(e.ts)}</td><td><b>${esc(e.nome)}</b><small>${qtd(e)}</small></td><td>${esc(e.inspNome)}</td><td class="num"><span class="pill ${e.pct>=meta?'okp':'st-aberta'}">${pc(e.pct)}</span></td><td class="num">${e.c+e.nc+e.ina}</td><td class="num">${e.nc||'—'}</td></tr>`).join('')}</tbody></table></div><p class="hint">Conformidade = itens conformes ÷ (conformes + não conformes). Itens inacessíveis não entram no cálculo.</p>`:empty('Nenhuma ronda no período','Registre uma ronda em Nova ronda.')}`;
 };
 
 /* NCs geradas por uma execução (documentos novos têm execId; antigos, só rondaId) */
@@ -2691,7 +2701,7 @@ function openRonda(id){
   document.querySelectorAll('#modal img[data-foto]').forEach(img=>st.db.doc('fotos/'+img.dataset.foto).get().then(d=>{if(d.exists&&img.isConnected)img.src=d.data().data}).catch(()=>{}));
 }
 /* exclusão em dois toques; apaga os documentos da execução e, se marcado, as NCs (e fotos) */
-function imprimir(){RH.native.imprimirModal('Relatorio de ronda')}
+function imprimir(){RH.native.imprimirModal('Relatório de ronda')}
 async function delRonda(el){
   if(!RH.access.canDeleteRonda())return;
   if(!el.dataset.armed){el.dataset.armed='1';el.textContent='Confirmar exclusão';return}
@@ -2733,21 +2743,21 @@ function tabela(l){
   const o=NF.ord||{};
   const th=([k,t])=>`<th scope="col" aria-sort="${o.k===k?(o.dir==='desc'?'descending':'ascending'):'none'}"><button type="button" class="sort${o.k===k?' on':''}" data-act="ncOrd" data-k="${k}">${t}<i aria-hidden="true">${o.k===k?(o.dir==='desc'?'▼':'▲'):'↕'}</i></button></th>`;
   return `<div class="nct-wrap"><table class="nct"><thead><tr>${COLS.slice(0,1).map(th).join('')}${COLS.slice(1,3).map(th).join('')}<th scope="col">Descrição</th>${COLS.slice(3).map(th).join('')}<th scope="col">Responsável</th></tr></thead><tbody>${l.slice(0,150).map(n=>{
-    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}${repSelo(n)}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Todos')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr class="s${n.sev}" data-act="ncOpen" data-id="${n.id}" tabindex="0" role="button"><td>${sevPill(n.sev)}</td><td><b>${esc(n.eqNome||n.salaNome)}</b>${n.setor?`<small>${esc(n.setor)}</small>`:''}${repSelo(n)}</td><td>${esc(n.tipoNome||'Não conformidade')}</td><td class="dsc">${esc(n.desc||n.itemTexto||'')}</td><td>${stPill(n.status)}</td><td>${esc(n.resp?userName(n.resp):'Não atribuído')}</td></tr>`}).join('')}</tbody></table></div>`}
 /* selo "Repetida ×N" quando o mesmo item do mesmo local teve NC N vezes em 30 dias */
 const repSelo=n=>{const r=RH.recorr(n);return r.n>=2?`<span class="rep" title="${r.n} ocorrências em ${RH.REC_DIAS} dias neste item">↻ Repetida ×${r.n}</span>`:''};
 function lista(tab){
   const l=ordenar(filtrar());if(!l.length)return empty('Nenhuma não conformidade com estes filtros');
   return (tab?tabela(l):'')+`<div class="ncs${tab?' ncs-mob':''}">${l.slice(0,150).map(n=>{
     return `<button class="nc s${n.sev}" data-act="ncOpen" data-id="${n.id}">${n.thumb?`<img class="thumb" src="${n.thumb}" alt="">`:`<div class="thumb">${ic('alert',20)}</div>`}
-    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(n.resp?userName(n.resp):'Todos')}</span></div>
+    <div style="min-width:0"><b>${esc(n.tipoNome||'Não conformidade')} · ${esc(n.eqNome||n.salaNome)}</b><p>${esc(n.desc||n.itemTexto)}</p></div><div class="meta"><span>${esc(n.salaNome)}${n.setor?' · '+esc(n.setor):''}</span>${n.modeloNome?`<span>Ronda: ${esc(n.modeloNome)}</span>`:''}<span>${fdt(n.ts)}</span><span>Resp.: ${esc(n.resp?userName(n.resp):'Não atribuído')}</span></div>
     <div class="right">${sevPill(n.sev)}${stPill(n.status)}${repSelo(n)}</div></button>`}).join('')}</div>${l.length>150?`<p class="hint">Mostrando 150 de ${l.length}. Use os filtros para refinar.</p>`:''}`}
 RH.ncList=()=>lista(false);
 
 RH.pages.ncs=()=>{
   const setores=[...new Set(S.ncs.map(n=>n.setor).filter(Boolean))].sort();
   const opened=S.ncs.filter(n=>n.status!=='resolvida').length;
-  return `<div class="top"><div><h1>Não conformidades</h1><p>${opened} em aberto · ${S.ncs.length} registradas</p></div></div>
+  return `${RH.avisoLimite(['ncs'])}<div class="top"><div><h1>Não conformidades</h1><p>${opened} não resolvidas · ${S.ncs.length} registradas</p></div></div>
   <div class="filters" style="margin-bottom:14px"><div class="chips" role="group" aria-label="Situação">${[['abertas','Não resolvidas'],['aberta','Abertas'],['tratamento','Em tratamento'],['resolvida','Resolvidas'],['todas','Todas']].map(([v,l])=>`<button class="chip" data-act="ncStatus" data-v="${v}" aria-pressed="${NF.status===v}">${l}</button>`).join('')}</div><button type="button" class="btn sm nf-toggle" data-act="ncFiltros" aria-expanded="${!!NF.mais}">${ic('set',16)} Filtros${[NF.sev,NF.setor,NF.q.trim()].filter(Boolean).length?` (${[NF.sev,NF.setor,NF.q.trim()].filter(Boolean).length})`:''}</button></div>
   <div class="filters nf-extra${NF.mais?' open':''}" style="margin-bottom:14px"><label class="field"><span>Severidade</span><select data-set="NF:sev"><option value="">Todas</option>${[4,3,2,1].map(s=>`<option value="${s}" ${NF.sev==s?'selected':''}>${SEV[s]}</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="NF:setor"><option value="">Todos</option>${setores.map(s=>`<option ${NF.setor===s?'selected':''}>${esc(s)}</option>`).join('')}</select></label>
@@ -2767,10 +2777,10 @@ function openNC(id){
   ${RH.orientBox(orient)}
   <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
   <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>
-  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">Todos</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
+  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">Não atribuído</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select name="sev" ${edit?'':'disabled'}>${[1,2,3,4].map(s=>`<option value="${s}" ${n.sev==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   <label class="field full"><span>Ação corretiva / resolução</span><textarea name="resolucao" ${edit?'':'disabled'} placeholder="O que foi feito para corrigir?">${esc(n.resolucao||'')}</textarea></label></div>
-  ${n.resolvidoEm?`<small>Resolvida em ${fdt(n.resolvidoEm)}</small>`:''}<div class="err" id="nc-err" role="alert"></div></div>
+  ${n.resolvidoEm?`<small>Resolvida em ${fdt(n.resolvidoEm)}${n.resolvidoPor?' por '+esc(userName(n.resolvidoPor)):''}</small>`:''}<div class="err" id="nc-err" role="alert"></div></div>
   <div class="mf">${canDel?`<button type="button" class="btn bad sp" data-act="delNC" data-id="${n.id}" id="btn-delnc">${ic('trash',16)} Excluir</button>`:''}${edit?`<button type="button" class="btn" data-act="closeModal">Cancelar</button><button class="btn pri" type="submit">Salvar</button>`:`<button type="button" class="btn" data-act="closeModal">Fechar</button>`}</div></form>`,true);
   if(n.fotoId)st.db.doc('fotos/'+n.fotoId).get().then(s=>{const b=$('#nc-foto');if(!b)return;b.innerHTML=s.exists?`<img class="big-img" src="${esc(s.data().data)}" alt="Foto da não conformidade">`:'<small>Foto indisponível.</small>'}).catch(()=>{});
 }
@@ -2779,8 +2789,8 @@ async function saveNC(f){
   const n=byId(S.ncs,f.dataset.id);if(!n||!RH.access.canEditNC())return;
   const fm=new FormData(f),situ=fm.get('status');
   const d={status:situ,resp:fm.get('resp')||null,sev:+fm.get('sev'),resolucao:(fm.get('resolucao')||'').trim()};
-  if(situ==='resolvida'&&!n.resolvidoEm)d.resolvidoEm=Date.now();
-  if(situ!=='resolvida'&&n.resolvidoEm)d.resolvidoEm=null;
+  if(situ==='resolvida'&&!n.resolvidoEm){d.resolvidoEm=Date.now();d.resolvidoPor=st.me.id}
+  if(situ!=='resolvida'&&n.resolvidoEm){d.resolvidoEm=null;d.resolvidoPor=null}
   if(situ==='resolvida'&&!d.resolucao){toast('Descreva a ação corretiva para marcar como resolvida.','bad');return}
   const ok=await RH.safe(async()=>{await RH.upd('ncs',n.id,d);return true});
   if(ok){closeModal();toast('Não conformidade atualizada.')}
@@ -2825,36 +2835,35 @@ const setoresDa=m=>[...new Set([...(m.salaIds||[]).map(id=>byId(S.salas,id)).fil
 
 /* quem pode realizar a ronda: texto + selo */
 function acessoRonda(m){
-  if(!m.responsavelId)return '<span class="pill okp">Todos os inspetores</span>';
+  if(!m.responsavelId)return '<span class="pill okp">Todos os usuários</span>';
   const u=byId(S.users,m.responsavelId);
   if(!u||u.ativo===false)return `<span class="pill late">Responsável inativo</span>`;
   return `<span class="pill inf">Somente ${esc(u.nome)}</span>`;
 }
 
 /* coluna "Presença": código cadastrado? quantas antenas? */
-const presencaCol=x=>x.codigoLocal?`<span class="mono">${esc(x.codigoLocal)}</span><small>${RH.local.parseBssids(x.bssids).lista.length?(n=>n+(n===1?' antena':' antenas'))(RH.local.parseBssids(x.bssids).lista.length):'sem antena cadastrada'}</small>`:'<span class="pill off">Sem código</span>';
+const presencaCol=x=>x.codigoLocal?`<span class="mono">${esc(x.codigoLocal)}</span><small>${RH.local.parseBssids(x.bssids).lista.length?(n=>n+(n===1?' ponto de acesso':' pontos de acesso'))(RH.local.parseBssids(x.bssids).lista.length):'sem ponto de acesso cadastrado'}</small>`:'<span class="pill off">Sem código</span>';
 
-const TIPO_CK={sala:'Sala',equipamento:'Equipamento',ambos:'Sala e equipamento'};
 const ENT={
  modelos:{col:'modelos',nome:'Rondas',um:'ronda',
   cols:[['Nome da ronda',m=>`<b>${esc(m.nome)}</b>`],['Setores',m=>setoresDa(m).map(esc).join(', ')||'—'],['Quem realiza',acessoRonda],['Dias e horários',m=>esc(RH.agenda.resumo(m))],['Situação',actPill]],
   fields:[
    {k:'nome',l:'Nome da ronda',req:1,full:1,hint:'Ex.: Ronda UTI · plantão diurno'},
    {k:'responsavelId',l:'Responsável pela ronda',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos',
-    hint:'Somente o responsável escolhido vê e realiza esta ronda. Com "Todos", todos os inspetores podem realizá-la.'},
+    hint:'Somente o responsável escolhido vê e realiza esta ronda. Com "Todos", todos os usuários com acesso a Nova ronda podem realizá-la.'},
    {k:'ativo',l:'Ronda ativa',t:'check',def:true,full:1},
    {k:'agenda',l:'Dias e horários da ronda',t:'agenda',full:1},
-   {k:'salaIds',l:'Setor (salas e equipamentos)',t:'salas',full:1}]},
+   {k:'salaIds',l:'Percurso da ronda (salas e equipamentos)',t:'salas',full:1}]},
  salas:{col:'salas',nome:'Salas',um:'sala',
-  cols:[['Sala',s=>`<b>${esc(s.nome)}</b><small>${esc(s.andar||'')}</small>`],['Setor',s=>esc(s.setor||'—')],['Presença',presencaCol],['Responsável pela sala',s=>esc(userName(s.responsavelId))],['Equipamentos no setor',s=>S.equipamentos.filter(e=>s.setor&&RH.setorEq(e)===s.setor).length],['Rondas',s=>S.modelos.filter(m=>(m.salaIds||[]).includes(s.id)).length||'<span class="pill late">Fora de rondas</span>'],['Situação',actPill]],
+  cols:[['Sala',s=>`<b>${esc(s.nome)}</b><small>${esc(s.andar||'')}</small>`],['Setor',s=>esc(s.setor||'—')],['Presença',presencaCol],['Responsável pelas NCs',s=>esc(userName(s.responsavelId))],['Equipamentos no setor',s=>S.equipamentos.filter(e=>s.setor&&RH.setorEq(e)===s.setor).length],['Rondas',s=>S.modelos.filter(m=>(m.salaIds||[]).includes(s.id)).length||'<span class="pill late">Fora de rondas</span>'],['Situação',actPill]],
   tabs:[['geral','Geral'],['presenca','Presença no local']],
   fields:[{k:'nome',l:'Nome da sala / ambiente',req:1,full:1,tab:'geral'},{k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Ex.: UTI, Centro Cirúrgico, Emergência',tab:'geral'},{k:'andar',l:'Andar / bloco',tab:'geral'},
-   {k:'responsavelId',l:'Responsável pela sala (recebe as NCs)',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos',tab:'geral'},
+   {k:'responsavelId',l:'Responsável pelas NCs da sala',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Sem responsável',hint:'Recebe as NCs desta sala. Para os equipamentos do setor, vale o responsável da primeira sala do setor que tiver um.',tab:'geral'},
    {k:'itens',l:'Checklist',t:'items',full:1,tab:'geral'},
    {k:'ativo',l:'Sala ativa (aparece nas rondas)',t:'check',def:true,full:1,tab:'geral'},
-   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}],
-  canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir. Ou apenas desative a sala.':''},
+   {k:'codigoLocal',l:'Código do local (QR Code ou código de barras)',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
+   {k:'bssids',l:'Pontos de acesso Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para pontos de acesso com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}],
+  canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir, ou apenas desative-a.':''},
  equipamentos:{col:'equipamentos',nome:'Equipamentos',um:'equipamento',
   cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b></div></div>`],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Situação',actPill]],
   tabs:[['geral','Geral'],['presenca','Presença no local']],
@@ -2862,8 +2871,8 @@ const ENT={
    {k:'setor',l:'Setor',req:1,full:1,list:optsSetor,hint:'Setor onde o equipamento fica. Ex.: UTI, Centro Cirúrgico',tab:'geral'},
    {k:'itens',l:'Checklist',t:'items',full:1,tab:'geral'},
    {k:'ativo',l:'Equipamento ativo',t:'check',def:true,full:1,tab:'geral'},
-   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}]},
+   {k:'codigoLocal',l:'Código do local (QR Code ou código de barras)',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
+   {k:'bssids',l:'Pontos de acesso Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para pontos de acesso com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}]},
  tiposNC:{col:'tiposNC',nome:'Tipos de NC',um:'tipo de não conformidade',
   cols:[['Tipo',t=>`<b>${esc(t.nome)}</b>`],['Severidade padrão',t=>sevPill(t.sev||2)],['Orientação / ação esperada (exibida ao inspetor)',t=>t.orient?`<span style="white-space:normal">${esc(t.orient)}</span>`:'<small>—</small>'],['Registros',t=>S.ncs.filter(n=>n.tipoId===t.id).length]],
   fields:[{k:'nome',l:'Nome',req:1,full:1},{k:'sev',l:'Severidade padrão',t:'select',req:1,opts:()=>[1,2,3,4].map(s=>[s,s+' · '+SEV[s]]),def:2},
@@ -2871,8 +2880,8 @@ const ENT={
  users:{col:'users',nome:'Responsáveis e usuários',um:'usuário',
   cols:[['Nome',u=>`<b>${esc(u.nome)}</b><small>${esc(u.cargo||'')}</small>`],['Usuário',u=>`<span class="mono">${esc(u.login||'—')}</span>`],['Perfil',u=>ROLE[u.role]||'—'],['Acesso',u=>u.hash?actPill(u):'<span class="pill off">Sem senha</span>']],
   fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'email',l:'E-mail (para avisos)',t:'email',hint:'Opcional. Recebe os avisos de não conformidade grave e de ronda atrasada, se os avisos por e-mail estiverem ligados.'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
-   {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: tudo. Gestor: painel, histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
-  canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir. Ou apenas desative o usuário.':''))}
+   {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: acesso total. Gestor: Painel, Nova ronda, Histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
+  canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir, ou apenas desative o usuário.':''))}
 };
 RH.ENT=ENT;
 
@@ -2896,8 +2905,8 @@ RH.pages.cadastros=()=>{
     const demo=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs'].reduce((n,c)=>n+S[c].filter(x=>x.demo).length,0);
     body=`<form id="f-cfg" class="card" style="max-width:560px;display:grid;gap:14px"><h3>Dados do hospital</h3><label class="field"><span>Nome do hospital</span><input type="text" name="hospital" value="${esc(S.cfg.hospital||'')}" required></label>
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
-    ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
-    <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código do local)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
+    <label class="field"><span>Ponto de acesso Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
     <div class="card" id="avisos-card" style="max-width:560px;margin-top:14px"><h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Carregando…</p></div>
     <div class="card" id="arm-card" style="max-width:560px;margin-top:14px"><h3>Armazenamento do banco</h3><p style="margin:0;color:var(--ink2)">Calculando…</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
@@ -3101,7 +3110,7 @@ function salasPicker(f){
   return `<div class="full"><span class="hint" style="font-weight:600;color:var(--ink2)">${esc(f.l)} *</span><div id="ord-list" style="margin-top:6px">${ordemHtml()}</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><select id="ord-add" aria-label="Adicionar sala ou equipamento" style="flex:1;min-width:200px">${ordemOpts()}</select><button type="button" class="btn sm" data-act="ordAdd">${ic('plus',14)} Adicionar</button></div>
   <small>Itens já vinculados a outra ronda não aparecem na lista. Salas e equipamentos são inspecionados na ordem numerada (1º é o primeiro), com os itens a verificar de cada um.</small>
-  <small style="display:block;margin-top:4px"><b>Liberar com:</b> para bloquear vários locais e liberá-los todos de uma vez, escolha em cada um a sala/equipamento-chave. Ao ler o código da chave (na antena Wi-Fi dela) todos os vinculados são liberados.</small></div>`}
+  <small style="display:block;margin-top:4px"><b>Liberar com:</b> para bloquear vários locais e liberá-los todos de uma vez, escolha em cada um a sala ou o equipamento que será a chave. Ao ler o código do local-chave (no ponto de acesso Wi-Fi dele), todos os vinculados são liberados.</small></div>`}
 
 /* dias da semana + horários em que a ronda deve ser realizada */
 const horasHtml=()=>st.M.horarios.map((h,i)=>`<div class="irow"><input type="time" data-hx="${i}" value="${esc(h)}" required aria-label="Horário ${i+1}"><button type="button" class="ic-btn" data-act="agDelH" data-i="${i}" aria-label="Remover horário">${ic('trash',14)}</button></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum horário. Adicione ao menos um.</div>';
@@ -3112,7 +3121,7 @@ function agendaPicker(f){
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="btn sm" data-act="agDias" data-v="todos">Todos os dias</button><button type="button" class="btn sm" data-act="agDias" data-v="uteis">Segunda a sexta</button></div>
   <div id="ag-horas">${horasHtml()}</div>
   <button type="button" class="btn sm" data-act="agAddH">${ic('plus',14)} Adicionar horário</button>
-  <div><small>A ronda deve ser feita em cada dia marcado, em cada horário. Fica "em atraso" 1 hora depois do horário sem ser realizada.</small></div></div>`}
+  <div><small>A ronda deve ser feita em cada dia marcado, em cada horário. Fica "em atraso" se não for realizada até 1 hora após o horário previsto; uma execução feita até 1 hora antes também vale para o horário.</small></div></div>`}
 
 function fieldHtml(f,v){
   const cls=f.full?'field full':'field',id='ff-'+f.k;
@@ -3123,7 +3132,7 @@ function fieldHtml(f,v){
   if(f.t==='photo')return `<div class="full"><span class="hint" style="font-weight:600;color:var(--ink2)">${esc(f.l)}</span><div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap"><div id="foto-prev">${fotoPrev()}</div><label class="btn sm" style="cursor:pointer">${ic('cam',16)} Escolher imagem<input class="sr" type="file" accept="image/*" id="ff-foto" data-ent-foto></label><button type="button" class="btn sm" data-act="rmEntFoto">Remover</button></div></div>`;
   let inp;
   if(f.t==='codigo')inp=`<div style="display:flex;gap:8px"><input type="text" name="${f.k}" id="${id}" value="${esc(v??'')}" autocomplete="off" autocapitalize="characters" spellcheck="false" class="mono" style="flex:1"><button type="button" class="btn sm" data-act="genCodigo" style="min-height:38px">Gerar código</button></div>`;
-  else if(f.t==='bssids')inp=`<textarea name="${f.k}" id="${id}" rows="3" class="mono" spellcheck="false" autocapitalize="off">${esc(v||'')}</textarea><div><button type="button" class="btn sm" data-act="capBssid">${ic('check',14)} Ler a antena deste aparelho agora</button></div>`;
+  else if(f.t==='bssids')inp=`<textarea name="${f.k}" id="${id}" rows="3" class="mono" spellcheck="false" autocapitalize="off">${esc(v||'')}</textarea><div><button type="button" class="btn sm" data-act="capBssid">${ic('check',14)} Ler o ponto de acesso deste aparelho agora</button></div>`;
   else if(f.t==='select')inp=`<select name="${f.k}" id="${id}" ${f.req?'required':''}>${f.blank!==undefined?`<option value="">${f.blank}</option>`:''}${f.opts().map(([o,l])=>`<option value="${esc(o)}" ${String(v)===String(o)?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
   else if(f.t==='textarea')inp=`<textarea name="${f.k}" id="${id}">${esc(v||'')}</textarea>${f.sugerir?`<div><button type="button" class="btn sm" data-act="genOrient">${ic('check',14)} Gerar sugestão a partir do nome</button></div>`:''}`;
   else if(f.t==='password')inp=`<div style="display:flex;gap:8px"><input type="text" class="pw" name="${f.k}" id="${id}" value="" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" style="flex:1"><button type="button" class="btn sm" data-act="genPw" style="min-height:38px">Gerar senha forte</button></div>`;
@@ -3134,7 +3143,7 @@ function fieldHtml(f,v){
 /* duplicar: abre o formulário de novo cadastro já preenchido com os dados do original */
 function preparaCopia(ent,d){
   d.nome=(d.nome||'')+' (cópia)';
-  if(ent==='users'){d.login='';d.hash=null;d.salt=null}
+  if(ent==='users'){d.login='';d.hash=null;d.salt=null;d.iter=null}
   if(ent==='salas'||ent==='equipamentos')d.codigoLocal='';   /* o código identifica um único local */
   if(ent==='checklists'||ent==='salas'||ent==='equipamentos')d.itens=(d.itens||[]).map(x=>({...x,id:'i'+uid()}));
   delete d.id;delete d.demo}
@@ -3173,7 +3182,7 @@ async function saveEnt(form){
       if(!hs.length)return err('Informe ao menos um horário para a ronda.');
       data.dias=dias;data.horarios=hs;continue}
     if(f.t==='salas'){data.ordem=M.ordem.filter(k=>ordNome(k));data[f.k]=data.ordem.filter(k=>k[0]==='s').map(k=>k.slice(2));data.equipIds=data.ordem.filter(k=>k[0]==='e').map(k=>k.slice(2));{const uso=usadosEmOutras(),rep=data.ordem.find(k=>uso.has(k));if(rep)return err((rep[0]==='s'?'A sala ':'O equipamento ')+ordNome(rep).nome+' já está vinculad'+(rep[0]==='s'?'a':'o')+' a outra ronda.')}
-    if(!data.ordem.length)return err('Marque ao menos uma sala ou um equipamento para a ronda.');
+    if(!data.ordem.length)return err('Adicione ao menos uma sala ou um equipamento à ronda.');
     {const lib={};Object.entries(M.liberacao).forEach(([d,k])=>{if(d!==k&&data.ordem.includes(d)&&data.ordem.includes(k)&&!M.liberacao[k])lib[d]=k});
      const sem=[...new Set(Object.values(lib))].map(ordNome).find(x=>x&&!x.codigoLocal);
      if(sem)return err(`Para liberar vários locais com "${sem.nome}", cadastre um código de barras nele (Cadastros → Salas/Equipamentos).`);
@@ -3192,7 +3201,7 @@ async function saveEnt(form){
     if(S.users.some(u=>u.id!==M.id&&(u.login||'').toLowerCase()===login))return err('Já existe um usuário com este login.');
     data.login=login;
     const pw=form.elements.senha.value;
-    if(pw){const pe=RH.checkSenha(pw);if(pe)return err(pe);data.salt=uid()+uid();data.hash=await RH.hash(pw,data.salt)}
+    if(pw){const pe=RH.checkSenha(pw);if(pe)return err(pe);data.salt=uid()+uid();data.iter=RH.HASH_ITER;data.hash=await RH.hash(pw,data.salt,data.iter)}
     else if(!old?.hash)return err('Defina uma senha para este usuário.');
     if(old&&old.id===st.me.id&&(data.ativo===false||data.role!=='admin'))return err('Você não pode remover o próprio acesso de administrador.');
     if(old&&data.ativo===false){const n=S.modelos.filter(m=>m.responsavelId===old.id&&m.ativo!==false).length;if(n)return err(`Este usuário é responsável por ${n} ronda${n>1?'s':''}. Troque o responsável antes de desativar.`)}
@@ -3280,7 +3289,7 @@ Object.assign(RH.ACT,{
     el.disabled=true;const r=await RH.local.lerBssid();el.disabled=false;
     if(!r.ok){toast(r.msg,'bad');return}
     const t=$('#ff-bssids'),l=RH.local.parseBssids(t.value).lista;
-    if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Antena '+r.valor+' adicionada.')},
+    if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Ponto de acesso '+r.valor+' adicionado.')},
 });
 RH.ON_CHANGE.push(async el=>{
   if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
@@ -3332,18 +3341,18 @@ RH.avisosCard=async()=>{
   if(!document.getElementById('avisos-card'))return;
   const falta=S.users.filter(u=>u.ativo!==false&&(u.role==='admin'||S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id))&&!(u.email||'').trim());
   const quando=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-  const stat=!e?'<span class="pill off">Serviço ainda não executou</span> Configure o envio no GitHub (veja o guia) e rode o teste.'
+  const stat=!e?'<span class="pill off">O serviço ainda não foi executado.</span> Configure o envio no GitHub (veja a seção "Avisos por e-mail" do ESTRUTURA.md) e rode o teste.'
     :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
   el.innerHTML=`<h3>Avisos por e-mail</h3>
-  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b>: avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
+  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b> (inclui temperatura fora da faixa): avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
   <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
   <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
   <label class="field" style="margin-top:8px"><span>Avisar NC Média e Alta depois de (horas)</span><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" style="width:110px"></label>
   <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
   <details class="av-imed" style="margin-top:10px"><summary><b>Aviso imediato</b> (opcional)${A.ghToken?' · <span class="pill okp"><i></i>ligado</span>':''}</summary>
-    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja o guia.</p>
-    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="rondaliga/ronda" autocomplete="off" autocapitalize="off"></label>
-    <label class="field"><span>Ramo principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
+    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja a seção "Avisos por e-mail" do ESTRUTURA.md.</p>
+    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="minha-organizacao/ronda" autocomplete="off" autocapitalize="off"></label>
+    <label class="field"><span>Branch principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
     <label class="field"><span>Token do GitHub ${A.ghToken?'(já salvo, deixe em branco para manter)':''}</span><input type="password" id="av-tok" value="" placeholder="${A.ghToken?'••••••••':'github_pat_…'}" autocomplete="new-password" data-lpignore="true" data-1p-ignore></label>
     ${A.ghToken?'<label class="chk"><input type="checkbox" id="av-tokdel"> Remover o token salvo</label>':''}
   </details>
@@ -3353,7 +3362,7 @@ RH.avisosCard=async()=>{
 Object.assign(RH.ACT,{
   avisosSalvar:async()=>{
     const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok');
-    if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Repositório no formato usuário/nome, ex.: rondaliga/ronda.','bad');return}
+    if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Informe o repositório no formato usuário/nome (ex.: minha-organizacao/ronda).','bad');return}
     const ghToken=document.getElementById('av-tokdel')?.checked?'':(tok||A0.ghToken||'');
     const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
     const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
@@ -3393,7 +3402,7 @@ RH.seedDemo=async barId=>{
    et:['Equipamento · Esterilização','equipamento',['Integridade física, sem avarias','Indicador biológico/químico do ciclo conferido','Registro do ciclo preenchido','Porta e vedação íntegras','Etiqueta de manutenção em dia']],
    er:['Equipamento · Refrigeração de medicamentos','equipamento',['Temperatura entre 2 e 8 °C','Registro de temperatura do turno','Porta e vedação íntegras','Sem alimentos ou itens estranhos']],
    ee:['Equipamento · Carro de emergência','equipamento',['Lacre íntegro','Desfibrilador testado','Medicamentos dentro da validade','Laringoscópio e cânulas completos','Checklist de conferência assinado']]};
-  Object.entries(CL).forEach(([k,[n,t,it]])=>D('checklists','demo_c'+k,{nome:n,tipo:t,itens:it.map((x,j)=>({id:'i'+j,t:x}))}));
+  Object.entries(CL).forEach(([k,[n,t,it]])=>D('checklists','demo_c'+k,{nome:n,tipo:t,itens:it.map((x,j)=>{const m=/temperatura entre (\d+) e (\d+)/i.exec(x);return{id:'i'+j,t:x,...(m?{tmin:+m[1],tmax:+m[2]}:{})}})}));
   const SL=[['s1','UTI Adulto 01','UTI','2º andar','u1','ca',.09],['s2','UTI Adulto 02','UTI','2º andar','u1','ca',.05],['s3','UTI Neonatal','UTI','2º andar','u1','ca',.04],['s4','Centro Cirúrgico · Sala 1','Centro Cirúrgico','3º andar','u3','ca',.07],['s5','Centro Cirúrgico · Sala 2','Centro Cirúrgico','3º andar','u3','ca',.12],['s6','Emergência · Sala Vermelha','Emergência','Térreo','u4','ca',.1],['s7','Enfermaria 3A','Enfermaria','3º andar','u4','cp',.06],['s8','Farmácia Central','Farmácia','1º andar','u5','cp',.08],['s9','Central de Material Esterilizado','CME','Subsolo','u2','ca',.11],['s10','Diagnóstico por Imagem','Imagem','Térreo','u2','cp',.05]];
   SL.forEach(([i,n,s,a,r,c])=>D('salas','demo_'+i,{nome:n,setor:s,andar:a,responsavelId:'demo_'+r,checklistId:'demo_c'+c,ativo:true}));
   const EQ=[['e1','Ventilador pulmonar','Suporte à vida','s1','es',200],['e2','Monitor multiparamétrico','Suporte à vida','s1','es',90],['e3','Bomba de infusão','Suporte à vida','s2','es',45],['e4','Ventilador pulmonar','Suporte à vida','s2','es',-12],['e5','Incubadora neonatal','Suporte à vida','s3','es',150],['e6','Monitor multiparamétrico','Suporte à vida','s3','es',20],
@@ -3467,8 +3476,8 @@ RH.views={
     <button class="btn pri" type="submit">Entrar</button><p class="auth-aviso">Acesso restrito a colaboradores autorizados. Suas ações ficam registradas com o seu nome.</p></form></div></div>`},
   setup(){
     $('#app').innerHTML=`<div class="auth">${authSide()}<div class="auth-r"><form class="auth-card" id="f-setup">
-    <div><h1>Primeiro acesso</h1><p style="color:var(--ink2);margin:4px 0 0">Crie o administrador e dê nome ao hospital. Depois você cadastra usuários, salas, equipamentos, checklists e rondas.</p></div>
-    <label class="field"><span>Nome do hospital</span><input type="text" name="hospital" id="st-h" value="Liga Contra o Câncer" required></label>
+    <div><h1>Primeiro acesso</h1><p style="color:var(--ink2);margin:4px 0 0">Crie o administrador e informe o nome do hospital. Depois você cadastra usuários, salas, equipamentos, checklists e rondas.</p></div>
+    <label class="field"><span>Nome do hospital</span><input type="text" name="hospital" id="st-h" value="Ronda Hospitalar" placeholder="Ex.: Hospital Santa Maria" required></label>
     <label class="field"><span>Seu nome completo</span><input type="text" name="nome" id="st-n" required></label>
     <label class="field"><span>Usuário de acesso</span><input type="text" name="login" id="st-l" autocomplete="username" required></label>
     <label class="field"><span>Senha</span><input type="password" name="senha" id="st-s" autocomplete="new-password" minlength="8" required><small style="color:var(--muted)">${esc(RH.SENHA_REGRA)}</small></label>
@@ -3480,8 +3489,8 @@ RH.views={
 
 RH.ON_SUBMIT['f-login']=async f=>{
   const l=f.login.value.trim().toLowerCase(),u=S.users.find(x=>(x.login||'').toLowerCase()===l&&x.ativo!==false),er=$('#lg-err');er.textContent='';
-  if(!u||!u.hash||await RH.hash(f.senha.value,u.salt)!==u.hash){er.textContent='Usuário ou senha incorretos.';return}
-  st.me=u;try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);setTimeout(()=>RH.limparFotos&&RH.limparFotos(),4000);
+  if(!u||!u.hash||await RH.hash(f.senha.value,u.salt,u.iter)!==u.hash){er.textContent='Usuário ou senha incorretos.';return}
+  st.me=u;RH.rehash(u,f.senha.value);try{sessionStorage.setItem('rh_uid',u.id)}catch(x){}setTimeout(()=>RH.migrarLuz&&RH.migrarLuz(),500);setTimeout(()=>RH.limparFotos&&RH.limparFotos(),4000);
   st.screen='';st.page=RH.access.firstPage();try{sessionStorage.removeItem('rh_page');sessionStorage.removeItem('rh_cadtab')}catch(x){}RH.renderRoot();
 };
 
@@ -3491,7 +3500,7 @@ RH.ON_SUBMIT['f-setup']=async f=>{
   const btn=$('#st-btn');btn.disabled=true;st.busy=true;
   try{
     const salt=RH.uid()+RH.uid(),id='u'+RH.uid(),login=f.login.value.trim().toLowerCase();
-    const u={nome:f.nome.value.trim(),cargo:'Administrador do sistema',login,role:'admin',ativo:true,salt,hash:await RH.hash(f.senha.value,salt)};
+    const u={nome:f.nome.value.trim(),cargo:'Administrador do sistema',login,role:'admin',ativo:true,salt,iter:RH.HASH_ITER,hash:await RH.hash(f.senha.value,salt,RH.HASH_ITER)};
     await RH.put('config','main',{hospital:f.hospital.value.trim(),meta:95});
     if(f.demo.checked)await RH.seedDemo('#st-prog');
     await RH.put('users',id,u);st.me={id,...u};try{sessionStorage.setItem('rh_uid',id)}catch(x){}
@@ -3525,13 +3534,13 @@ RH.ON_SUBMIT['f-pw']=async f=>{
   const er=$('#pw-err'),u=st.me;er.textContent='';
   if(!u)return;
   const atual=f.atual.value,nova=f.nova.value;
-  if(!u.hash||await RH.hash(atual,u.salt)!==u.hash){er.textContent='A senha atual está incorreta.';return}
+  if(!u.hash||await RH.hash(atual,u.salt,u.iter)!==u.hash){er.textContent='A senha atual está incorreta.';return}
   const p=RH.checkSenha(nova);if(p){er.textContent=p;return}
   if(nova!==f.conf.value){er.textContent='A confirmação não confere com a nova senha.';return}
   if(nova===atual){er.textContent='A nova senha precisa ser diferente da atual.';return}
   const b=$('#pw-ok');b.disabled=true;
-  const salt=RH.uid()+RH.uid(),hash=await RH.hash(nova,salt);
-  const ok=await RH.safe(async()=>{await RH.upd('users',u.id,{salt,hash});return true});
+  const salt=RH.uid()+RH.uid(),hash=await RH.hash(nova,salt,RH.HASH_ITER);
+  const ok=await RH.safe(async()=>{await RH.upd('users',u.id,{salt,hash,iter:RH.HASH_ITER});return true});
   if(ok){closeModal();toast('Senha alterada com sucesso.')}else b.disabled=false;
 };
 

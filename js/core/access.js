@@ -10,7 +10,7 @@
    os usuários com acesso a Nova ronda. Perfil desconhecido é tratado como Inspetor (menor privilégio).
 
    Atenção: estas regras controlam a INTERFACE. O banco compartilhado é protegido
-   apenas pelo código de acesso da equipe (veja LEIA-ME.md).
+   apenas pelo código de acesso da equipe (veja ESTRUTURA.md).
    ========================================================================== */
 (()=>{
 const RH=window.RH,st=RH.st;

@@ -133,7 +133,7 @@ def main():
         open_cad(page, "modelos")
         tbl = page.inner_text("table")
         check("Cadastro de rondas lista as duas rondas", "Ronda UTI" in tbl and "Ronda Farmácia" in tbl)
-        check("Acesso exibido: somente a Iara / todos os inspetores", "Somente Iara Inspetora" in tbl and "Todos os inspetores" in tbl, tbl)
+        check("Acesso exibido: somente a Iara / todos os usuários", "Somente Iara Inspetora" in tbl and "Todos os usuários" in tbl, tbl)
 
         # validação: ronda sem sala
         open_cad(page, "modelos"); page.click("[data-act=newEnt]"); page.fill("#ff-nome", "Vazia"); page.click("#f-ent button[type=submit]")
@@ -526,7 +526,7 @@ def main():
         # Rondas: Setor (salas e equipamentos) com salas à esquerda e equipamentos à direita
         open_cad(page, "modelos")
         page.click("tr[data-act=editEnt]:has-text('Ronda UTI')")
-        check("Rótulo 'Setor (salas e equipamentos)'", "Setor (salas e equipamentos)" in page.inner_text("#f-ent") and "Salas incluídas na ronda" not in page.inner_text("#f-ent"))
+        check("Rótulo 'Percurso da ronda (salas e equipamentos)'", "Percurso da ronda (salas e equipamentos)" in page.inner_text("#f-ent") and "Salas incluídas na ronda" not in page.inner_text("#f-ent"))
         g = page.locator("#salas-pick .sg").first
         xs = g.locator("[data-sala]").first.bounding_box()["x"]; xe = g.locator("[data-eq]").first.bounding_box()["x"]
         check("Salas à esquerda e equipamentos à direita", xe > xs + 100, (xs, xe))

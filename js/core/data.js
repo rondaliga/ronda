@@ -7,6 +7,9 @@
 (()=>{
 const RH=window.RH,{S,st,COLS,byId}=RH;
 
+/* só as 1000 rondas/NCs mais recentes são carregadas; telas com períodos longos avisam quando o limite é atingido */
+RH.LIMITE=1000;
+RH.avisoLimite=cols=>cols.some(c=>(S[c]||[]).length>=RH.LIMITE)?`<div class="banner" role="note">Exibindo apenas os ${RH.LIMITE} registros mais recentes: períodos longos podem estar incompletos.</div>`:'';
 RH.put=(c,id,d)=>st.db.doc(`${c}/${id}`).set(d);
 RH.upd=(c,id,d)=>st.db.doc(`${c}/${id}`).update(d);
 RH.del=(c,id)=>st.db.doc(`${c}/${id}`).delete();
@@ -19,7 +22,7 @@ RH.safe=async fn=>{
 
 const ready={};
 function sync(col){
-  let q=st.db.collection(col);if(col==='rondas'||col==='ncs')q=q.orderBy('ts','desc').limit(1000);
+  let q=st.db.collection(col);if(col==='rondas'||col==='ncs')q=q.orderBy('ts','desc').limit(RH.LIMITE);
   q.onSnapshot(s=>{const rows=s.docs.map(d=>({id:d.id,...d.data()}));
     if(col==='config')S.cfg=rows.find(r=>r.id==='main')||{};else S[col]=rows;
     ready[col]=true;onData()},e=>{console.error(col,e);ready[col]=true;onData()});

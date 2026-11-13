@@ -11,7 +11,7 @@ O sistema é mobile-first. Para gerar o `.apk` (Android) e o `.dmg` (macOS) de g
 
 ## Primeiros passos no hospital
 1. **Cadastros → Responsáveis e usuários**: crie os usuários (perfil Inspetor, Gestor ou Administrador).
-2. **Salas**, **Checklists** (um de "ambiente" e um de "equipamento"), **Equipamentos** (vinculando o checklist).
+2. **Salas** e **Equipamentos**: em cada cadastro, monte o checklist próprio (itens a verificar, avisos e faixa de temperatura ideal).
 3. **Tipos de NC**: preencha a *Orientação / ação esperada* — ela aparece como alerta para o inspetor.
 4. **Rondas**: dê um *nome*, marque as *salas* que fazem parte e escolha o *responsável* (ou "Todos").
 5. O inspetor entra, abre **Nova ronda**, escolhe a ronda e responde as salas em sequência.
@@ -50,6 +50,8 @@ js/core/                núcleo (sem telas)
   data.js                 gravar/atualizar/apagar, sincronização em tempo real
   barcode.js              gerador de QR Code e Code 128 (SVG) para as etiquetas
   local.js                presença no local: regras (código + BSSID), leitura de BSSID nativo, leitor de código de barras
+  versao.js               número e data da versão (gerado por tools/atualizar-versao.js)
+  native.js               recursos do aparelho: salvar/compartilhar arquivo, imprimir e botão Voltar do Android
 js/features/            uma tela (ou função) por arquivo
   auth.js                 login e primeiro acesso
   conta.js                "Senha" no menu: o próprio usuário altera a sua senha
@@ -57,7 +59,7 @@ js/features/            uma tela (ou função) por arquivo
   ronda.js                Nova ronda: lista de rondas e preenchimento
   historico.js            histórico de rondas realizadas
   ncs.js                  não conformidades: tratar e excluir
-  cadastros.js            cadastros (rondas, salas, equipamentos, checklists, tipos de NC, usuários, hospital/backup)
+  cadastros.js            cadastros (rondas, salas, equipamentos, tipos de NC, usuários, hospital/backup)
   seed.js                 dados de exemplo
 js/app.js               menu, navegação, despacho de eventos e inicialização
 tests/                  testes automáticos (veja abaixo)
@@ -66,8 +68,8 @@ tools/gerar-arquivo-unico.py   gera dist/ronda-hospitalar.html
 Cada tela se registra em `RH.pages`, `RH.ACT` (cliques), `RH.ON_CHANGE/ON_INPUT/ON_SUBMIT`; o `app.js` só despacha.
 
 ## Dados (coleções)
-`users`, `salas`, `equipamentos`, `checklists`, `tiposNC`, **`modelos`** (cadastro "Nome da ronda"),
-`rondas` (um documento por sala visitada; todos de uma execução têm o mesmo `execId`), `ncs`, `config`, `fotos`.
+`users`, `salas`, `equipamentos`, `checklists` (legado: hoje os itens ficam em cada sala/equipamento), `tiposNC`, **`modelos`** (cadastro "Nome da ronda"),
+`rondas` (um documento por sala visitada; todos de uma execução têm o mesmo `execId`), `ncs`, `config`, `fotos`, `avisos` (estado dos avisos por e-mail).
 Rondas feitas antes desta versão continuam no histórico (uma linha por sala).
 
 ## Testes
@@ -89,14 +91,14 @@ RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e.py   # testa o arquiv
 - **Painel**: cada gráfico/lista tem botão para minimizar (lembrado neste navegador) e há "Minimizar tudo / Expandir tudo".
 - **Visual institucional**: paleta azul hospitalar (claro e escuro), superfícies planas com bordas finas, barra de contexto (data, tipo de base, perfil) e tela de acesso reformulada. O detalhe de uma ronda no Histórico tem **Imprimir relatório** (cabeçalho do hospital e campos de assinatura).
 
-- **Presença no local** (código de barras + antena Wi-Fi): veja `VALIDACAO-LOCAL.md`. Campos `codigoLocal` e `bssids` em salas/equipamentos; política `valLocal`/`valBssid` em `config/main`; evidência em `rondas.presenca`.
+- **Presença no local** (código do local + ponto de acesso Wi-Fi): veja `VALIDACAO-LOCAL.md`. Campos `codigoLocal` e `bssids` em salas/equipamentos; política `valLocal`/`valBssid` em `config/main`; evidência em `rondas.presenca`.
 
-- **Ações em lote** (Cadastros → Salas, Equipamentos, Checklists): caixa de seleção por linha e "selecionar todos" (só os itens filtrados); filtros por Setor/Andar (Salas) e Setor/Categoria (Equipamentos). A barra flutuante oferece: vincular a ronda (acrescenta ao fim do percurso) ou checklist, alterar setor, criar ronda com os selecionados e excluir (respeita `canDel`). A seleção (`st.sel`, chaves `s:`/`e:`/`c:`) vale entre abas, então salas e equipamentos entram juntos na mesma ronda. Um item só pode estar em uma ronda; os que já estão em outra são ignorados e a janela mostra o motivo. Regras de ronda em `ronda.js` (`RH.rondaPlano`, `RH.rondaAdicionar`). Teste: `python3 tests/bulk.py`.
+- **Ações em lote** (Cadastros → Salas e Equipamentos): caixa de seleção por linha e "selecionar todos" (só os itens filtrados); filtros por Setor/Andar (Salas) e Setor (Equipamentos). A barra flutuante oferece: vincular à ronda (acrescenta ao fim do percurso), alterar setor, criar ronda com os selecionados e excluir (respeita `canDel`). A seleção (`st.sel`, chaves `s:`/`e:`) vale entre abas, então salas e equipamentos entram juntos na mesma ronda. Um item só pode estar em uma ronda; os que já estão em outra são ignorados e a janela mostra o motivo. Regras de ronda em `ronda.js` (`RH.rondaPlano`, `RH.rondaAdicionar`). Teste: `python3 tests/bulk.py`.
 
 ## Publicação automática (GitHub Pages)
 `.github/workflows/publicar-site.yml` publica o site sozinho a cada push na branch `main` (leva ~1 min; acompanhe em **Actions**).
 Configuração única: no repositório, **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-Cada publicação carimba uma versão nova em `sw.js`; os aparelhos com o app aberto detectam e mostram o aviso **"Nova versão disponível · Atualizar"**.
+Cada publicação carimba uma versão nova em `sw.js`; os aparelhos com o app aberto detectam e mostram o aviso **"Nova versão do aplicativo disponível."** com o botão **Atualizar**.
 Para atualizar o app: envie as alterações para `main` (git push ou "Upload files" no site do GitHub). Os arquivos `dist/` não são usados pelo site publicado.
 
 ## Como publicar uma nova versão (padrão)
@@ -107,20 +109,20 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 `node tools/atualizar-versao.js --verificar` confere se tudo está igual. Nunca edite a versão à mão.
 
 ## Temperatura medida, QR e armazenamento (v1.0.5)
-- **Temperatura medida:** itens de "Temperatura" pedem a leitura em °C (obrigatória quando há faixa ideal). Fora da faixa vira NC automaticamente (tipo cujo nome contém "Temperatura", se existir); dentro da faixa, conforme. A leitura (`tv`) é gravada no item da ronda e aparece no histórico.
-- **Ronda por QR:** em Nova ronda, "Ler QR do local" abre a ronda a que a sala/equipamento pertence e confirma a presença; dentro da ronda, "Ler QR do local" rola até o local. Usa os códigos de Cadastros → Imprimir etiquetas.
+- **Temperatura medida:** itens de "Temperatura" pedem a leitura em °C (obrigatória quando há faixa ideal). Fora da faixa vira NC automaticamente, sempre com severidade **Crítica**, (tipo cujo nome contém "Temperatura", se existir); dentro da faixa, conforme. A leitura (`tv`) é gravada no item da ronda e aparece no histórico.
+- **Ronda por QR:** em Nova ronda, "Ler código do local" abre a ronda a que a sala/equipamento pertence e confirma a presença; dentro da ronda, "Ler código do local" rola até o local. Usa os códigos de Cadastros → Imprimir etiquetas.
 - **Progresso:** barra fixa no topo com "x de y itens · %" e botão "Próximo pendente".
 - **Armazenamento:** Cadastros → Hospital mostra a estimativa de uso do banco (limite padrão 500 MB; calibre com o tamanho real do Supabase); o painel avisa o administrador a partir de 70%.
 
 
-## Avisos por e-mail (v1.0.6; prazos removidos na v1.0.7)
-- `tools/avisos-email.mjs` roda a cada ~15 min no GitHub Actions (`.github/workflows/avisos-email.yml`). Lê o banco só pelas RPCs (`rh_pull`, `rh_get`, `rh_put_many`) com o código de acesso, decide quem avisar e envia por Brevo ou Resend (HTTP). O estado (o que já foi avisado) fica em `avisos/estado`.
-- Avisa: NC aberta com severidade >= configurada (padrão Alta) e ronda atrasada. Um e-mail por pessoa reúne tudo. A 1ª execução só grava a linha de base.
+## Avisos por e-mail (v1.0.6; horário por severidade na v1.0.9)
+- `tools/avisos-email.mjs` roda a cada ~10 min no GitHub Actions (`.github/workflows/avisos-email.yml`). Lê o banco só pelas RPCs (`rh_pull`, `rh_get`, `rh_put_many`) com o código de acesso, decide quem avisar e envia por Brevo ou Resend (HTTP). O estado (o que já foi avisado) fica em `avisos/estado`.
+- Avisa: NC aberta com severidade igual ou superior à configurada (padrão Alta) e ronda atrasada. Um e-mail por pessoa reúne tudo. A 1ª execução só grava a linha de base.
 - Configuração no app: Cadastros → Hospital → "Avisos por e-mail" (`cfg.avisos`) e campo e-mail em cada usuário.
-- Segredos do repositório: `RONDA_CODIGO`, `EMAIL_API_KEY`, `EMAIL_FROM`, opcionais `EMAIL_PROVIDER` (brevo|resend), `EMAIL_FROM_NAME`.
+- Segredos do repositório: `RONDA_CODIGO`, `EMAIL_API_KEY`, `EMAIL_FROM`, opcionais `EMAIL_PROVIDER` (brevo|resend), `EMAIL_FROM_NAME`. Para mudar o fuso, crie a variável do repositório `RONDA_TZ` (Settings → Variables; padrão `America/Fortaleza`).
 - Teste: `node tests/avisos_test.mjs` (banco e provedor simulados).
 
-## Lista de NCs, minigráficos e esqueletos (v1.0.6; prazos removidos na v1.0.7)
+## Lista de NCs, minigráficos e esqueletos (v1.0.6; prazos de resolução removidos na v1.0.7)
 - `js/features/ncs.js`: tabela ordenável no desktop (`NF.ord`, ação `ncOrd`); no celular continuam os cartões.
 - `js/features/painel.js`: `spark()` desenha o minigráfico dos KPIs. Esqueleto (`.sk`) na carga inicial (`js/app.js`) e na foto da NC.
 - Teste: `python3 tests/painel_ncs.py`.
@@ -132,6 +134,28 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Testes: `node tests/agenda.test.js`, `python3 tests/melhorias108.py`.
 
 ## v1.0.9: horário do aviso por severidade
-- NC **Crítica**: e-mail na hora (o app dispara a verificação ao registrar a ronda, se o aviso imediato estiver configurado; senão, na próxima verificação agendada).
+- NC **Crítica** (inclui temperatura fora da faixa): e-mail na hora (o app dispara a verificação ao registrar a ronda, se o aviso imediato estiver configurado; senão, na próxima verificação agendada).
 - NC **Média/Alta**: entram em `avisos/estado.pend` e só são avisadas `cfg.avisos.horas` (padrão 8) depois do registro, e só se ainda estiverem **abertas** (o script relê a NC no banco). Resolvida ou em tratamento antes disso = sem e-mail.
 - Falha de envio mantém a NC em `pend` para nova tentativa (até 20). O e-mail dessas NCs informa "Ainda aberta N horas após o registro".
+
+## Glossário (termos usados na interface)
+- **Não resolvida**: NC com situação *Aberta* ou *Em tratamento*. É o termo único para "ainda pendente" no painel e na lista de NCs.
+- **Inacessível**: item que não pôde ser avaliado (exige justificativa). Não entra no cálculo da conformidade.
+- **Conformidade**: itens conformes ÷ (conformes + não conformes).
+- **Código do local**: QR Code ou código de barras fixado na sala/equipamento, lido ao chegar.
+- **Ponto de acesso Wi-Fi (BSSID)**: identificador (endereço MAC) do ponto de acesso ao qual o aparelho está conectado. Só o app Android lê.
+- **Percurso da ronda**: ordem em que salas e equipamentos são inspecionados.
+- **Responsável pelas NCs**: quem recebe as NCs da sala. Para equipamentos, vale o da primeira sala do setor que tiver responsável. Sem responsável, a NC aparece como "Não atribuído".
+- **Ronda para "Todos"**: qualquer usuário com acesso a Nova ronda (inspetor, gestor ou administrador).
+
+## v1.0.11: revisão de textos e coerência
+- Termo único **"Não resolvidas"** (aberta + em tratamento) na tela de NCs e no painel.
+- NC sem responsável aparece como **"Não atribuído"** (antes, "Todos").
+- Temperatura medida fora da faixa ideal gera NC **Crítica** (antes Média/Alta) e entra no aviso imediato.
+- Ao resolver uma NC, o sistema grava quem a resolveu (`resolvidoPor`) e mostra no detalhe.
+- Histórico, Painel e NCs avisam quando o limite de 1000 registros carregados é atingido.
+- Painel mostra a quantidade de itens inacessíveis; Histórico explica o cálculo da conformidade.
+- Senhas novas usam PBKDF2 com 600 mil iterações (campo `iter` no usuário); contas antigas são atualizadas no próximo login.
+- Padronização: "ponto de acesso Wi-Fi", "código do local", "Percurso da ronda", "Responsável pelas NCs", "todos os usuários".
+- Dados de exemplo: itens de temperatura agora têm faixa ideal.
+- Correções de português em telas, mensagens e documentos.

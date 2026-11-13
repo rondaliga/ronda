@@ -38,7 +38,7 @@ def main():
         page.click(".nct th [data-k=sit]"); sj=col(5); check("situação: abertas primeiro, resolvidas por último", sj[0]=="Aberta" and sj[-1]=="Resolvida", sj)
         check("aria-sort informado", page.get_attribute(".nct th:has([data-k=sit])","aria-sort")=="ascending")
         check("não existe mais coluna/campo de prazo", "Prazo" not in page.inner_text(".nct thead"))
-        check("responsável vazio aparece como Todos", "Todos" in col(6), col(6))
+        check("responsável vazio aparece como Não atribuído", "Não atribuído" in col(6), col(6))
         page.click(".nct tbody tr >> nth=0"); page.wait_for_selector("#f-nc")
         check("clicar na linha abre a NC", True); page.keyboard.press("Escape")
         page.focus(".nct tbody tr >> nth=1"); page.keyboard.press("Enter"); page.wait_for_selector("#f-nc")

@@ -14,7 +14,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
-/** Lê o BSSID (endereço da antena) da rede Wi-Fi em que o aparelho está conectado. */
+/** Lê o BSSID (identificador do ponto de acesso) da rede Wi-Fi em que o aparelho está conectado. */
 @CapacitorPlugin(
     name = "RondaWifi",
     permissions = { @Permission(alias = "location", strings = { Manifest.permission.ACCESS_FINE_LOCATION }) }

@@ -4,7 +4,7 @@
 
    Regras de acesso:
    - ronda com responsável  → só ele a vê e realiza;
-   - ronda com responsável "Todos" → todos os usuários com acesso à tela (todos os inspetores).
+   - ronda com responsável "Todos" → todos os usuários com acesso à tela (todos os usuários).
    Ao finalizar, gera um documento em `rondas` por sala visitada (todos com o mesmo
    execId, modeloId e modeloNome) e uma não conformidade em `ncs` para cada item NC.
    ========================================================================== */
@@ -56,7 +56,7 @@ function pendBox(lista){
   const prox=dp.length?hhmm(Math.min(...dp.map(x=>x.t))):'';
   const plural=(k,a,b)=>k+' '+(k>1?b:a);
   let nivel,icone,tit,sub='';
-  if(at){nivel='bad';icone='alert';tit=plural(at,'ronda atrasada','rondas atrasadas');sub=ag?plural(ag,'para agora','para agora'):(prox?'próxima às '+prox:'')}
+  if(at){nivel='bad';icone='alert';tit=plural(at,'ronda atrasada','rondas atrasadas');sub=ag?plural(ag,'ronda para fazer agora','rondas para fazer agora'):(prox?'próxima às '+prox:'')}
   else if(ag){nivel='warn';icone='hist';tit=plural(ag,'ronda para fazer agora','rondas para fazer agora');sub=dp.length?'depois, às '+prox:''}
   else if(dp.length){nivel='info';icone='hist';tit='Próxima ronda às '+prox;sub=fe?plural(fe,'feita hoje','feitas hoje'):''}
   else{nivel='ok';icone='check';tit='Rondas de hoje em dia';sub=plural(fe,'feita','feitas')}
@@ -68,8 +68,8 @@ RH.pages.ronda=()=>{
   const lista=visiveis();
   const vazio=!S.modelos.length
     ?empty('Nenhuma ronda cadastrada',st.me.role==='admin'?'Cadastre as rondas em Cadastros → Rondas (nome, salas e responsável).':'Peça ao administrador para cadastrar as rondas.')
-    :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os inspetores quando não há responsável. Fale com o administrador.');
-  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o QR de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler QR do local</button></div>
+    :empty('Nenhuma ronda disponível para você','As rondas são exibidas apenas ao responsável escolhido ou a todos os usuários quando não há responsável. Fale com o administrador.');
+  return `<div class="top"><div><h1>Nova ronda</h1><p>Escolha a ronda que você vai realizar ou leia o código (QR Code) de uma sala ou equipamento.</p></div><button class="btn pri" data-act="qrIniciar">${ic('cam',16)} Ler código do local</button></div>
   ${lista.length?pendBox(lista):''}
   ${st.R?`<div class="banner">Há uma ronda em andamento (${esc(st.R.nome)}). <button class="btn sm" data-act="resumeRonda">Continuar ronda</button></div>`:''}
   ${lista.length?`<div class="salas">${lista.map(m=>{
@@ -78,7 +78,7 @@ RH.pages.ronda=()=>{
     return `<button class="sala${late?' late':''}" data-act="pickRonda" data-id="${m.id}"><div class="h"><b>${esc(m.nome)}</b>${late?'<span class="pill late">Em atraso</span>':'<span class="pill okp">Em dia</span>'}</div>
     <div class="f"><span>${esc(setores.join(', ')||'—')}</span></div>
     <div class="f"><span>${salas.length} sala${salas.length===1?'':'s'}</span><span>${ne} equipamento${ne===1?'':'s'}</span></div>
-    <div class="f"><span>Responsável: ${m.responsavelId?esc(userName(m.responsavelId)):'todos os inspetores'}</span></div>
+    <div class="f"><span>Responsável: ${m.responsavelId?esc(userName(m.responsavelId)):'todos os usuários'}</span></div>
     <small>${esc(RH.agenda.resumo(m))}${prox?` · próxima: ${RH.agenda.fmtSlot(prox)}`:''}</small>
     <small>${l?`Última realização ${ago(l.ts)}`:'Nunca realizada'}</small><span class="go">Iniciar ronda →</span></button>`}).join('')}</div>`:vazio}`;
 };
@@ -181,11 +181,11 @@ function aplicaTemp(k){
   const sit=tempSit(it),v=tempVal(it);
   if(sit==='baixa'||sit==='alta'){
     if(it.r==='NC'&&!it.auto)return;                          /* NC marcada à mão: respeita */
-    const desvio=sit==='baixa'?it.tmin-v:v-it.tmax,txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
+    const txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
     const t=S.tiposNC.find(x=>/temperatura/i.test(x.nome||''));
     it.r='NC';it.auto=true;
     if(!it.tipoId&&t)it.tipoId=t.id;
-    it.sev=Math.max(desvio>=5?3:2,(t&&it.tipoId===t.id&&+t.sev)||0);
+    it.sev=4;                                                 /* temperatura fora da faixa ideal: sempre Crítica */
     if(!it.desc||it.desc===it.autoDesc)it.desc=txt;
     it.autoDesc=txt;
   }else if(it.auto&&it.r==='NC'){                              /* voltou para a faixa (ou leitura apagada): desfaz o que foi automático */
@@ -196,7 +196,7 @@ function aplicaTemp(k){
 function tempBox(it,k){
   if(!RH.ehTemp(it.t)||it.r==='IN')return '';
   const sit=tempSit(it),faixa=temFaixa(it);
-  const msg=sit==='ok'?'✓ Dentro da faixa ideal':sit==='baixa'?`⚠ Abaixo da faixa ideal (mín. ${fmtT(it.tmin)}) — registrada como não conformidade`:sit==='alta'?`⚠ Acima da faixa ideal (máx. ${fmtT(it.tmax)}) — registrada como não conformidade`:faixa?'Informe a temperatura lida no visor (obrigatório)':'Opcional: registre a temperatura lida';
+  const msg=sit==='ok'?'✓ Dentro da faixa ideal':sit==='baixa'?`⚠ Abaixo da faixa ideal (mín. ${fmtT(it.tmin)}) — registrada como não conformidade crítica`:sit==='alta'?`⚠ Acima da faixa ideal (máx. ${fmtT(it.tmax)}) — registrada como não conformidade crítica`:faixa?'Informe a temperatura lida no visor (obrigatório)':'Opcional: registre a temperatura lida';
   return `<div class="tempin${sit&&sit!=='ok'?' fora':sit==='ok'?' dentro':''}"><label><span>Temperatura medida</span><span class="tin"><input type="text" inputmode="decimal" autocomplete="off" data-tv data-k="${k}" value="${esc(it.tv??'')}" placeholder="ex.: 22,5" aria-label="Temperatura medida em graus Celsius"><b>°C</b></span></label><small>${msg}</small></div>`}
 
 /* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
@@ -224,14 +224,14 @@ function itemHtml(k){
 
 /* ---------- presença no local (código de barras + antena Wi-Fi) ---------- */
 const hora=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-const REDE={confere:'antena Wi-Fi conferida',indisponivel:'antena Wi-Fi não verificada',sem_cadastro:'local sem antena cadastrada',nao_exigida:''};
+const REDE={confere:'ponto de acesso Wi-Fi conferido',indisponivel:'ponto de acesso Wi-Fi não verificado',sem_cadastro:'local sem ponto de acesso cadastrado',nao_exigida:''};
 function chkHtml(bl,e){
   if(!e.ativo)return '';
   if(e.semCodigo)return '';   /* local sem código cadastrado: nada a mostrar (a ausência aparece no cadastro e no histórico) */
   if(e.ok)return `<div class="chk-box ok"><span class="pill okp"><i></i>Presença confirmada${e.dependente?' em '+esc(e.alvo.nome):''} às ${hora(e.ok.ts)}</span><small>${esc(REDE[e.ok.rede]||'')}</small></div>`;
   const f=e.falhas[e.falhas.length-1];
   const nDep=RH.local.dependentes(st.R,bl.id).length,alvoId=e.viaId||bl.id;
-  const msg=e.dependente?`Leia o código de barras de ${esc(e.alvo.nome)} para liberar este local.`:nDep?`Leia o código de barras para liberar este local e mais ${nDep} do grupo.`:'Leia o código de barras do local para liberar o checklist.';
+  const msg=e.dependente?`Leia o código de ${esc(e.alvo.nome)} para liberar este local.`:nDep?`Leia o código do local para liberar este local e mais ${nDep} do grupo.`:'Leia o código do local para liberar o checklist.';
   return `<div class="chk-box pend${e.bloqueado?' blk':''}"><div><b>${e.bloqueado?msg:'Presença no local ainda não confirmada (opcional).'}</b>${f?`<div class="err" role="alert">${esc(f.msg)}</div>`:''}</div>
     <button type="button" class="btn pri sm" data-act="chkScan" data-id="${esc(alvoId)}">${ic('cam',16)} Ler código${e.dependente?' de '+esc(e.alvo.nome):' do local'}</button></div>`}
 
@@ -254,8 +254,8 @@ function rondaForm(){
   const R=st.R,blocos=R.blocos;
   const hasItems=Object.keys(R.itens).length>0;
   const nSalas=blocos.filter(b=>b.tipo==='sala').length,nEq=blocos.reduce((n,b)=>n+(b.eqIds?b.eqIds.length:0),0);
-  return `<div class="top"><div><h1>${esc(R.nome)}</h1><p>${nSalas} sala${nSalas===1?'':'s'} · ${nEq} equipamento${nEq===1?'':'s'} · Início às ${hora(R.started)} · Responsável: ${R.resp?esc(userName(R.resp)):'todos os inspetores'} · Inspetor: ${esc(st.me.nome)}</p></div>
-  <div class="top-act"><button class="btn" data-act="qrIr">${ic('cam',16)} Ler QR do local</button><button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div></div>
+  return `<div class="top"><div><h1>${esc(R.nome)}</h1><p>${nSalas} sala${nSalas===1?'':'s'} · ${nEq} equipamento${nEq===1?'':'s'} · Início às ${hora(R.started)} · Responsável: ${R.resp?esc(userName(R.resp)):'todos os usuários'} · Inspetor: ${esc(st.me.nome)}</p></div>
+  <div class="top-act"><button class="btn" data-act="qrIr">${ic('cam',16)} Ler código do local</button><button class="btn" data-act="cancelRonda">${ic('x',16)} Descartar ronda</button></div></div>
   <div class="rhead"><div class="prog"><b id="prog-t"></b><div class="bar"><i id="prog-b" style="width:0"></i></div></div><button class="btn" data-act="proxPend" id="btn-prox" title="Ir ao próximo item sem resposta"><span class="l-full">Próximo pendente</span><span class="l-short">Próx.</span> ↓</button><button class="btn pri" data-act="submitRonda" id="btn-sub">${ic('check',16)} Finalizar</button></div>
   ${hasItems?blocos.map(blocoHtml).join(''):empty('Esta ronda não tem itens de checklist','Vincule checklists às salas e aos equipamentos em Cadastros.')}
   <div class="card"><label class="field"><span>Observações gerais da ronda (opcional)</span><textarea id="r-obs" data-robs>${esc(R.obs)}</textarea></label></div>`;
@@ -288,7 +288,7 @@ async function submitRonda(){
   if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
-  if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código de barras do local antes de finalizar.':`Confirme a presença lendo o código de barras de ${pend.length} locais antes de finalizar.`,'bad');return}
+  if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código do local antes de finalizar.':`Confirme a presença lendo o código de ${pend.length} locais antes de finalizar.`,'bad');return}
   const b=$('#btn-sub');b.disabled=true;
   /* ts, execId e ids ficam guardados na ronda: se o salvamento falhar no meio e o inspetor
      tentar de novo, os mesmos documentos são sobrescritos (nada fica duplicado) */
@@ -377,10 +377,10 @@ Object.assign(RH.ACT,{
     if(e){e.scrollIntoView({behavior:'smooth',block:'center'});e.classList.add('flash');setTimeout(()=>e.classList.remove('flash'),1600)}},
   qrIr:async()=>{                                   /* dentro da ronda: lê o QR de um local e vai até ele (confirmando a presença) */
     if(!st.R)return;
-    const lido=await RH.local.escanear('Leia o QR do local');if(lido==null||!st.R)return;
+    const lido=await RH.local.escanear('Leia o código do local');if(lido==null||!st.R)return;
     await irParaLocal(lido)},
   qrIniciar:async()=>{                              /* na lista: lê o QR e abre a ronda a que o local pertence */
-    const lido=await RH.local.escanear('Leia o QR da sala ou do equipamento');if(lido==null)return;
+    const lido=await RH.local.escanear('Leia o código da sala ou do equipamento');if(lido==null)return;
     const a=RH.local.acharPorCodigo(lido);
     if(!a){toast('Este código não pertence a nenhuma sala ou equipamento cadastrado.','bad');return}
     const m=RH.rondaDoItem(a.tipo+':'+a.id);
@@ -398,7 +398,7 @@ Object.assign(RH.ACT,{
     if(reg){RH.local.registrar(st.R,bl.id,reg);saveDraft();toast(reg.ok?'Presença confirmada.':reg.msg,reg.ok?'':'bad')}
     repaintBloco(bl.id);RH.local.dependentes(st.R,bl.id).forEach(b=>repaintBloco(b.id))},
   res:el=>{const it=st.R.itens[el.dataset.k];
-    {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código de barras do local antes de responder o checklist.','bad');return}}
+    {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código do local antes de responder o checklist.','bad');return}}
     if(el.dataset.r==='C'&&['baixa','alta'].includes(tempSit(it))){toast('A temperatura medida está fora da faixa ideal: registre como não conforme ou corrija a leitura.','bad');return}
     it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
   camOpen:el=>camOpen(el.dataset.k),
@@ -413,7 +413,7 @@ RH.ON_CHANGE.push(async el=>{
     aplicaTemp(k);repaint(k);saveDraft();return true}
   if(el.dataset.nc){
     const it=st.R.itens[el.dataset.k],f=el.dataset.nc;it[f]=el.value;
-    if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
+    if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t&&!it.auto)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
     saveDraft();return true}
   if(el.dataset.ncFoto!=null){
     if(el.files[0]){try{Object.assign(st.R.itens[el.dataset.k],await RH.processImg(el.files[0]));repaint(el.dataset.k);saveDraft()}catch(err){toast('Não foi possível ler a imagem.','bad')}}

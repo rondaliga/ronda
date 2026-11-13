@@ -13,10 +13,10 @@ RH.pages.historico=()=>{
   const from=Date.now()-HF.periodo*864e5,propria=RH.access.soPropriasRondas();
   const ex=RH.execs(visiveis().filter(r=>r.ts>=from&&(!HF.ronda||r.modeloId===HF.ronda)));
   const meta=+S.cfg.meta||95;
-  return `<div class="top"><div><h1>${propria?'Minhas rondas':'Histórico de rondas'}</h1><p>${ex.length} ronda${ex.length===1?'':'s'} no período${propria?' · somente as realizadas por você':''}</p></div>
+  return `${RH.avisoLimite(['rondas'])}<div class="top"><div><h1>${propria?'Minhas rondas':'Histórico de rondas'}</h1><p>${ex.length} ronda${ex.length===1?'':'s'} no período${propria?' · somente as realizadas por você':''}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="HF:periodo" data-num="1">${[7,30,90,365].map(d=>`<option value="${d}" ${d===HF.periodo?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Ronda</span><select data-set="HF:ronda"><option value="">Todas as rondas</option>${[...S.modelos].sort((a,b)=>a.nome.localeCompare(b.nome)).map(m=>`<option value="${m.id}" ${m.id===HF.ronda?'selected':''}>${esc(m.nome)}</option>`).join('')}</select></label></div></div>
-  ${ex.length?`<div class="tw tw-hist"><table><thead><tr><th>Data</th><th>Ronda</th><th>Inspetor</th><th>Conformidade</th><th>Itens</th><th>NCs</th></tr></thead><tbody>${ex.slice(0,200).map(e=>`<tr data-act="rondaOpen" data-id="${esc(e.id)}"><td class="num">${fdt(e.ts)}</td><td><b>${esc(e.nome)}</b><small>${qtd(e)}</small></td><td>${esc(e.inspNome)}</td><td class="num"><span class="pill ${e.pct>=meta?'okp':'st-aberta'}">${pc(e.pct)}</span></td><td class="num">${e.c+e.nc+e.ina}</td><td class="num">${e.nc||'—'}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma ronda no período','Registre uma ronda em Nova ronda.')}`;
+  ${ex.length?`<div class="tw tw-hist"><table><thead><tr><th>Data</th><th>Ronda</th><th>Inspetor</th><th>Conformidade</th><th>Itens</th><th>NCs</th></tr></thead><tbody>${ex.slice(0,200).map(e=>`<tr data-act="rondaOpen" data-id="${esc(e.id)}"><td class="num">${fdt(e.ts)}</td><td><b>${esc(e.nome)}</b><small>${qtd(e)}</small></td><td>${esc(e.inspNome)}</td><td class="num"><span class="pill ${e.pct>=meta?'okp':'st-aberta'}">${pc(e.pct)}</span></td><td class="num">${e.c+e.nc+e.ina}</td><td class="num">${e.nc||'—'}</td></tr>`).join('')}</tbody></table></div><p class="hint">Conformidade = itens conformes ÷ (conformes + não conformes). Itens inacessíveis não entram no cálculo.</p>`:empty('Nenhuma ronda no período','Registre uma ronda em Nova ronda.')}`;
 };
 
 /* NCs geradas por uma execução (documentos novos têm execId; antigos, só rondaId) */
@@ -59,7 +59,7 @@ function openRonda(id){
   document.querySelectorAll('#modal img[data-foto]').forEach(img=>st.db.doc('fotos/'+img.dataset.foto).get().then(d=>{if(d.exists&&img.isConnected)img.src=d.data().data}).catch(()=>{}));
 }
 /* exclusão em dois toques; apaga os documentos da execução e, se marcado, as NCs (e fotos) */
-function imprimir(){RH.native.imprimirModal('Relatorio de ronda')}
+function imprimir(){RH.native.imprimirModal('Relatório de ronda')}
 async function delRonda(el){
   if(!RH.access.canDeleteRonda())return;
   if(!el.dataset.armed){el.dataset.armed='1';el.textContent='Confirmar exclusão';return}

@@ -14,36 +14,35 @@ const setoresDa=m=>[...new Set([...(m.salaIds||[]).map(id=>byId(S.salas,id)).fil
 
 /* quem pode realizar a ronda: texto + selo */
 function acessoRonda(m){
-  if(!m.responsavelId)return '<span class="pill okp">Todos os inspetores</span>';
+  if(!m.responsavelId)return '<span class="pill okp">Todos os usuários</span>';
   const u=byId(S.users,m.responsavelId);
   if(!u||u.ativo===false)return `<span class="pill late">Responsável inativo</span>`;
   return `<span class="pill inf">Somente ${esc(u.nome)}</span>`;
 }
 
 /* coluna "Presença": código cadastrado? quantas antenas? */
-const presencaCol=x=>x.codigoLocal?`<span class="mono">${esc(x.codigoLocal)}</span><small>${RH.local.parseBssids(x.bssids).lista.length?(n=>n+(n===1?' antena':' antenas'))(RH.local.parseBssids(x.bssids).lista.length):'sem antena cadastrada'}</small>`:'<span class="pill off">Sem código</span>';
+const presencaCol=x=>x.codigoLocal?`<span class="mono">${esc(x.codigoLocal)}</span><small>${RH.local.parseBssids(x.bssids).lista.length?(n=>n+(n===1?' ponto de acesso':' pontos de acesso'))(RH.local.parseBssids(x.bssids).lista.length):'sem ponto de acesso cadastrado'}</small>`:'<span class="pill off">Sem código</span>';
 
-const TIPO_CK={sala:'Sala',equipamento:'Equipamento',ambos:'Sala e equipamento'};
 const ENT={
  modelos:{col:'modelos',nome:'Rondas',um:'ronda',
   cols:[['Nome da ronda',m=>`<b>${esc(m.nome)}</b>`],['Setores',m=>setoresDa(m).map(esc).join(', ')||'—'],['Quem realiza',acessoRonda],['Dias e horários',m=>esc(RH.agenda.resumo(m))],['Situação',actPill]],
   fields:[
    {k:'nome',l:'Nome da ronda',req:1,full:1,hint:'Ex.: Ronda UTI · plantão diurno'},
    {k:'responsavelId',l:'Responsável pela ronda',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos',
-    hint:'Somente o responsável escolhido vê e realiza esta ronda. Com "Todos", todos os inspetores podem realizá-la.'},
+    hint:'Somente o responsável escolhido vê e realiza esta ronda. Com "Todos", todos os usuários com acesso a Nova ronda podem realizá-la.'},
    {k:'ativo',l:'Ronda ativa',t:'check',def:true,full:1},
    {k:'agenda',l:'Dias e horários da ronda',t:'agenda',full:1},
-   {k:'salaIds',l:'Setor (salas e equipamentos)',t:'salas',full:1}]},
+   {k:'salaIds',l:'Percurso da ronda (salas e equipamentos)',t:'salas',full:1}]},
  salas:{col:'salas',nome:'Salas',um:'sala',
-  cols:[['Sala',s=>`<b>${esc(s.nome)}</b><small>${esc(s.andar||'')}</small>`],['Setor',s=>esc(s.setor||'—')],['Presença',presencaCol],['Responsável pela sala',s=>esc(userName(s.responsavelId))],['Equipamentos no setor',s=>S.equipamentos.filter(e=>s.setor&&RH.setorEq(e)===s.setor).length],['Rondas',s=>S.modelos.filter(m=>(m.salaIds||[]).includes(s.id)).length||'<span class="pill late">Fora de rondas</span>'],['Situação',actPill]],
+  cols:[['Sala',s=>`<b>${esc(s.nome)}</b><small>${esc(s.andar||'')}</small>`],['Setor',s=>esc(s.setor||'—')],['Presença',presencaCol],['Responsável pelas NCs',s=>esc(userName(s.responsavelId))],['Equipamentos no setor',s=>S.equipamentos.filter(e=>s.setor&&RH.setorEq(e)===s.setor).length],['Rondas',s=>S.modelos.filter(m=>(m.salaIds||[]).includes(s.id)).length||'<span class="pill late">Fora de rondas</span>'],['Situação',actPill]],
   tabs:[['geral','Geral'],['presenca','Presença no local']],
   fields:[{k:'nome',l:'Nome da sala / ambiente',req:1,full:1,tab:'geral'},{k:'setor',l:'Setor',req:1,list:optsSetor,hint:'Ex.: UTI, Centro Cirúrgico, Emergência',tab:'geral'},{k:'andar',l:'Andar / bloco',tab:'geral'},
-   {k:'responsavelId',l:'Responsável pela sala (recebe as NCs)',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Todos',tab:'geral'},
+   {k:'responsavelId',l:'Responsável pelas NCs da sala',t:'select',full:1,opts:()=>usersAtivos().map(u=>[u.id,u.nome+(u.cargo?' · '+u.cargo:'')]),blank:'Sem responsável',hint:'Recebe as NCs desta sala. Para os equipamentos do setor, vale o responsável da primeira sala do setor que tiver um.',tab:'geral'},
    {k:'itens',l:'Checklist',t:'items',full:1,tab:'geral'},
    {k:'ativo',l:'Sala ativa (aparece nas rondas)',t:'check',def:true,full:1,tab:'geral'},
-   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}],
-  canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir. Ou apenas desative a sala.':''},
+   {k:'codigoLocal',l:'Código do local (QR Code ou código de barras)',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
+   {k:'bssids',l:'Pontos de acesso Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para pontos de acesso com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}],
+  canDel:s=>S.modelos.some(m=>(m.salaIds||[]).includes(s.id))?'Esta sala faz parte de uma ronda. Remova-a da ronda antes de excluir, ou apenas desative-a.':''},
  equipamentos:{col:'equipamentos',nome:'Equipamentos',um:'equipamento',
   cols:[['Equipamento',e=>`<div style="display:flex;gap:10px;align-items:center">${RH.thumbEq(e)}<div><b>${esc(e.nome)}</b></div></div>`],['Setor',e=>esc(RH.setorEq(e)||'—')],['Presença',presencaCol],['Situação',actPill]],
   tabs:[['geral','Geral'],['presenca','Presença no local']],
@@ -51,8 +50,8 @@ const ENT={
    {k:'setor',l:'Setor',req:1,full:1,list:optsSetor,hint:'Setor onde o equipamento fica. Ex.: UTI, Centro Cirúrgico',tab:'geral'},
    {k:'itens',l:'Checklist',t:'items',full:1,tab:'geral'},
    {k:'ativo',l:'Equipamento ativo',t:'check',def:true,full:1,tab:'geral'},
-   {k:'codigoLocal',l:'Código de barras do local',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
-   {k:'bssids',l:'Antenas Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para antenas com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}]},
+   {k:'codigoLocal',l:'Código do local (QR Code ou código de barras)',t:'codigo',full:1,hint:'Valor do código (Code 128, QR etc.) impresso e fixado neste local. Deixe vazio para não verificar a presença aqui.',tab:'presenca'},
+   {k:'bssids',l:'Pontos de acesso Wi-Fi (BSSID) que cobrem este local',t:'bssids',full:1,hint:'Um por linha, ex.: aa:bb:cc:dd:ee:ff. Use aa:bb:cc:dd:*:* para pontos de acesso com vários rádios. Só é conferido no aplicativo Android.',tab:'presenca'}]},
  tiposNC:{col:'tiposNC',nome:'Tipos de NC',um:'tipo de não conformidade',
   cols:[['Tipo',t=>`<b>${esc(t.nome)}</b>`],['Severidade padrão',t=>sevPill(t.sev||2)],['Orientação / ação esperada (exibida ao inspetor)',t=>t.orient?`<span style="white-space:normal">${esc(t.orient)}</span>`:'<small>—</small>'],['Registros',t=>S.ncs.filter(n=>n.tipoId===t.id).length]],
   fields:[{k:'nome',l:'Nome',req:1,full:1},{k:'sev',l:'Severidade padrão',t:'select',req:1,opts:()=>[1,2,3,4].map(s=>[s,s+' · '+SEV[s]]),def:2},
@@ -60,8 +59,8 @@ const ENT={
  users:{col:'users',nome:'Responsáveis e usuários',um:'usuário',
   cols:[['Nome',u=>`<b>${esc(u.nome)}</b><small>${esc(u.cargo||'')}</small>`],['Usuário',u=>`<span class="mono">${esc(u.login||'—')}</span>`],['Perfil',u=>ROLE[u.role]||'—'],['Acesso',u=>u.hash?actPill(u):'<span class="pill off">Sem senha</span>']],
   fields:[{k:'nome',l:'Nome completo',req:1},{k:'cargo',l:'Cargo / função',hint:'Ex.: Enfermeira, Engenheiro clínico'},{k:'email',l:'E-mail (para avisos)',t:'email',hint:'Opcional. Recebe os avisos de não conformidade grave e de ronda atrasada, se os avisos por e-mail estiverem ligados.'},{k:'login',l:'Usuário de acesso',req:1},{k:'senha',l:'Senha',t:'password',hint:RH.SENHA_REGRA+' Deixe em branco para manter a atual.'},
-   {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: tudo. Gestor: painel, histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
-  canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir. Ou apenas desative o usuário.':''))}
+   {k:'role',l:'Perfil de acesso',t:'select',req:1,opts:()=>Object.entries(ROLE),def:'inspetor',full:1,hint:'Administrador: acesso total. Gestor: Painel, Nova ronda, Histórico e tratamento de NCs. Inspetor: Nova ronda e o histórico das rondas que ele mesmo realizou.'},{k:'ativo',l:'Usuário ativo',t:'check',def:true,full:1}],
+  canDel:u=>u.id===st.me.id?'Você não pode excluir o próprio usuário.':(u.role==='admin'&&S.users.filter(x=>x.role==='admin'&&x.ativo!==false).length<2?'É o único administrador ativo.':(S.modelos.some(m=>m.responsavelId===u.id)?'Este usuário é responsável por rondas. Troque o responsável das rondas antes de excluir, ou apenas desative o usuário.':''))}
 };
 RH.ENT=ENT;
 
@@ -85,8 +84,8 @@ RH.pages.cadastros=()=>{
     const demo=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs'].reduce((n,c)=>n+S[c].filter(x=>x.demo).length,0);
     body=`<form id="f-cfg" class="card" style="max-width:560px;display:grid;gap:14px"><h3>Dados do hospital</h3><label class="field"><span>Nome do hospital</span><input type="text" name="hospital" value="${esc(S.cfg.hospital||'')}" required></label>
     <label class="field"><span>Meta de conformidade (%)</span><input type="number" name="meta" min="50" max="100" value="${+S.cfg.meta||95}"></label>
-    ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código de barras)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
-    <label class="field"><span>Antena Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
+    ${(()=>{const p=RH.local.politica(),o=(v,l,c)=>`<option value="${v}" ${c===v?'selected':''}>${l}</option>`;return `<label class="field"><span>Presença no local (código do local)</span><select name="valLocal">${o('off','Desligada',p.modo)}${o('registrar','Registrar leitura (não bloqueia)',p.modo)}${o('exigir','Exigir leitura para liberar o checklist',p.modo)}</select><small>Vale para salas e equipamentos que tenham código cadastrado.</small></label>
+    <label class="field"><span>Ponto de acesso Wi-Fi (BSSID)</span><select name="valBssid">${o('se_disponivel','Conferir quando o aparelho conseguir ler',p.bssid)}${o('exigir','Exigir (rejeita aparelhos que não leem o BSSID)',p.bssid)}</select><small>Só o aplicativo Android lê o BSSID; navegador comum e iPhone não leem.</small></label>`})()}<div><button class="btn pri" type="submit">Salvar</button></div></form>
     <div class="card" id="avisos-card" style="max-width:560px;margin-top:14px"><h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Carregando…</p></div>
     <div class="card" id="arm-card" style="max-width:560px;margin-top:14px"><h3>Armazenamento do banco</h3><p style="margin:0;color:var(--ink2)">Calculando…</p></div>
     <div class="card" style="max-width:560px;margin-top:14px"><h3>Fotos e armazenamento</h3><p style="margin:0;color:var(--ink2)">Para economizar espaço no banco, a foto completa de rondas e de não conformidades resolvidas é apagada automaticamente após <b>${RH.FOTOS_DIAS} dias</b>. A miniatura e o registro da ronda continuam no histórico. Fotos de não conformidades ainda abertas e fotos de cadastro de equipamentos não são apagadas.</p></div>
@@ -290,7 +289,7 @@ function salasPicker(f){
   return `<div class="full"><span class="hint" style="font-weight:600;color:var(--ink2)">${esc(f.l)} *</span><div id="ord-list" style="margin-top:6px">${ordemHtml()}</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><select id="ord-add" aria-label="Adicionar sala ou equipamento" style="flex:1;min-width:200px">${ordemOpts()}</select><button type="button" class="btn sm" data-act="ordAdd">${ic('plus',14)} Adicionar</button></div>
   <small>Itens já vinculados a outra ronda não aparecem na lista. Salas e equipamentos são inspecionados na ordem numerada (1º é o primeiro), com os itens a verificar de cada um.</small>
-  <small style="display:block;margin-top:4px"><b>Liberar com:</b> para bloquear vários locais e liberá-los todos de uma vez, escolha em cada um a sala/equipamento-chave. Ao ler o código da chave (na antena Wi-Fi dela) todos os vinculados são liberados.</small></div>`}
+  <small style="display:block;margin-top:4px"><b>Liberar com:</b> para bloquear vários locais e liberá-los todos de uma vez, escolha em cada um a sala ou o equipamento que será a chave. Ao ler o código do local-chave (no ponto de acesso Wi-Fi dele), todos os vinculados são liberados.</small></div>`}
 
 /* dias da semana + horários em que a ronda deve ser realizada */
 const horasHtml=()=>st.M.horarios.map((h,i)=>`<div class="irow"><input type="time" data-hx="${i}" value="${esc(h)}" required aria-label="Horário ${i+1}"><button type="button" class="ic-btn" data-act="agDelH" data-i="${i}" aria-label="Remover horário">${ic('trash',14)}</button></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum horário. Adicione ao menos um.</div>';
@@ -301,7 +300,7 @@ function agendaPicker(f){
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="btn sm" data-act="agDias" data-v="todos">Todos os dias</button><button type="button" class="btn sm" data-act="agDias" data-v="uteis">Segunda a sexta</button></div>
   <div id="ag-horas">${horasHtml()}</div>
   <button type="button" class="btn sm" data-act="agAddH">${ic('plus',14)} Adicionar horário</button>
-  <div><small>A ronda deve ser feita em cada dia marcado, em cada horário. Fica "em atraso" 1 hora depois do horário sem ser realizada.</small></div></div>`}
+  <div><small>A ronda deve ser feita em cada dia marcado, em cada horário. Fica "em atraso" se não for realizada até 1 hora após o horário previsto; uma execução feita até 1 hora antes também vale para o horário.</small></div></div>`}
 
 function fieldHtml(f,v){
   const cls=f.full?'field full':'field',id='ff-'+f.k;
@@ -312,7 +311,7 @@ function fieldHtml(f,v){
   if(f.t==='photo')return `<div class="full"><span class="hint" style="font-weight:600;color:var(--ink2)">${esc(f.l)}</span><div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap"><div id="foto-prev">${fotoPrev()}</div><label class="btn sm" style="cursor:pointer">${ic('cam',16)} Escolher imagem<input class="sr" type="file" accept="image/*" id="ff-foto" data-ent-foto></label><button type="button" class="btn sm" data-act="rmEntFoto">Remover</button></div></div>`;
   let inp;
   if(f.t==='codigo')inp=`<div style="display:flex;gap:8px"><input type="text" name="${f.k}" id="${id}" value="${esc(v??'')}" autocomplete="off" autocapitalize="characters" spellcheck="false" class="mono" style="flex:1"><button type="button" class="btn sm" data-act="genCodigo" style="min-height:38px">Gerar código</button></div>`;
-  else if(f.t==='bssids')inp=`<textarea name="${f.k}" id="${id}" rows="3" class="mono" spellcheck="false" autocapitalize="off">${esc(v||'')}</textarea><div><button type="button" class="btn sm" data-act="capBssid">${ic('check',14)} Ler a antena deste aparelho agora</button></div>`;
+  else if(f.t==='bssids')inp=`<textarea name="${f.k}" id="${id}" rows="3" class="mono" spellcheck="false" autocapitalize="off">${esc(v||'')}</textarea><div><button type="button" class="btn sm" data-act="capBssid">${ic('check',14)} Ler o ponto de acesso deste aparelho agora</button></div>`;
   else if(f.t==='select')inp=`<select name="${f.k}" id="${id}" ${f.req?'required':''}>${f.blank!==undefined?`<option value="">${f.blank}</option>`:''}${f.opts().map(([o,l])=>`<option value="${esc(o)}" ${String(v)===String(o)?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
   else if(f.t==='textarea')inp=`<textarea name="${f.k}" id="${id}">${esc(v||'')}</textarea>${f.sugerir?`<div><button type="button" class="btn sm" data-act="genOrient">${ic('check',14)} Gerar sugestão a partir do nome</button></div>`:''}`;
   else if(f.t==='password')inp=`<div style="display:flex;gap:8px"><input type="text" class="pw" name="${f.k}" id="${id}" value="" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" style="flex:1"><button type="button" class="btn sm" data-act="genPw" style="min-height:38px">Gerar senha forte</button></div>`;
@@ -323,7 +322,7 @@ function fieldHtml(f,v){
 /* duplicar: abre o formulário de novo cadastro já preenchido com os dados do original */
 function preparaCopia(ent,d){
   d.nome=(d.nome||'')+' (cópia)';
-  if(ent==='users'){d.login='';d.hash=null;d.salt=null}
+  if(ent==='users'){d.login='';d.hash=null;d.salt=null;d.iter=null}
   if(ent==='salas'||ent==='equipamentos')d.codigoLocal='';   /* o código identifica um único local */
   if(ent==='checklists'||ent==='salas'||ent==='equipamentos')d.itens=(d.itens||[]).map(x=>({...x,id:'i'+uid()}));
   delete d.id;delete d.demo}
@@ -362,7 +361,7 @@ async function saveEnt(form){
       if(!hs.length)return err('Informe ao menos um horário para a ronda.');
       data.dias=dias;data.horarios=hs;continue}
     if(f.t==='salas'){data.ordem=M.ordem.filter(k=>ordNome(k));data[f.k]=data.ordem.filter(k=>k[0]==='s').map(k=>k.slice(2));data.equipIds=data.ordem.filter(k=>k[0]==='e').map(k=>k.slice(2));{const uso=usadosEmOutras(),rep=data.ordem.find(k=>uso.has(k));if(rep)return err((rep[0]==='s'?'A sala ':'O equipamento ')+ordNome(rep).nome+' já está vinculad'+(rep[0]==='s'?'a':'o')+' a outra ronda.')}
-    if(!data.ordem.length)return err('Marque ao menos uma sala ou um equipamento para a ronda.');
+    if(!data.ordem.length)return err('Adicione ao menos uma sala ou um equipamento à ronda.');
     {const lib={};Object.entries(M.liberacao).forEach(([d,k])=>{if(d!==k&&data.ordem.includes(d)&&data.ordem.includes(k)&&!M.liberacao[k])lib[d]=k});
      const sem=[...new Set(Object.values(lib))].map(ordNome).find(x=>x&&!x.codigoLocal);
      if(sem)return err(`Para liberar vários locais com "${sem.nome}", cadastre um código de barras nele (Cadastros → Salas/Equipamentos).`);
@@ -381,7 +380,7 @@ async function saveEnt(form){
     if(S.users.some(u=>u.id!==M.id&&(u.login||'').toLowerCase()===login))return err('Já existe um usuário com este login.');
     data.login=login;
     const pw=form.elements.senha.value;
-    if(pw){const pe=RH.checkSenha(pw);if(pe)return err(pe);data.salt=uid()+uid();data.hash=await RH.hash(pw,data.salt)}
+    if(pw){const pe=RH.checkSenha(pw);if(pe)return err(pe);data.salt=uid()+uid();data.iter=RH.HASH_ITER;data.hash=await RH.hash(pw,data.salt,data.iter)}
     else if(!old?.hash)return err('Defina uma senha para este usuário.');
     if(old&&old.id===st.me.id&&(data.ativo===false||data.role!=='admin'))return err('Você não pode remover o próprio acesso de administrador.');
     if(old&&data.ativo===false){const n=S.modelos.filter(m=>m.responsavelId===old.id&&m.ativo!==false).length;if(n)return err(`Este usuário é responsável por ${n} ronda${n>1?'s':''}. Troque o responsável antes de desativar.`)}
@@ -469,7 +468,7 @@ Object.assign(RH.ACT,{
     el.disabled=true;const r=await RH.local.lerBssid();el.disabled=false;
     if(!r.ok){toast(r.msg,'bad');return}
     const t=$('#ff-bssids'),l=RH.local.parseBssids(t.value).lista;
-    if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Antena '+r.valor+' adicionada.')},
+    if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Ponto de acesso '+r.valor+' adicionado.')},
 });
 RH.ON_CHANGE.push(async el=>{
   if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
@@ -521,18 +520,18 @@ RH.avisosCard=async()=>{
   if(!document.getElementById('avisos-card'))return;
   const falta=S.users.filter(u=>u.ativo!==false&&(u.role==='admin'||S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id))&&!(u.email||'').trim());
   const quando=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-  const stat=!e?'<span class="pill off">Serviço ainda não executou</span> Configure o envio no GitHub (veja o guia) e rode o teste.'
+  const stat=!e?'<span class="pill off">O serviço ainda não foi executado.</span> Configure o envio no GitHub (veja a seção "Avisos por e-mail" do ESTRUTURA.md) e rode o teste.'
     :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
   el.innerHTML=`<h3>Avisos por e-mail</h3>
-  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b>: avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
+  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b> (inclui temperatura fora da faixa): avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
   <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
   <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
   <label class="field" style="margin-top:8px"><span>Avisar NC Média e Alta depois de (horas)</span><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" style="width:110px"></label>
   <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
   <details class="av-imed" style="margin-top:10px"><summary><b>Aviso imediato</b> (opcional)${A.ghToken?' · <span class="pill okp"><i></i>ligado</span>':''}</summary>
-    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja o guia.</p>
-    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="rondaliga/ronda" autocomplete="off" autocapitalize="off"></label>
-    <label class="field"><span>Ramo principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
+    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja a seção "Avisos por e-mail" do ESTRUTURA.md.</p>
+    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="minha-organizacao/ronda" autocomplete="off" autocapitalize="off"></label>
+    <label class="field"><span>Branch principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
     <label class="field"><span>Token do GitHub ${A.ghToken?'(já salvo, deixe em branco para manter)':''}</span><input type="password" id="av-tok" value="" placeholder="${A.ghToken?'••••••••':'github_pat_…'}" autocomplete="new-password" data-lpignore="true" data-1p-ignore></label>
     ${A.ghToken?'<label class="chk"><input type="checkbox" id="av-tokdel"> Remover o token salvo</label>':''}
   </details>
@@ -542,7 +541,7 @@ RH.avisosCard=async()=>{
 Object.assign(RH.ACT,{
   avisosSalvar:async()=>{
     const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok');
-    if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Repositório no formato usuário/nome, ex.: rondaliga/ronda.','bad');return}
+    if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Informe o repositório no formato usuário/nome (ex.: minha-organizacao/ronda).','bad');return}
     const ghToken=document.getElementById('av-tokdel')?.checked?'':(tok||A0.ghToken||'');
     const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
     const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});

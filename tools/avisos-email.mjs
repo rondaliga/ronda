@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ==========================================================================
-   Avisos por e-mail — roda no GitHub Actions (.github/workflows/avisos-email.yml) a cada ~15 min.
+   Avisos por e-mail — roda no GitHub Actions (.github/workflows/avisos-email.yml) a cada ~10 min.
    Lê o banco (Supabase) pelas MESMAS funções do aplicativo (rh_pull / rh_put_many, com o código de acesso da equipe)
    e envia, por e-mail, aos responsáveis:
      • NC nova com severidade >= a configurada (padrão: Alta);

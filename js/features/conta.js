@@ -21,13 +21,13 @@ RH.ON_SUBMIT['f-pw']=async f=>{
   const er=$('#pw-err'),u=st.me;er.textContent='';
   if(!u)return;
   const atual=f.atual.value,nova=f.nova.value;
-  if(!u.hash||await RH.hash(atual,u.salt)!==u.hash){er.textContent='A senha atual está incorreta.';return}
+  if(!u.hash||await RH.hash(atual,u.salt,u.iter)!==u.hash){er.textContent='A senha atual está incorreta.';return}
   const p=RH.checkSenha(nova);if(p){er.textContent=p;return}
   if(nova!==f.conf.value){er.textContent='A confirmação não confere com a nova senha.';return}
   if(nova===atual){er.textContent='A nova senha precisa ser diferente da atual.';return}
   const b=$('#pw-ok');b.disabled=true;
-  const salt=RH.uid()+RH.uid(),hash=await RH.hash(nova,salt);
-  const ok=await RH.safe(async()=>{await RH.upd('users',u.id,{salt,hash});return true});
+  const salt=RH.uid()+RH.uid(),hash=await RH.hash(nova,salt,RH.HASH_ITER);
+  const ok=await RH.safe(async()=>{await RH.upd('users',u.id,{salt,hash,iter:RH.HASH_ITER});return true});
   if(ok){closeModal();toast('Senha alterada com sucesso.')}else b.disabled=false;
 };
 

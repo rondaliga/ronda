@@ -83,17 +83,17 @@ function validar({alvo,lido,bssid,pol}){
   const lista=parseBssids(alvo.bssids).lista;
   if(!lista.length)return R(true,'ok','Código confere.','sem_cadastro');
   if(bssid&&bssid.ok)return bssidConfere(bssid.valor,lista)
-    ?R(true,'ok','Código e antena Wi-Fi conferem.','confere')
-    :R(false,'rede_fora',`Você está conectado a uma antena Wi-Fi que não pertence a "${alvo.nome}".`,'fora');
-  if(pol&&pol.bssid==='exigir')return R(false,'rede_indisponivel',(bssid&&bssid.msg)||'Não foi possível identificar a antena Wi-Fi deste aparelho.','indisponivel');
-  return R(true,'ok','Código confere (antena Wi-Fi não verificada neste aparelho).','indisponivel')}
+    ?R(true,'ok','Código e ponto de acesso Wi-Fi conferem.','confere')
+    :R(false,'rede_fora',`Você está conectado a um ponto de acesso Wi-Fi que não pertence a "${alvo.nome}".`,'fora');
+  if(pol&&pol.bssid==='exigir')return R(false,'rede_indisponivel',(bssid&&bssid.msg)||'Não foi possível identificar o ponto de acesso Wi-Fi deste aparelho.','indisponivel');
+  return R(true,'ok','Código confere (ponto de acesso Wi-Fi não verificado neste aparelho).','indisponivel')}
 
 /* ---------- leitura do BSSID (camada nativa) ---------- */
 const MSG_BSSID={
-  navegador:'Este navegador não permite ler a antena Wi-Fi. Use o aplicativo da Ronda (Android).',
-  permissao:'Permita o acesso à localização e deixe a localização do aparelho ligada para identificar a antena Wi-Fi.',
+  navegador:'Este navegador não permite ler o ponto de acesso Wi-Fi. Use o aplicativo da Ronda (Android).',
+  permissao:'Permita o acesso à localização e deixe a localização do aparelho ligada para identificar o ponto de acesso Wi-Fi.',
   semwifi:'O aparelho não está conectado a uma rede Wi-Fi.',
-  erro:'Não foi possível ler a antena Wi-Fi.'};
+  erro:'Não foi possível ler o ponto de acesso Wi-Fi.'};
 const comTempo=(p,ms)=>Promise.race([p,new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms))]);
 
 async function bssidBruto(){
@@ -160,7 +160,7 @@ async function escanear(titulo){
   return new Promise(resolve=>{
     const o=document.createElement('div');o.id='scan-ov';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');o.setAttribute('aria-label','Leitor de código de barras');
     o.style.cssText='position:fixed;inset:0;z-index:210;background:#000;display:flex;flex-direction:column;color:#fff';
-    o.innerHTML=`<div style="padding:12px 16px;font-weight:600">${RH.esc(titulo||'Leia o código de barras do local')}</div>
+    o.innerHTML=`<div style="padding:12px 16px;font-weight:600">${RH.esc(titulo||'Leia o código do local')}</div>
       <div style="position:relative;flex:1;min-height:0"><video id="scan-v" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover;background:#000"></video>
       <div style="position:absolute;left:8%;right:8%;top:38%;height:24%;border:2px solid #4cc27f;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.35)"></div></div>
       <div id="scan-msg" style="padding:10px 16px;text-align:center;font-size:13px">Aponte a câmera para a etiqueta fixada no local.</div>
@@ -183,7 +183,7 @@ async function escanear(titulo){
 /* lê o código e, logo em seguida, a antena Wi-Fi; devolve o registro (ok ou rejeitado) ou null se cancelado */
 async function checkin(bl,lidoPronto){
   const alvo=alvoDoBloco(bl);if(!alvo)return null;
-  const lido=lidoPronto!=null?lidoPronto:await escanear('Leia o código de barras: '+alvo.nome);
+  const lido=lidoPronto!=null?lidoPronto:await escanear('Leia o código do local: '+alvo.nome);
   if(lido==null)return null;
   const bssid=await lerBssid(),r=validar({alvo,lido,bssid,pol:politica()});
   return {ts:Date.now(),ok:r.ok,codigo:r.codigo,rede:r.rede,msg:r.msg,lido:String(lido).slice(0,80),bssid:bssid.valor||''}}
@@ -232,7 +232,7 @@ function badge(p){
   const t=(c,x)=>`<span class="pill ${c}" title="Presença no local">${x}</span>`;
   if(p.status==='confirmada'){
     const n=(p.falhas||[]).length?` · ${p.falhas.length} leitura${p.falhas.length>1?'s':''} rejeitada${p.falhas.length>1?'s':''}`:'';
-    return p.rede==='confere'?t('okp','Presença: código + Wi-Fi'+n):t(p.rede==='indisponivel'?'late':'okp','Presença: código'+(p.rede==='indisponivel'?' (Wi-Fi não verificado)':'')+n)}
+    return p.rede==='confere'?t('okp','Presença: código + Wi-Fi'+n):t(p.rede==='indisponivel'?'late':'okp','Presença: código'+(p.rede==='indisponivel'?' (ponto de acesso não verificado)':'')+n)}
   if(p.status==='sem_codigo')return t('off','Local sem código');
   return t('late','Presença não confirmada')}
 
@@ -246,7 +246,7 @@ function validaCadastro(data,ent,id){
     if(dup)return `O código ${c} já está em uso por "${dup.nome}". Cada local precisa de um código único.`}
   data.codigoLocal=c;
   const p=parseBssids(data.bssids);
-  if(p.invalidos.length)return 'BSSID inválido: '+p.invalidos.join(', ')+'. Use aa:bb:cc:dd:ee:ff (ou aa:bb:cc:*:*:* para várias antenas do mesmo fabricante).';
+  if(p.invalidos.length)return 'BSSID inválido: '+p.invalidos.join(', ')+'. Use aa:bb:cc:dd:ee:ff (ou aa:bb:cc:*:*:* para vários pontos de acesso do mesmo fabricante).';
   data.bssids=p.lista.join('\n');
   return ''}
 function gerarCodigo(prefixo,extra){

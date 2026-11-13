@@ -24,7 +24,7 @@ RH.pages.painel=()=>{
   const setores=[...new Set(S.salas.map(s=>s.setor).filter(Boolean))].sort();
   const okSet=x=>!F.setor||x.setor===F.setor;
   const rs=S.rondas.filter(r=>r.ts>=start&&okSet(r)), ns=S.ncs.filter(n=>n.ts>=start&&okSet(n));
-  let C=0,N=0;rs.forEach(r=>{C+=r.c;N+=r.nc});
+  let C=0,N=0,I=0;rs.forEach(r=>{C+=r.c;N+=r.nc;I+=(r.ina||0)+(r.na||0)});
   const pct=C+N?C/(C+N)*100:null, meta=+S.cfg.meta||95;
   const abertas=S.ncs.filter(n=>n.status!=='resolvida'&&okSet(n)), graves=abertas.filter(n=>n.sev>=3);
   const rz=ns.filter(n=>n.status==='resolvida'&&n.resolvidoEm), tmr=rz.length?rz.reduce((a,n)=>a+(n.resolvidoEm-n.ts),0)/rz.length/36e5:null;
@@ -33,7 +33,7 @@ RH.pages.painel=()=>{
   const ini0=start-days*864e5, rs0=S.rondas.filter(r=>r.ts>=ini0&&r.ts<start&&okSet(r));
   let C0=0,N0=0;rs0.forEach(r=>{C0+=r.c;N0+=r.nc});
   const pct0=C0+N0?C0/(C0+N0)*100:null, nExec0=new Set(rs0.map(r=>r.execId||r.id)).size;
-  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">= igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
+  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">Igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
 
   /* salas inspecionadas no período */
   const salas=S.salas.filter(s=>s.ativo!==false&&(!F.setor||s.setor===F.setor));
@@ -65,14 +65,14 @@ RH.pages.painel=()=>{
   const tile=(l,v,sub,cls='',extra='')=>`<div class="kpi"><label>${l}</label><strong class="${cls}">${v}</strong><small>${sub}</small>${extra}</div>`;
 
   setTimeout(()=>RH.armAviso&&RH.armAviso(),0);
-  return `<div id="arm-aviso"></div><div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
+  return `<div id="arm-aviso"></div>${RH.avisoLimite(['rondas','ncs'])}<div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="F:periodo" data-num="1">${[7,30,90].map(d=>`<option value="${d}" ${d===days?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
   <div class="tools"><button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
   <section class="kpis" aria-label="Indicadores">
   ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true)+spC)}
-  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
-  ${tile('NCs em aberto',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
+  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados${I?` · ${I.toLocaleString('pt-BR')} inacessíve${I===1?'l':'is'}`:''}`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
+  ${tile('NCs não resolvidas',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
   ${tile('Tempo médio de resolução',dur(tmr),`${rz.length} NC${rz.length===1?'':'s'} resolvida${rz.length===1?'':'s'}`)}
   ${tile('Cobertura de salas',pc(cob),`${salas.filter(s=>insp.has(s.id)).length} de ${salas.length} salas inspecionadas`)}
   ${tile('Rondas em atraso',atraso.length,atraso.length?'Veja a lista abaixo':'Todas dentro da agenda',atraso.length?'badc':'good')}
@@ -86,7 +86,7 @@ RH.pages.painel=()=>{
   ${card('tipos','Tipos de NC mais frequentes','',hbars(porTipo))}
   ${card('repet','Problemas que se repetem',`no período · mesmo item e local`,(()=>{const g=RH.recGrupos(ns).slice(0,6);return g.length?hbars(g):empty('Nenhum item com 2 ou mais NCs no período')})())}
   ${card('equip','Equipamentos com mais NCs','',hbars(porEq))}
-  ${card('atraso','Rondas em atraso','',atraso.length?`<div class="hb">${atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${(m.salaIds||[]).length} sala${(m.salaIds||[]).length===1?'':'s'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'))}
+  ${card('atraso','Rondas em atraso','',atraso.length?`<div class="hb">${atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${RH.ordemDaRonda(m).length} ${RH.ordemDaRonda(m).length===1?'local':'locais'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'))}
   ${card('sala','Conformidade por sala','ordenado da menor para a maior',porSala.length?`<div class="hb">${porSala.map(x=>`<div class="hb-r" data-tip="${esc(x.s.nome)}: ${pc(x.p)}"><span class="hb-l">${esc(x.s.nome)}</span><span class="hb-t"><i style="width:${x.p??0}%;background:${x.p==null?'transparent':x.p>=meta?'var(--c1)':'var(--s3)'}"></i></span><span class="hb-v">${x.p==null?'—':Math.round(x.p)+'%'}</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Barras vermelhas estão abaixo da meta de ${meta}%.</p>`:empty('Nenhuma sala cadastrada','Cadastre salas em Cadastros.'),'span2')}
   ${card('recentes','Não conformidades recentes','',rec.length?`<div class="tw" style="border:0"><table><thead><tr><th>Data</th><th>Local</th><th>Descrição</th><th>Severidade</th><th>Situação</th></tr></thead><tbody>${rec.map(n=>`<tr data-act="ncOpen" data-id="${n.id}"><td class="num">${fdt(n.ts)}</td><td>${esc(n.eqNome||n.salaNome)}<small>${esc(n.eqNome?n.salaNome:n.setor||'')}</small></td><td>${esc((n.desc||n.itemTexto||'').slice(0,80))}</td><td>${sevPill(n.sev)}</td><td>${stPill(n.status)}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma não conformidade registrada'),'span2')}
   </section>`;
@@ -113,7 +113,7 @@ function drawLine(){
   const mv=e=>{const b=svg.getBoundingClientRect(),sx=(e.clientX-b.left)*W/b.width;
     let best=null;pts.forEach(p=>{if(p.v==null)return;if(!best||Math.abs(x(p.i)-sx)<Math.abs(x(best.i)-sx))best=p});if(!best)return;
     xh.setAttribute('x1',x(best.i));xh.setAttribute('x2',x(best.i));xh.setAttribute('visibility','visible');xd.setAttribute('cx',x(best.i));xd.setAttribute('cy',y(best.v));xd.setAttribute('visibility','visible');
-    RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} sala${best.r===1?'':'s'} · ${best.n} NC`,e.clientX,e.clientY)};
+    RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} ${best.r===1?'local':'locais'} · ${best.n} NC`,e.clientX,e.clientY)};
   const sai=()=>{RH.tip.hidden=true;xh.setAttribute('visibility','hidden');xd.setAttribute('visibility','hidden')};
   r.addEventListener('pointermove',mv);r.addEventListener('pointerdown',mv);r.addEventListener('pointerleave',sai);r.addEventListener('pointercancel',sai);
   if(!r._t){r._t=1;document.addEventListener('pointerdown',ev=>{if(!ev.target.closest||!ev.target.closest('#ch-line'))sai()},{passive:true})}
