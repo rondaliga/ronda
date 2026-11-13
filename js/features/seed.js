@@ -43,11 +43,11 @@ RH.seedDemo=async barId=>{
     const inspK=resp||pick(['u3','u4','u5']),insp=NOMES[inspK],execId='demo_x'+mid+'_'+d;
     ss.forEach(sid=>{
       const [, sn,setor,, sresp,ck,q]=SL.find(x=>x[0]===sid);
-      const itens=[],ncs=[],p=q*(.75+.5*d/27);
+      const itens=[],ncs=[],p=q*(.75+.5*d/27),hx=[...execId].reduce((a,c)=>(a*31+c.charCodeAt(0))|0,7),dEx=(8+Math.abs(hx)%38)*6e4,tl=(40+Math.abs(Math.imul(hx,31+sid.length)+sid.charCodeAt(sid.length-1))%320)*1e3;   /* tempos determinísticos (não consomem o sorteio) */
       const alv=[{a:'s',i:'demo_'+sid,n:sn,cl:CL[ck]},...EQ.filter(e=>e[3]===sid).map(e=>({a:'e',i:'demo_'+e[0],n:e[1],cl:CL[e[4]],eq:e}))];
       alv.forEach(al=>al.cl[2].forEach(t=>{const r=rnd()<p?'NC':(rnd()<.04?'IN':'C');itens.push({a:al.a,i:al.i,n:al.n,t,r,...(r==='IN'?{just:'Local inacessível durante a ronda (exemplo).'}:{})});if(r==='NC')ncs.push({al,t})}));
       const c=itens.filter(x=>x.r==='C').length,nc=ncs.length,ina=itens.length-c-nc,rid='demo_r'+sid+'_'+d;
-      D('rondas',rid,{ts,execId,modeloId:'demo_'+mid,modeloNome:mnome,salaId:'demo_'+sid,salaNome:sn,setor,inspId:'demo_'+inspK,inspNome:insp,c,nc,ina,pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:'',itens});
+      D('rondas',rid,{ts,execId,modeloId:'demo_'+mid,modeloNome:mnome,ini:ts-dEx,dur:dEx,tloc:tl,salaId:'demo_'+sid,salaNome:sn,setor,inspId:'demo_'+inspK,inspNome:insp,c,nc,ina,pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:'',itens});
       ncs.forEach((x,j)=>{
         const txt=x.t.toLowerCase();
         const ti=txt.includes('limpeza')||txt.includes('lixeira')||txt.includes('lavatório')?'t1':txt.includes('calibra')||txt.includes('manutenção')||txt.includes('etiqueta')?'t3':txt.includes('temperatura')?'t5':txt.includes('alarme')?'t6':txt.includes('validade')&&txt.includes('medic')?'t4':txt.includes('sinaliza')||txt.includes('saídas')||txt.includes('extintor')?'t7':txt.includes('epi')?'t8':txt.includes('registro')||txt.includes('checklist')||txt.includes('lacre')?'t9':rnd()<.5?'t2':'t9';

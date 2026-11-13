@@ -470,6 +470,8 @@ Object.assign(RH.ACT,{
     const t=$('#ff-bssids'),l=RH.local.parseBssids(t.value).lista;
     if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Ponto de acesso '+r.valor+' adicionado.')},
 });
+RH.ON_CHANGE.push(el=>{if(el.id!=='av-rel-modo')return false;const m=el.value,g=i=>document.getElementById(i);
+  g('av-rel-det').hidden=m==='off';g('av-rel-sem').hidden=m!=='semanal';g('av-rel-mes').hidden=m!=='mensal';return true});
 RH.ON_CHANGE.push(async el=>{
   if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
   if(el.dataset.bkDest!=null){prevLink();return true}
@@ -520,6 +522,9 @@ RH.avisosCard=async()=>{
   if(!document.getElementById('avisos-card'))return;
   const falta=S.users.filter(u=>u.ativo!==false&&(u.role==='admin'||S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id))&&!(u.email||'').trim());
   const quando=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const R0=A.relatorio||{},rm=R0.modo==='semanal'||R0.modo==='mensal'?R0.modo:'off',rd=R0.dia!=null?+R0.dia:(rm==='mensal'?1:1),rh=R0.hora!=null?+R0.hora:7;
+  const DIAS=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+  const relU=e&&e.relat&&e.relat.ultimo?`<br><small>Último relatório programado: <b>${quando(e.relat.ultimo)}</b></small>`:'';
   const stat=!e?'<span class="pill off">O serviço ainda não foi executado.</span> Configure o envio no GitHub (veja a seção "Avisos por e-mail" do ESTRUTURA.md) e rode o teste.'
     :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
   el.innerHTML=`<h3>Avisos por e-mail</h3>
@@ -528,6 +533,15 @@ RH.avisosCard=async()=>{
   <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
   <label class="field" style="margin-top:8px"><span>Avisar NC Média e Alta depois de (horas)</span><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" style="width:110px"></label>
   <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
+  <fieldset class="av-rel" style="margin:12px 0 0;border:1px solid var(--line);border-radius:10px;padding:10px 12px"><legend><b>Relatório periódico por e-mail</b></legend>
+    <p style="margin:0 0 8px;color:var(--ink2);font-size:13px">Resumo de conformidade, NCs, Pareto e setores, enviado aos <b>gestores e administradores</b> com e-mail cadastrado. Só funciona com "Enviar avisos por e-mail" ligado. Semanal: 7 dias completos antes do dia escolhido. Mensal: o mês anterior.</p>
+    <label class="field"><span>Frequência</span><select id="av-rel-modo"><option value="off" ${rm==='off'?'selected':''}>Desligado</option><option value="semanal" ${rm==='semanal'?'selected':''}>Semanal</option><option value="mensal" ${rm==='mensal'?'selected':''}>Mensal</option></select></label>
+    <div id="av-rel-det" ${rm==='off'?'hidden':''}>
+      <label class="field" id="av-rel-sem" style="margin-top:8px" ${rm==='semanal'?'':'hidden'}><span>Dia da semana</span><select id="av-rel-dsem">${DIAS.map((n,i)=>`<option value="${i}" ${i===(rm==='semanal'?rd:1)?'selected':''}>${n}</option>`).join('')}</select></label>
+      <label class="field" id="av-rel-mes" style="margin-top:8px" ${rm==='mensal'?'':'hidden'}><span>Dia do mês</span><select id="av-rel-dmes">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${i+1===(rm==='mensal'?rd:1)?'selected':''}>${i+1}</option>`).join('')}</select></label>
+      <label class="field" style="margin-top:8px"><span>Horário</span><select id="av-rel-hora">${Array.from({length:24},(_,i)=>`<option value="${i}" ${i===rh?'selected':''}>${String(i).padStart(2,'0')}:00</option>`).join('')}</select></label>
+    </div>${relU}
+  </fieldset>
   <details class="av-imed" style="margin-top:10px"><summary><b>Aviso imediato</b> (opcional)${A.ghToken?' · <span class="pill okp"><i></i>ligado</span>':''}</summary>
     <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja a seção "Avisos por e-mail" do ESTRUTURA.md.</p>
     <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="minha-organizacao/ronda" autocomplete="off" autocapitalize="off"></label>
@@ -543,7 +557,8 @@ Object.assign(RH.ACT,{
     const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok');
     if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Informe o repositório no formato usuário/nome (ex.: minha-organizacao/ronda).','bad');return}
     const ghToken=document.getElementById('av-tokdel')?.checked?'':(tok||A0.ghToken||'');
-    const cfg={...S.cfg,avisos:{ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
+    const rmo=v('av-rel-modo'),relatorio=rmo==='semanal'||rmo==='mensal'?{modo:rmo,dia:+(rmo==='mensal'?v('av-rel-dmes'):v('av-rel-dsem')),hora:+v('av-rel-hora')}:{modo:'off'};
+    const cfg={...S.cfg,avisos:{relatorio,ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
     const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
     if(ok){toast('Avisos salvos.');RH.avisosCard()}}});
 Object.assign(RH.ACT,{

@@ -78,6 +78,9 @@ Requer Python 3 e Playwright (`pip install playwright && playwright install chro
 python3 tests/e2e.py          # fluxo completo em modo local (nunca toca o banco real)
 python3 tests/remote_mock.py  # modo compartilhado contra um servidor simulado
 RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e.py   # testa o arquivo único (gere com --sem-config)
+python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
+python3 tests/relatorio_ui.py # configuração do relatório periódico
+node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
 
 ## Regras novas
@@ -159,3 +162,16 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Padronização: "ponto de acesso Wi-Fi", "código do local", "Percurso da ronda", "Responsável pelas NCs", "todos os usuários".
 - Dados de exemplo: itens de temperatura agora têm faixa ideal.
 - Correções de português em telas, mensagens e documentos.
+
+## v1.0.12: Pareto, mapa de calor, tempos e relatório por e-mail
+**Painel (período e setor do filtro valem para tudo)**
+- **Pareto das NCs**: barras em ordem decrescente com % acumulado; em azul, o que soma até 80%. Agrupa por *Tipo de NC*, *Item verificado* ou *Setor* (seletor no cartão, `F.paretoPor`). Mostra os 8 maiores e agrupa o resto em "Outros".
+- **Mapa de calor setor × horário**: % de itens não conformes (NC ÷ itens conformes + não conformes) por setor e faixa de 3 horas, pela hora de registro da ronda. Até 12 setores, ordenados por nº de NCs. Passe o mouse (ou toque) para ver as contagens.
+- **Tempo médio por ronda** (duração da execução inteira) e **por local** (do 1º ao último item respondido naquele local). Ignora tempos fora do normal: ronda acima de 8 h e local acima de 2 h.
+- Campos novos em `rondas/*`: `ini` (início da execução), `dur` (duração, ms) e `tloc` (tempo no local, ms); no rascunho, cada item guarda `at` (instante da 1ª resposta). **Rondas anteriores à 1.0.12 não têm tempo**; os cartões de tempo aparecem vazios até haver rondas novas. O mapa de calor e o Pareto usam dados antigos normalmente.
+**Relatório periódico por e-mail**
+- Cadastros → Hospital → Avisos por e-mail → **Relatório periódico** (`cfg.avisos.relatorio = {modo: off|semanal|mensal, dia, hora}`). Semanal: dia da semana (padrão segunda-feira) e hora (padrão 07:00); cobre os 7 dias completos anteriores ao dia escolhido. Mensal: dia 1 a 28 do mês; cobre o mês civil anterior. Vai aos **gestores e administradores ativos com e-mail**. Exige "Enviar avisos por e-mail" ligado.
+- Conteúdo: conformidade (com variação em pontos percentuais e meta), rondas executadas, itens, NCs por severidade (comparadas ao período anterior), NCs resolvidas e tempo médio até resolver, não resolvidas hoje (Alta/Crítica, há mais de 7 dias), tempo médio por ronda, salas verificadas, Pareto (5 maiores tipos) e setores com mais NCs.
+- Na 1ª execução depois de ligar (ou ao trocar a frequência) o serviço só registra o ponto de partida e envia no **próximo** horário programado. Cada período é enviado uma vez (`estado.relat`); se algum envio falhar, só quem faltou recebe na tentativa seguinte. Se o fluxo ficar parado por mais de 72 h, o relatório atrasado é pulado.
+- Conferir sem esperar: Actions → "Avisos por e-mail" → *Run workflow* → marque **relatorio** (ou `node tools/avisos-email.mjs --relatorio`). Envia o último período completo só aos administradores e não altera o controle de envio.
+- **Salas abaixo da média do hospital** (antes "Conformidade por sala"): o gráfico mostra só as salas cuja conformidade no período é menor que a conformidade geral do hospital (o cartão "Conformidade geral"); as acima da média e as sem rondas ficam ocultas.

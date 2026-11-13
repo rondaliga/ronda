@@ -1,6 +1,6 @@
 {
   "name": "ronda-hospitalar",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Ronda Hospitalar: rondas de segurança e qualidade assistencial (Android, macOS e navegador)",
   "private": true,
   "main": "desktop/main.js",

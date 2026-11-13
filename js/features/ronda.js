@@ -129,7 +129,7 @@ function itensDe(blocos){
    Ao recarregar, fechar a aba ou voltar à tela, ela é restaurada; é apagada ao finalizar ou descartar. */
 const DRAFT_PREFIX='rh_ronda_draft:';
 const draftKey=()=>st.me?DRAFT_PREFIX+st.me.id:null;
-const CAMPOS=['r','tipoId','sev','desc','just','thumb','full','tv','auto','autoDesc'];
+const CAMPOS=['r','tipoId','sev','desc','just','thumb','full','tv','auto','autoDesc','at'];   /* at = instante da 1ª resposta do item (tempo no local) */
 function gravar(k,R,nivel){
   /* nivel 0 = tudo; 1 = sem a foto grande; 2 = sem nenhuma foto (se o armazenamento estiver cheio) */
   const itens={};
@@ -183,7 +183,7 @@ function aplicaTemp(k){
     if(it.r==='NC'&&!it.auto)return;                          /* NC marcada à mão: respeita */
     const txt=`Temperatura medida: ${fmtT(v)}, ${sit==='baixa'?'abaixo':'acima'} da faixa ideal (${RH.fmtIdeal(it.tmin,it.tmax)}).`;
     const t=S.tiposNC.find(x=>/temperatura/i.test(x.nome||''));
-    it.r='NC';it.auto=true;
+    it.r='NC';it.auto=true;if(!it.at)it.at=Date.now();
     if(!it.tipoId&&t)it.tipoId=t.id;
     it.sev=4;                                                 /* temperatura fora da faixa ideal: sempre Crítica */
     if(!it.desc||it.desc===it.autoDesc)it.desc=txt;
@@ -191,7 +191,7 @@ function aplicaTemp(k){
   }else if(it.auto&&it.r==='NC'){                              /* voltou para a faixa (ou leitura apagada): desfaz o que foi automático */
     if(it.desc===it.autoDesc)it.desc='';
     it.r=sit==='ok'?'C':'';it.auto=false;it.autoDesc='';it.tipoId='';it.sev=0;
-  }else if(sit==='ok'&&!it.r)it.r='C';
+  }else if(sit==='ok'&&!it.r){it.r='C';if(!it.at)it.at=Date.now()}
 }
 function tempBox(it,k){
   if(!RH.ehTemp(it.t)||it.r==='IN')return '';
@@ -302,9 +302,9 @@ async function submitRonda(){
       if(!mine.length||(bl.tipo==='sala'&&!sala))continue;
       const salaNome=sala?sala.nome:'Equipamentos',setor=bl.setor==='Sem setor'?'':bl.setor,respSetor=sala?sala.responsavelId:(S.salas.find(x=>(x.setor||'Sem setor')===bl.setor&&x.responsavelId)||{}).responsavelId;
       const v=mine.map(x=>x[1]),c=v.filter(i=>i.r==='C').length,nc=v.filter(i=>i.r==='NC').length,ina=v.filter(i=>i.r==='IN').length,rid=mk('r:'+sid,'r');
-      const presenca=RH.local.evidencia(R,bl);
+      const presenca=RH.local.evidencia(R,bl),ats=v.map(i=>i.at).filter(Boolean),tloc=ats.length>1?Math.max(...ats)-Math.min(...ats):0;   /* tloc: do 1º ao último item respondido neste local */
       for(const [k,i] of mine)if(fotoObrig(i)&&i.full){const fid=mk('f:'+k,'f');await RH.put('fotos',fid,{data:i.full})}
-      await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
+      await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,ini:R.started,dur:Math.max(0,ts-R.started),tloc,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
         pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.map(([k,i])=>({a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(RH.ehTemp(i.t)&&tempVal(i)!=null?{tv:tempVal(i)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})}))});
       for(const [k,i] of mine.filter(([,i])=>i.r==='NC')){
         const tipo=byId(S.tiposNC,i.tipoId),eq=i.a==='e'?byId(S.equipamentos,i.i):null;let fotoId=null;
@@ -400,7 +400,7 @@ Object.assign(RH.ACT,{
   res:el=>{const it=st.R.itens[el.dataset.k];
     {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código do local antes de responder o checklist.','bad');return}}
     if(el.dataset.r==='C'&&['baixa','alta'].includes(tempSit(it))){toast('A temperatura medida está fora da faixa ideal: registre como não conforme ou corrija a leitura.','bad');return}
-    it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
+    it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r&&!it.at)it.at=Date.now();if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
   camOpen:el=>camOpen(el.dataset.k),
   rmFoto:el=>{const it=st.R.itens[el.dataset.k];it.thumb=it.full=null;repaint(el.dataset.k);saveDraft()},
   submitRonda

@@ -797,3 +797,29 @@ img.big-img{cursor:zoom-in}
 .pend-l .pe-feito{opacity:.6}
 @media (max-width:520px){.pend-l li{grid-template-columns:42px minmax(0,1fr) auto}.pend-l li .btn,.pend-l li>span:last-child{grid-column:auto}.pend-l li>span:last-child:empty{display:none}.pend-l li .pill{display:none}.pend-l li.pe-atrasado .pn::after{content:" · atrasada";color:var(--bad);font-weight:600}.pend-l li.pe-feito .pn::after{content:" · feita";color:var(--ok)}}
 .pend-l .pill.late{background:var(--bad-bg);color:var(--bad)}
+
+/* Painel: Pareto, mapa de calor e tempos (v1.0.12) */
+.pt-sel{max-width:220px;margin:0 0 12px}
+.pareto{display:flex;flex-direction:column;gap:9px}
+.pt-r{display:grid;grid-template-columns:minmax(80px,34%) 1fr 34px 46px;gap:10px;align-items:center}
+.pt-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink2);font-size:13px}
+.pt-t{height:14px;background:var(--grid);border-radius:4px;overflow:hidden}
+.pt-t i{display:block;height:100%;background:var(--line2);border-radius:0 4px 4px 0}
+.pt-r.vit .pt-t i{background:var(--c1)}
+.pt-n,.pt-a{text-align:right;font-variant-numeric:tabular-nums}
+.pt-n{font-weight:600}.pt-a{color:var(--muted);font-size:12px}
+.pt-leg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-top:4px}
+.pt-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c1);margin-right:5px;vertical-align:-1px}
+.pt-leg i.o{background:var(--line2)}
+.hm-wrap{overflow-x:auto;padding-bottom:2px}
+.hm{display:grid;grid-template-columns:minmax(96px,1.3fr) repeat(8,minmax(30px,1fr));gap:3px;font-size:12px;min-width:380px}
+.hm-row{display:contents}
+.hm-h{text-align:center;color:var(--muted);font-weight:600;padding:2px 0}
+.hm-h:first-child{text-align:left}
+.hm-s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink2);align-self:center}
+.hm-c{position:relative;min-height:30px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--grid);font-variant-numeric:tabular-nums;overflow:hidden}
+.hm-c::before{content:"";position:absolute;inset:0;background:var(--s3);opacity:var(--a,0)}
+.hm-c>span{position:relative}
+.hm-c.vz{color:var(--muted)}
+.hm-leg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+.hm-leg i{display:block;width:110px;height:10px;border-radius:5px;background:linear-gradient(90deg,var(--grid),var(--s3))}
