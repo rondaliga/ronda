@@ -83,6 +83,7 @@ python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
 python3 tests/painel_personalizar.py # Painel único: personalizar, compartilhar, permissões
 python3 tests/avisos_ui.py # Tela de avisos por e-mail (blocos, próximo envio, token, teste)
+python3 tests/nc_visto.py # Detalhe da NC: Visto resolve
 python3 tests/foto_parametros.py # Itens "Somente foto" (parâmetros da Ressonância)
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
@@ -216,3 +217,8 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - **Dados de exemplo**: selo ("Nenhum" ou "N registros ativos"), dica curta e um botão.
 - **Backup e base de dados**: selo (Banco compartilhado / Somente neste aparelho), dica curta e três botões pequenos (exportar, importar, trocar código de acesso).
 - Todos usam as classes `cfg-card`, `av-head`, `av-dica`, `av-acoes`, `av-imed`, `av-mais`, `av-grid` e `av-un`, definidas em `css/styles.css`.
+
+**Detalhe da não conformidade simplificado ("Visto")**
+- O detalhe mostra só o essencial (tipo e severidade no título, local e ronda, foto, repetição, orientação, descrição, item, quem registrou) e uma única caixa **Marcar como visto**.
+- Marcar grava na hora `status:'resolvida'`, `resolvidoPor` (o gestor ou administrador logado) e `resolvidoEm`; aparece "Visualizado por NOME em DATA". Desmarcar reabre (`status:'aberta'`, limpa quem viu). Só gestor e administrador marcam; os demais veem "Aguardando visualização".
+- Saíram do detalhe Situação, Responsável pela correção, Severidade e Ação corretiva (os dados antigos continuam no banco; a ação registrada anteriormente aparece como texto de leitura). Não há mais botão Salvar.

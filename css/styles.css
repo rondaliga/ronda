@@ -930,3 +930,9 @@ body.pn-dragging .kpi *{pointer-events:none}
 .cfg-card .av-imed{margin:10px 0 0}
 .cfg-card .av-mais{margin:2px 0 6px}
 .av-un.f{display:flex}
+/* NC: visto */
+.visto{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
+.visto input{width:22px;height:22px;flex:none;margin-top:1px;cursor:pointer}
+.visto input:disabled{cursor:not-allowed}
+.visto .vt{display:grid;gap:2px}.visto .vt b{font-size:14.5px}.visto .vt small{color:var(--muted);font-size:13px;line-height:1.4}
+.visto.ok{border-color:var(--ok);background:var(--ok-bg)}.visto.ok .vt b{color:var(--ok)}

@@ -947,6 +947,12 @@ body.pn-dragging .kpi *{pointer-events:none}
 .cfg-card .av-imed{margin:10px 0 0}
 .cfg-card .av-mais{margin:2px 0 6px}
 .av-un.f{display:flex}
+/* NC: visto */
+.visto{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer}
+.visto input{width:22px;height:22px;flex:none;margin-top:1px;cursor:pointer}
+.visto input:disabled{cursor:not-allowed}
+.visto .vt{display:grid;gap:2px}.visto .vt b{font-size:14.5px}.visto .vt small{color:var(--muted);font-size:13px;line-height:1.4}
+.visto.ok{border-color:var(--ok);background:var(--ok-bg)}.visto.ok .vt b{color:var(--ok)}
 
 </style>
 </head>
@@ -3105,35 +3111,31 @@ RH.pages.ncs=()=>{
   <div id="nc-list">${lista(true)}</div>`;
 };
 
-function openNC(id){
-  const n=byId(S.ncs,id);if(!n)return;
-  const edit=RH.access.canEditNC(),canDel=RH.access.canDeleteNC();
-  const users=S.users.filter(u=>u.ativo!==false);
+function openNC(id,ov){
+  const n={...byId(S.ncs,id),...(ov||{})};if(!n.id)return;
+  const edit=RH.access.canEditNC(),canDel=RH.access.canDeleteNC(),res=n.status==='resolvida';
   const orient=n.orient||byId(S.tiposNC,n.tipoId)?.orient||'';
-  modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
+  const quem=res?(n.resolvidoPor?userName(n.resolvidoPor):'—'):st.me.nome;
+  modal(`<div class="mh"><div><h3 style="font-size:16px">${esc(n.tipoNome||'Não conformidade')} ${sevPill(n.sev)}</h3><small>${esc(n.salaNome)}${n.eqNome?' · '+esc(n.eqNome):''}${n.modeloNome?' · '+esc(n.modeloNome):''}</small></div><button class="ic-btn" data-act="closeModal" aria-label="Fechar">${ic('x',16)}</button></div>
   <form id="f-nc" data-id="${n.id}"><div class="mb">
   ${n.fotoId||n.thumb?`<div id="nc-foto">${n.thumb?`<img class="big-img" src="${n.thumb}" alt="Foto da não conformidade" style="max-height:200px;object-fit:cover">`:''}${n.fotoId?'<i class="sk sk-foto" role="status" aria-label="Carregando foto"></i>':`<small>Foto original removida após ${RH.FOTOS_DIAS} dias (miniatura mantida).</small>`}</div>`:''}
-  ${(()=>{const r=RH.recorr(n);return r.n>=2?`<div class="rep-box" role="note"><b>↻ Problema repetido:</b> esta é a ${r.n}ª ocorrência deste item em ${RH.REC_DIAS} dias (anteriores: ${r.datas.sort((a,b)=>b-a).slice(0,5).map(t=>fd(t)).join(', ')}). Vale investigar a causa, não só corrigir.</div>`:''})()}
+  ${(()=>{const r=RH.recorr(n);return r.n>=2?`<div class="rep-box" role="note"><b>↻ Problema repetido:</b> ${r.n}ª ocorrência deste item em ${RH.REC_DIAS} dias (anteriores: ${r.datas.sort((a,b)=>b-a).slice(0,5).map(t=>fd(t)).join(', ')}). Vale investigar a causa.</div>`:''})()}
   ${RH.orientBox(orient)}
-  <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item do checklist</dt><dd>${esc(n.itemTexto||'—')}</dd>${n.modeloNome?`<dt>Ronda</dt><dd>${esc(n.modeloNome)}</dd>`:''}<dt>Registrada</dt><dd>${fdt(n.ts)} por ${esc(n.inspNome||'—')}</dd><dt>Severidade</dt><dd>${sevPill(n.sev)}</dd></dl>
-  <div class="fg"><label class="field"><span>Situação</span><select name="status" ${edit?'':'disabled'}>${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${n.status===k?'selected':''}>${v}</option>`).join('')}</select></label>
-  <label class="field"><span>Responsável pela correção</span><select name="resp" ${edit?'':'disabled'}><option value="">Não atribuído</option>${users.map(u=>`<option value="${u.id}" ${n.resp===u.id?'selected':''}>${esc(u.nome)}</option>`).join('')}</select></label>
-  <label class="field"><span>Severidade</span><select name="sev" ${edit?'':'disabled'}>${[1,2,3,4].map(s=>`<option value="${s}" ${n.sev==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
-  <label class="field full"><span>Ação corretiva / resolução</span><textarea name="resolucao" ${edit?'':'disabled'} placeholder="O que foi feito para corrigir?">${esc(n.resolucao||'')}</textarea></label></div>
-  ${n.resolvidoEm?`<small>Resolvida em ${fdt(n.resolvidoEm)}${n.resolvidoPor?' por '+esc(userName(n.resolvidoPor)):''}</small>`:''}<div class="err" id="nc-err" role="alert"></div></div>
-  <div class="mf">${canDel?`<button type="button" class="btn bad sp" data-act="delNC" data-id="${n.id}" id="btn-delnc">${ic('trash',16)} Excluir</button>`:''}${edit?`<button type="button" class="btn" data-act="closeModal">Cancelar</button><button class="btn pri" type="submit">Salvar</button>`:`<button type="button" class="btn" data-act="closeModal">Fechar</button>`}</div></form>`,true);
+  <dl class="kv"><dt>Descrição</dt><dd>${esc(n.desc)}</dd><dt>Item</dt><dd>${esc(n.itemTexto||'—')}</dd><dt>Registrada</dt><dd>${fdt(n.ts)} · ${esc(n.inspNome||'—')}</dd></dl>
+  ${n.resolucao?`<p class="av-dica">Ação registrada: ${esc(n.resolucao)}</p>`:''}
+  <label class="visto${res?' ok':''}"><input type="checkbox" data-nc-visto="${n.id}" ${res?'checked':''} ${edit?'':'disabled'} aria-describedby="visto-d"><span class="vt"><b>${res?'Visto e resolvida':'Marcar como visto'}</b><small id="visto-d">${res?`Visualizado por <b>${esc(quem)}</b>${n.resolvidoEm?' em '+fdt(n.resolvidoEm):''}`:edit?`Será registrado como visualizado por <b>${esc(quem)}</b> e a não conformidade passa a resolvida.`:'Aguardando visualização de um gestor ou administrador.'}</small></span></label>
+  <div class="err" id="nc-err" role="alert"></div></div>
+  <div class="mf">${canDel?`<button type="button" class="btn bad sp" data-act="delNC" data-id="${n.id}" id="btn-delnc">${ic('trash',16)} Excluir</button>`:''}<button type="button" class="btn" data-act="closeModal">Fechar</button></div></form>`,true);
   if(n.fotoId)st.db.doc('fotos/'+n.fotoId).get().then(s=>{const b=$('#nc-foto');if(!b)return;b.innerHTML=s.exists?`<img class="big-img" src="${esc(s.data().data)}" alt="Foto da não conformidade">`:'<small>Foto indisponível.</small>'}).catch(()=>{});
 }
 
-async function saveNC(f){
-  const n=byId(S.ncs,f.dataset.id);if(!n||!RH.access.canEditNC())return;
-  const fm=new FormData(f),situ=fm.get('status');
-  const d={status:situ,resp:fm.get('resp')||null,sev:+fm.get('sev'),resolucao:(fm.get('resolucao')||'').trim()};
-  if(situ==='resolvida'&&!n.resolvidoEm){d.resolvidoEm=Date.now();d.resolvidoPor=st.me.id}
-  if(situ!=='resolvida'&&n.resolvidoEm){d.resolvidoEm=null;d.resolvidoPor=null}
-  if(situ==='resolvida'&&!d.resolucao){toast('Descreva a ação corretiva para marcar como resolvida.','bad');return}
+/* marcar "visto" registra quem viu e resolve a NC; desmarcar reabre */
+async function visto(el){
+  const n=byId(S.ncs,el.dataset.ncVisto);if(!n||!RH.access.canEditNC()){el.checked=!el.checked;return}
+  const on=el.checked,d=on?{status:'resolvida',resolvidoEm:Date.now(),resolvidoPor:st.me.id}:{status:'aberta',resolvidoEm:null,resolvidoPor:null};
+  el.disabled=true;
   const ok=await RH.safe(async()=>{await RH.upd('ncs',n.id,d);return true});
-  if(ok){closeModal();toast('Não conformidade atualizada.')}
+  if(ok){toast(on?'Marcada como vista e resolvida.':'Não conformidade reaberta.');openNC(n.id,d)}else{el.checked=!on;el.disabled=false}
 }
 
 /* exclusão em dois toques: o 1º toque pede confirmação, o 2º exclui (a foto também) */
@@ -3153,7 +3155,8 @@ Object.assign(RH.ACT,{
   delNC:el=>delNC(el)
 });
 RH.ON_INPUT.push(el=>{if(el.dataset.live==='nc'){NF.q=el.value;$('#nc-list').innerHTML=lista(true);return true}return false});
-RH.ON_SUBMIT['f-nc']=saveNC;
+RH.ON_CHANGE.push(el=>{if(el.dataset.ncVisto==null)return false;visto(el);return true});
+RH.ON_SUBMIT['f-nc']=e=>{};
 addEventListener('keydown',e=>{const tr=e.target.closest&&e.target.closest('tr.s1,tr.s2,tr.s3,tr.s4,tr[data-act="ncOpen"]');if(tr&&(e.key==='Enter'||e.key===' ')&&e.target===tr){e.preventDefault();openNC(tr.dataset.id)}});
 })();
 
