@@ -113,14 +113,40 @@ def main():
         page.click("#nav [data-p=painel]"); page.wait_for_selector(".grid2 > .card")
         check("recarregar mantém a configuração salva", cs(page)==[x for x in salvo(page)["c"]])
         # cabeçalho profissional
-        check("cabeçalho com período e hora da atualização", "atualizado em" in page.inner_text(".pn-upd") and "Últimos 30 dias" in page.inner_text(".pn-upd"))
+        check("título único: Painel de Controle, sem subtítulo", page.inner_text(".top h1").strip()=="Painel de Controle" and not page.locator(".top p:visible").count() and not page.locator(".pn-upd").count())
         check("botão de impressão disponível", page.locator("[data-act=pnImprimir]").count()==1)
         # restaurar
         page.click("[data-act=pnEdit]"); page.click("[data-act=pnReset]"); page.click("[data-act=pnReset]"); page.wait_for_timeout(200)
         check("restaurar padrão: indicadores, gráficos e locais", kp(page)==padK and cs(page)==padC and page.locator(".pn-tag").count()==0, (kp(page),cs(page)))
+        # nomes editáveis, preenchimento automático e ampliar
+        page.set_viewport_size({"width":1280,"height":900}); page.wait_for_timeout(200)
+        def sem_vazio():
+            return page.evaluate("""()=>{const ok=(sel,par)=>{const p=document.querySelector(par).getBoundingClientRect(),rows={};
+              document.querySelectorAll(sel).forEach(e=>{const r=e.getBoundingClientRect();(rows[Math.round(r.top)]??=[]).push(r)});
+              return Object.values(rows).every(a=>Math.max(...a.map(r=>r.right))-Math.min(...a.map(r=>r.left))>=p.width-3)};
+              return ok('.kpis > .kpi','.kpis')&&ok('.grid2 > .card','.grid2')}""")
+        check("padrão: indicadores e gráficos preenchem as linhas, sem espaço vazio", sem_vazio())
+        page.fill(".grid2 > .card[data-pn=setor] input[data-pn=nome]","NCs por unidade"); page.press(".grid2 > .card[data-pn=setor] input[data-pn=nome]","Tab"); page.wait_for_timeout(250)
+        check("nome do gráfico editado aparece no título e é salvo", "NCs por unidade" in page.inner_text(".grid2 > .card[data-pn=setor] h3") and page.evaluate("RH.S.painel.cards.find(c=>c.id==='setor').n")=="NCs por unidade")
+        page.fill(".kpis > .kpi[data-pn=kNC] input[data-pn=nome]","Pendências abertas"); page.press(".kpis > .kpi[data-pn=kNC] input[data-pn=nome]","Tab"); page.wait_for_timeout(250)
+        check("nome do indicador editado", "Pendências abertas" in page.inner_text(".kpis > .kpi[data-pn=kNC] label"))
+        page.fill(".grid2 > .card[data-pn=setor] input[data-pn=nome]","   "); page.press(".grid2 > .card[data-pn=setor] input[data-pn=nome]","Tab"); page.wait_for_timeout(250)
+        check("nome em branco volta ao nome padrão", "Não conformidades por setor" in page.inner_text(".grid2 > .card[data-pn=setor] h3") and page.evaluate("RH.S.painel.cards.find(c=>c.id==='setor').n===undefined"))
+        page.click("[data-act=pnEdit]")
+        page.click("[data-act=pnAmpliar][data-id=linha]"); page.wait_for_selector("#modal .pn-amp .ch-line svg")
+        check("ampliar abre o gráfico em janela maior", page.evaluate("document.querySelector('#modal .ch-line svg').getBoundingClientRect().height>=300"))
+        page.fill("#modal input[data-pn=nome]","Evolução da conformidade"); page.press("#modal input[data-pn=nome]","Tab"); page.wait_for_timeout(300)
+        check("editar o nome na janela ampliada atualiza o painel", "Evolução da conformidade" in page.inner_text("#modal .mh") and "Evolução da conformidade" in page.inner_text(".grid2 > .card[data-pn=linha] h3"))
+        page.keyboard.press("Escape"); page.wait_for_timeout(100)
+        check("Esc fecha a janela ampliada", page.locator("#modal .pn-amp").count()==0)
+        page.evaluate("RH.st.pnEdit=false;RH.renderView(true)")
+        d=page.evaluate("RH.S.painel.cards.filter(c=>!['linha','setor'].includes(c.id)).length"); 
+        page.evaluate("(()=>{const D=JSON.parse(JSON.stringify(RH.S.painel));D.cards=D.cards.filter(c=>['linha','setor','sev','situacao','pareto'].includes(c.id)&&c.id!=='situacao');RH.S.painel=D;RH.renderView(true)})()"); page.wait_for_timeout(200)
+        check("quantidade ímpar de gráficos: o último ocupa a linha inteira", sem_vazio())
+        page.click("[data-act=pnEdit]"); page.click("[data-act=pnReset]"); page.click("[data-act=pnReset]"); page.wait_for_timeout(200); page.click("[data-act=pnEdit]")
         # celular
         page.click("[data-act=pnEdit]"); page.set_viewport_size({"width":390,"height":800}); page.wait_for_timeout(200)
-        check("celular: sem rolagem horizontal", page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
+        check("celular: sem rolagem horizontal", page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"), page.evaluate("[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).slice(0,3).map(e=>{let p=[],x=e;while(x&&x!==document.body&&p.length<5){p.push(x.tagName+'.'+x.className+':'+Math.round(x.getBoundingClientRect().left)+'-'+Math.round(x.getBoundingClientRect().right));x=x.parentElement}return p.join(' < ')})"))
         page.click("[data-act=pnEdit]"); page.wait_for_timeout(100)
         check("celular em edição: sem rolagem horizontal", True)
         b.close()
