@@ -869,3 +869,5 @@ body.pn-dragging .kpi *{pointer-events:none}
 }
 
 @media print{.pn-print{display:block!important;margin:2px 0 0;color:#444;font-size:12px}[data-act=pnAmpliar]{display:none!important}}
+.itfoto{flex:1 0 100%;display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink2);cursor:pointer}
+.itfoto input{margin-top:3px;flex:none}

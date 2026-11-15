@@ -82,6 +82,7 @@ RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e_local.py   # testa o 
 python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
 python3 tests/painel_personalizar.py # Painel único: personalizar, compartilhar, permissões
+python3 tests/foto_parametros.py # Itens "Somente foto" (parâmetros da Ressonância)
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
 
@@ -189,3 +190,8 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - **Mover:** ↑ ↓ ou segurar o clique (mouse/caneta, 0,35 s) e arrastar sobre outro item do mesmo grupo (indicadores entre indicadores, gráficos entre gráficos); Esc cancela. No toque da tela use ↑ ↓.
 - **Catálogo** (`CAT` em `js/features/painel.js`): os 6 indicadores e 16 gráficos/listas, incluindo Não conformidades por dia, Rondas por dia (produtividade) e Temperatura (média diária das leituras, fora da faixa e faixa ideal, a partir de `rondas/*.itens[].tv/.ideal`). Para criar um novo, acrescente a chave em `CAT` e a função em `TILE` ou `R`; ela recebe os dados já filtrados pelo local do item (`x.rs`, `x.ns`, `x.salas`, …).
 - **Apenas pessoal:** minimizar/expandir um cartão continua sendo preferência de cada aparelho.
+
+**Itens "Somente foto" (parâmetros de equipamentos, ex.: Ressonância)**
+- No cadastro (sala, equipamento ou checklist), cada item tem a opção **Somente foto** (`foto:true`). Na ronda, o item não tem Conforme/Não conforme nem campo de valor: só a foto, obrigatória (câmera ou galeria). A ronda não finaliza sem ela.
+- Resultado gravado como `r:'FT'` com `thumb` e `fotoId`: não entra no cálculo de conformidade (`c`, `nc`) nem gera NC. O histórico mostra a foto, com o nome do parâmetro, no bloco "Fotos de temperatura e parâmetros".
+- Uso nas salas Comando Ressonância 01 e 02: criar os itens "Nível hélio", "Pressão hélio", "Fluxo da água LPM" e "Temperatura da água" e marcar **Somente foto** em cada um.

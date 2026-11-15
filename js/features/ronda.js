@@ -121,7 +121,7 @@ function startRonda(id){
 }
 function itensDe(blocos){
   const itens={};
-  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,av:it.aviso||'',tmin:it.tmin??null,tmax:it.tmax??null,r:''}})));
+  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,av:it.aviso||'',tmin:it.tmin??null,tmax:it.tmax??null,...(it.foto?{ft:true}:{}),r:it.foto?'FT':''}})));
   return itens}
 
 /* ---------- rascunho da ronda em andamento (auto-save) ----------
@@ -200,13 +200,14 @@ function tempBox(it,k){
   return `<div class="tempin${sit&&sit!=='ok'?' fora':sit==='ok'?' dentro':''}"><label><span>Temperatura medida</span><span class="tin"><input type="text" inputmode="decimal" autocomplete="off" data-tv data-k="${k}" value="${esc(it.tv??'')}" placeholder="ex.: 22,5" aria-label="Temperatura medida em graus Celsius"><b>°C</b></span></label><small>${msg}</small></div>`}
 
 /* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
-const fotoObrig=it=>!!it&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
+const fotoObrig=it=>!!it&&(!!it.ft||(/temperatura/i.test(it.t||'')&&it.r!=='IN'));   /* ft = item "somente foto" (ex.: parâmetros da ressonância) */
 const alvoNome=it=>it.a==='e'?'equipamento':'sala';
 const fotoBtns=(it,k)=>`<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto d${it.a==='e'?'o equipamento':'a sala'}"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
   <button type="button" class="btn sm" data-act="camOpen" data-k="${k}">${ic('cam',16)} ${it.thumb?'Tirar outra foto':'Tirar foto'}</button>
   <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"></label></div>`;
 function itemHtml(k){
   const it=st.R.itens[k],nc=it.r==='NC',ina=it.r==='IN',tipo=nc?byId(S.tiposNC,it.tipoId):null;
+  if(it.ft)return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}<small class="ideal">Registro por foto: fotografe o visor. Não é preciso digitar o valor.</small></div></div>${RH.avisoBox(it.av)}<div class="ncp"><div class="full"><b>Foto (obrigatória)</b></div>${fotoBtns(it,k)}</div></div>`;
   return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}${RH.ehTemp(it.t)&&RH.fmtIdeal(it.tmin,it.tmax)?`<small class="ideal">Temperatura ideal: <b>${RH.fmtIdeal(it.tmin,it.tmax)}</b></small>`:''}</div>
   <div class="seg" role="group" aria-label="Resultado">${[['C','Conforme','c'],['NC','Não conforme','n'],['IN','Inacessível','a']].map(([v,l,c])=>`<button type="button" class="${c}" data-act="res" data-k="${k}" data-r="${v}" aria-pressed="${it.r===v}">${l}</button>`).join('')}</div></div>
   ${RH.avisoBox(it.av)}
@@ -263,7 +264,7 @@ function rondaForm(){
 RH.rondaForm=rondaForm;
 
 function progress(){
-  const v=Object.values(st.R.itens),t=v.length,a=v.filter(x=>x.r).length,n=v.filter(x=>x.r==='NC').length;
+  const v=Object.values(st.R.itens),t=v.length,a=v.filter(x=>x.ft?!!x.thumb:x.r).length,n=v.filter(x=>x.r==='NC').length;
   const pt=$('#prog-t');if(!pt)return;const pctP=t?Math.round(a/t*100):0;
   pt.textContent=`${a} de ${t} itens · ${pctP}%${n?` · ${n} NC${n>1?'s':''}`:''}`;$('#prog-b').style.width=(t?a/t*100:0)+'%';
   const bp=$('#btn-prox');if(bp){bp.hidden=a>=t;}}
@@ -285,7 +286,7 @@ async function submitRonda(){
   const foraC=its.filter(([,i])=>i.r==='C'&&['baixa','alta'].includes(tempSit(i)));
   if(foraC.length){foraC.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+foraC[0][0])?.scrollIntoView({block:'center'});toast('Há temperatura fora da faixa ideal marcada como conforme. Registre como não conforme ou corrija a leitura.','bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
-  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
+  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item que exige foto.':`Tire a foto em ${semFoto.length} itens que exigem foto.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
   if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código do local antes de finalizar.':`Confirme a presença lendo o código de ${pend.length} locais antes de finalizar.`,'bad');return}
