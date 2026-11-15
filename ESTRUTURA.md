@@ -82,6 +82,7 @@ RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e_local.py   # testa o 
 python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
 python3 tests/painel_personalizar.py # Painel único: personalizar, compartilhar, permissões
+python3 tests/avisos_ui.py # Tela de avisos por e-mail (blocos, próximo envio, token, teste)
 python3 tests/foto_parametros.py # Itens "Somente foto" (parâmetros da Ressonância)
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
@@ -200,3 +201,12 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 **Cabeçalho único por local na ronda**
 - Cada sala ou equipamento tem um único cabeçalho (selo Sala/Equipamento, nome e setor). O título repetido por setor foi removido.
 - O botão **Ler código** fica no canto direito desse cabeçalho; depois da leitura vira o selo "Presença confirmada às HH:MM". Só o aviso de bloqueio ou de falha da leitura aparece em uma linha abaixo. No celular, o botão ocupa a linha inteira do cabeçalho.
+
+**Tela de avisos por e-mail (Cadastros → Hospital)**
+- Três blocos: **Alertas de não conformidade** (severidade mínima, "aguardar antes de avisar" em horas, cópia aos administradores), **Relatório periódico** (frequência, dia, horário) e **Aviso imediato (avançado)**, recolhido por padrão.
+- Interruptor geral "Enviar avisos por e-mail": desligado, os blocos ficam desabilitados.
+- Selo único de status (Funcionando / Com falha / Ainda não executado) com última verificação, último envio e total.
+- "Próximo envio" do relatório é calculado na tela e muda ao ajustar frequência, dia e horário. Mostra também quantos destinatários com e-mail existem (por perfil) e quem está sem e-mail.
+- Botões **Enviar e-mail de teste** e **Pré-visualizar relatório** disparam o fluxo `avisos-email.yml` com as entradas `teste` e `relatorio` (enviam aos administradores). Exigem avisos ligados, repositório e token salvos.
+- Token: depois de salvo aparece só como "Token salvo" com Substituir e Remover (a remoção só vale ao salvar; há Desfazer) e link para criar o token.
+- O botão **Salvar avisos** fica fixo no fim do cartão, habilitado só quando há alterações ("Alterações não salvas").

@@ -148,6 +148,16 @@ RH.recKey=n=>[n.eqId||n.salaId||n.salaNome||'',(n.itemTexto||n.tipoNome||'').tri
 /* ---------- aviso imediato (opcional) ----------
    Ao registrar NCs, pede ao GitHub para rodar já a verificação de avisos, em vez de esperar o agendamento.
    Precisa de repositório + token (permissão só de Actions) em Cadastros → Hospital → Avisos por e-mail. */
+/* dispara o fluxo "Avisos por e-mail" com entradas (teste / relatório), a partir da tela de configuração */
+RH.avisoDisparar=async inputs=>{
+  const A=RH.S.cfg&&RH.S.cfg.avisos;
+  if(!A||!A.ativo||!A.ghToken||!/^[\w.-]+\/[\w.-]+$/.test(A.repo||''))return {ok:false,msg:'Configure e salve o aviso imediato (repositório e token) primeiro.'};
+  try{const r=await fetch(`https://api.github.com/repos/${A.repo}/actions/workflows/avisos-email.yml/dispatches`,{method:'POST',
+      headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+A.ghToken,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+      body:JSON.stringify({ref:A.ref||'main',inputs})});
+    if(r.status===204||r.ok)return {ok:true};
+    return {ok:false,msg:r.status===401||r.status===403?'O GitHub recusou o token (verifique a permissão de Actions).':r.status===404?'Repositório, branch ou fluxo não encontrado.':r.status===422?'O fluxo do GitHub não aceita essa opção. Atualize o arquivo avisos-email.yml.':'O GitHub respondeu com erro '+r.status+'.'}}
+  catch(e){return {ok:false,msg:'Sem conexão com o GitHub.'}}};
 RH.avisoAgora=()=>{
   try{const A=RH.S.cfg&&RH.S.cfg.avisos;if(!A||!A.ativo||!A.ghToken||!/^[\w.-]+\/[\w.-]+$/.test(A.repo||''))return;
     const t=Date.now();if(RH.avisoAgora.t&&t-RH.avisoAgora.t<30000)return;RH.avisoAgora.t=t;

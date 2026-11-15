@@ -909,6 +909,36 @@ body.pn-dragging .kpi *{pointer-events:none}
 .chk-note .err{margin-top:2px;min-height:0;font-weight:500}
 .grp>.chk-note+.items{border-top:0}
 @media (max-width:560px){.grp>.gh{flex-wrap:wrap}.grp>.gh .gh-act{flex:1 0 100%;margin:0}.grp>.gh .gh-act .btn{width:100%}}
+/* avisos por e-mail */
+#avisos-card .av-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#avisos-card .av-head h3{margin:0}
+.av-dica{margin:4px 0 8px;color:var(--muted);font-size:13px;line-height:1.45}
+.av-dep{border:0;padding:0;margin:10px 0 0;min-width:0}
+.av-dep:disabled{opacity:.5}
+.av-bloco{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.av-bloco h4{margin:0 0 2px;font-size:14.5px}
+.av-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px;margin:8px 0}
+.av-grid .field[hidden]{display:none}
+.av-un{display:flex;align-items:center;gap:8px}.av-un input{flex:1;min-width:0}.av-un b{color:var(--muted);font-weight:600}
+.av-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.av-imed{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px}
+.av-imed>summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.av-mais>summary{cursor:pointer;color:var(--brand);font-size:13px}
+.av-tok{display:grid;gap:8px;margin-top:8px}
+.av-tok-st{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.av-tok-st a{font-size:13px;margin-left:auto}
+.av-foot{position:sticky;bottom:0;display:flex;gap:12px;align-items:center;justify-content:flex-end;padding:10px 0;margin-top:6px;background:var(--surface);border-top:1px solid var(--line);z-index:2}
+.av-sujo{color:var(--warn);font-size:13px;font-weight:600;margin-right:auto}
+.sw-row{display:flex;gap:10px;align-items:center;font-weight:500;cursor:pointer;min-height:36px}
+.sw-row .sw{appearance:none;-webkit-appearance:none;position:relative;flex:none;width:40px;height:22px;margin:0;border-radius:999px;background:var(--line);border:1px solid var(--line);cursor:pointer;transition:background .15s}
+.sw-row .sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--ink,#fff);opacity:.85;transition:transform .15s}
+.sw-row .sw:checked{background:var(--brand);border-color:var(--brand)}
+.sw-row .sw:checked::after{transform:translateX(18px);background:#fff;opacity:1}
+.sw-row .sw:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.sw-row .sw:disabled{cursor:not-allowed}
+#arm-card code,#avisos-card code{overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+.av-un{display:flex;align-items:center;gap:8px}.av-un input{flex:0 1 110px;min-width:0}
+@media (max-width:900px){.av-foot{bottom:calc(66px + env(safe-area-inset-bottom))}}
 
 </style>
 </head>
@@ -1131,7 +1161,7 @@ dash:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7
 clip:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 13l2 2 4-4"/>',
 hist:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
 alert:'<path d="M12 3 2 20h20L12 3zM12 10v4M12 17v.5"/>',
-expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
 set:'<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
 out:'<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M16 8l4 4-4 4M20 12H9"/>',
 sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>',
@@ -1720,6 +1750,16 @@ RH.recKey=n=>[n.eqId||n.salaId||n.salaNome||'',(n.itemTexto||n.tipoNome||'').tri
 /* ---------- aviso imediato (opcional) ----------
    Ao registrar NCs, pede ao GitHub para rodar já a verificação de avisos, em vez de esperar o agendamento.
    Precisa de repositório + token (permissão só de Actions) em Cadastros → Hospital → Avisos por e-mail. */
+/* dispara o fluxo "Avisos por e-mail" com entradas (teste / relatório), a partir da tela de configuração */
+RH.avisoDisparar=async inputs=>{
+  const A=RH.S.cfg&&RH.S.cfg.avisos;
+  if(!A||!A.ativo||!A.ghToken||!/^[\w.-]+\/[\w.-]+$/.test(A.repo||''))return {ok:false,msg:'Configure e salve o aviso imediato (repositório e token) primeiro.'};
+  try{const r=await fetch(`https://api.github.com/repos/${A.repo}/actions/workflows/avisos-email.yml/dispatches`,{method:'POST',
+      headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+A.ghToken,'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'},
+      body:JSON.stringify({ref:A.ref||'main',inputs})});
+    if(r.status===204||r.ok)return {ok:true};
+    return {ok:false,msg:r.status===401||r.status===403?'O GitHub recusou o token (verifique a permissão de Actions).':r.status===404?'Repositório, branch ou fluxo não encontrado.':r.status===422?'O fluxo do GitHub não aceita essa opção. Atualize o arquivo avisos-email.yml.':'O GitHub respondeu com erro '+r.status+'.'}}
+  catch(e){return {ok:false,msg:'Sem conexão com o GitHub.'}}};
 RH.avisoAgora=()=>{
   try{const A=RH.S.cfg&&RH.S.cfg.avisos;if(!A||!A.ativo||!A.ghToken||!/^[\w.-]+\/[\w.-]+$/.test(A.repo||''))return;
     const t=Date.now();if(RH.avisoAgora.t&&t-RH.avisoAgora.t<30000)return;RH.avisoAgora.t=t;
@@ -3590,7 +3630,7 @@ Object.assign(RH.ACT,{
     if(!l.includes(r.valor))l.push(r.valor);t.value=l.join('\n');toast('Ponto de acesso '+r.valor+' adicionado.')},
 });
 RH.ON_CHANGE.push(el=>{if(el.id!=='av-rel-modo')return false;const m=el.value,g=i=>document.getElementById(i);
-  g('av-rel-det').hidden=m==='off';g('av-rel-sem').hidden=m!=='semanal';g('av-rel-mes').hidden=m!=='mensal';return true});
+  g('av-rel-det').hidden=m==='off';g('av-rel-h').hidden=m==='off';g('av-rel-sem').hidden=m!=='semanal';g('av-rel-mes').hidden=m!=='mensal';return true});
 RH.ON_CHANGE.push(async el=>{
   if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
   if(el.dataset.bkDest!=null){prevLink();return true}
@@ -3636,47 +3676,94 @@ RH.armCard=async()=>{
 /* ---------- avisos por e-mail (configuração; o envio é feito por tools/avisos-email.mjs no GitHub Actions) ---------- */
 RH.avisosCard=async()=>{
   const el=document.getElementById('avisos-card');if(!el)return;
-  if(RH.store.mode!=='remote'){el.innerHTML='<h3>Avisos por e-mail</h3><p style="margin:0;color:var(--ink2)">Disponível apenas com o banco compartilhado (os avisos são enviados por um serviço fora do aparelho).</p>';return}
+  if(RH.store.mode!=='remote'){el.innerHTML='<h3>Avisos por e-mail</h3><p class="av-dica">Disponível apenas com o banco compartilhado (os avisos são enviados por um serviço fora do aparelho).</p>';return}
   const A=S.cfg.avisos||{},sevMin=+A.sevMin||3;
   let e=null;try{const sn=await st.db.doc('avisos/estado').get();e=sn.exists?sn.data():null}catch(x){}
   if(!document.getElementById('avisos-card'))return;
-  const falta=S.users.filter(u=>u.ativo!==false&&(u.role==='admin'||S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id))&&!(u.email||'').trim());
+  const ativos=S.users.filter(u=>u.ativo!==false),tem=u=>!!(u.email||'').trim();
+  const resp=u=>S.modelos.some(m=>m.responsavelId===u.id)||S.salas.some(z=>z.responsavelId===u.id);
+  const dRel=ativos.filter(u=>u.role==='admin'||u.role==='gestor'),dRelOk=dRel.filter(tem);
+  const dNc=ativos.filter(u=>resp(u)||(A.copiaAdmin&&u.role==='admin')),dNcOk=dNc.filter(tem);
+  const falta=[...new Set([...dRel,...ativos.filter(u=>u.role==='admin'||resp(u))].filter(u=>!tem(u)))];
+  const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
   const quando=t=>t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
-  const R0=A.relatorio||{},rm=R0.modo==='semanal'||R0.modo==='mensal'?R0.modo:'off',rd=R0.dia!=null?+R0.dia:(rm==='mensal'?1:1),rh=R0.hora!=null?+R0.hora:7;
+  const R0=A.relatorio||{},rm=R0.modo==='semanal'||R0.modo==='mensal'?R0.modo:'off',rd=R0.dia!=null?+R0.dia:1,rh=R0.hora!=null?+R0.hora:7;
   const DIAS=['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
-  const relU=e&&e.relat&&e.relat.ultimo?`<br><small>Último relatório programado: <b>${quando(e.relat.ultimo)}</b></small>`:'';
-  const stat=!e?'<span class="pill off">O serviço ainda não foi executado.</span> Configure o envio no GitHub (veja a seção "Avisos por e-mail" do ESTRUTURA.md) e rode o teste.'
-    :`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span> Última verificação: <b>${quando(e.ultimaExec)}</b> · último envio: <b>${quando(e.ultimoEnvio)}</b> · total enviados: <b>${e.total||0}</b>${e.erro?`<br><small class="err">${esc(String(e.erro).slice(0,200))}</small>`:''}`;
-  el.innerHTML=`<h3>Avisos por e-mail</h3>
-  <p style="margin:0 0 8px;color:var(--ink2)">Envia e-mail ao responsável quando houver uma <b>não conformidade</b> ou uma <b>ronda atrasada</b>. <b>Crítica</b> (inclui temperatura fora da faixa): avisada na hora. <b>Média e Alta</b>: avisadas só depois do prazo abaixo, e apenas se a NC continuar aberta. A checagem ocorre a cada ~10 minutos.</p>
-  <label class="chk"><input type="checkbox" id="av-ativo" ${A.ativo?'checked':''}> Enviar avisos por e-mail</label>
-  <label class="field" style="margin-top:8px"><span>Avisar NC a partir da severidade</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
-  <label class="field" style="margin-top:8px"><span>Avisar NC Média e Alta depois de (horas)</span><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" style="width:110px"></label>
-  <label class="chk"><input type="checkbox" id="av-adm" ${A.copiaAdmin?'checked':''}> Enviar cópia aos administradores</label>
-  <fieldset class="av-rel" style="margin:12px 0 0;border:1px solid var(--line);border-radius:10px;padding:10px 12px"><legend><b>Relatório periódico por e-mail</b></legend>
-    <p style="margin:0 0 8px;color:var(--ink2);font-size:13px">Resumo de conformidade, NCs, Pareto e setores, enviado aos <b>gestores e administradores</b> com e-mail cadastrado. Só funciona com "Enviar avisos por e-mail" ligado. Semanal: 7 dias completos antes do dia escolhido. Mensal: o mês anterior.</p>
-    <label class="field"><span>Frequência</span><select id="av-rel-modo"><option value="off" ${rm==='off'?'selected':''}>Desligado</option><option value="semanal" ${rm==='semanal'?'selected':''}>Semanal</option><option value="mensal" ${rm==='mensal'?'selected':''}>Mensal</option></select></label>
-    <div id="av-rel-det" ${rm==='off'?'hidden':''}>
-      <label class="field" id="av-rel-sem" style="margin-top:8px" ${rm==='semanal'?'':'hidden'}><span>Dia da semana</span><select id="av-rel-dsem">${DIAS.map((n,i)=>`<option value="${i}" ${i===(rm==='semanal'?rd:1)?'selected':''}>${n}</option>`).join('')}</select></label>
-      <label class="field" id="av-rel-mes" style="margin-top:8px" ${rm==='mensal'?'':'hidden'}><span>Dia do mês</span><select id="av-rel-dmes">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${i+1===(rm==='mensal'?rd:1)?'selected':''}>${i+1}</option>`).join('')}</select></label>
-      <label class="field" style="margin-top:8px"><span>Horário</span><select id="av-rel-hora">${Array.from({length:24},(_,i)=>`<option value="${i}" ${i===rh?'selected':''}>${String(i).padStart(2,'0')}:00</option>`).join('')}</select></label>
-    </div>${relU}
+  const prox=rm!=='off'&&A.ativo?RH.proximoRelatorio(rm,rd,rh):null;
+  const proxTxt=prox?prox.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'})+', '+String(prox.getHours()).padStart(2,'0')+':00':'—';
+  const pode=!!(A.ativo&&A.ghToken&&/^[\w.-]+\/[\w.-]+$/.test(A.repo||''));
+  const pill=!e?'<span class="pill off">Ainda não executado</span>':`<span class="pill ${e.erro?'badp':'okp'}"><i></i>${e.erro?'Com falha':'Funcionando'}</span>`;
+  const sub=e?`Última verificação ${quando(e.ultimaExec)} · último envio ${quando(e.ultimoEnvio)} · ${plural(e.total||0,'e-mail enviado','e-mails enviados')}`:'Configure o envio no GitHub (seção "Avisos por e-mail" do ESTRUTURA.md) e use o e-mail de teste.';
+  const dest=ok=>{const n=(r,s,pl)=>{const c=ok.filter(u=>u.role===r).length;return c?plural(c,s,pl):''},pt=[n('admin','administrador','administradores'),n('gestor','gestor','gestores'),n('inspetor','inspetor','inspetores')].filter(Boolean);return `${plural(ok.length,'destinatário','destinatários')} com e-mail${pt.length?` (${pt.join(', ')})`:''}`};
+  const sw=(id,txt,on)=>`<label class="sw-row"><input type="checkbox" class="sw" id="${id}" role="switch" ${on?'checked':''}><span>${txt}</span></label>`;
+  el.innerHTML=`<div class="av-head"><h3>Avisos por e-mail</h3>${pill}</div>
+  <p class="av-dica">${sub}${e&&e.erro?`<br><span class="err">${esc(String(e.erro).slice(0,200))}</span>`:''}</p>
+  ${sw('av-ativo','Enviar avisos por e-mail',A.ativo)}
+  <fieldset class="av-dep" id="av-dep" ${A.ativo?'':'disabled'}>
+    <section class="av-bloco"><h4>Alertas de não conformidade</h4>
+      <p class="av-dica">Avisa o responsável por e-mail quando houver NC ou ronda atrasada. NC Crítica (inclui temperatura fora da faixa) é avisada na hora.</p>
+      <div class="av-grid">
+        <label class="field"><span>Severidade mínima</span><select id="av-sev">${[2,3,4].map(v=>`<option value="${v}" ${v===sevMin?'selected':''}>${SEV[v]}${v===3?' (padrão)':''}</option>`).join('')}</select></label>
+        <label class="field"><span>Aguardar antes de avisar</span><div class="av-un"><input type="number" id="av-horas" min="0" max="168" step="1" value="${A.horas!=null?+A.horas:8}" aria-label="Horas de espera"><b>h</b></div></label>
+      </div>
+      <p class="av-dica">Média e Alta só são avisadas depois desse prazo e se a NC continuar aberta.</p>
+      ${sw('av-adm','Enviar cópia aos administradores',A.copiaAdmin)}
+      <p class="av-dica">Alertas: ${dest(dNcOk)}.</p>
+      <div class="av-acoes"><button type="button" class="btn sm" data-act="avisosTeste" ${pode?'':'disabled'}>${ic('mail',14)} Enviar e-mail de teste</button></div>
+    </section>
+    <section class="av-bloco"><h4>Relatório periódico</h4>
+      <p class="av-dica">Resumo de conformidade, NCs, Pareto e setores. Semanal: os 7 dias completos antes do dia escolhido; mensal: o mês anterior.</p>
+      <div class="av-grid">
+        <label class="field"><span>Frequência</span><select id="av-rel-modo"><option value="off" ${rm==='off'?'selected':''}>Desligado</option><option value="semanal" ${rm==='semanal'?'selected':''}>Semanal</option><option value="mensal" ${rm==='mensal'?'selected':''}>Mensal</option></select></label>
+        <label class="field" id="av-rel-sem" ${rm==='semanal'?'':'hidden'}><span>Dia da semana</span><select id="av-rel-dsem">${DIAS.map((n,i)=>`<option value="${i}" ${i===(rm==='semanal'?rd:1)?'selected':''}>${n}</option>`).join('')}</select></label>
+        <label class="field" id="av-rel-mes" ${rm==='mensal'?'':'hidden'}><span>Dia do mês</span><select id="av-rel-dmes">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${i+1===(rm==='mensal'?rd:1)?'selected':''}>${i+1}</option>`).join('')}</select></label>
+        <label class="field" id="av-rel-h" ${rm==='off'?'hidden':''}><span>Horário</span><select id="av-rel-hora">${Array.from({length:24},(_,i)=>`<option value="${i}" ${i===rh?'selected':''}>${String(i).padStart(2,'0')}:00</option>`).join('')}</select></label>
+      </div>
+      <div id="av-rel-det" ${rm==='off'?'hidden':''}>
+        <p class="av-dica"><b>Próximo envio:</b> <span id="av-prox">${proxTxt}</span>${e&&e.relat&&e.relat.ultimo?` · último programado: ${quando(e.relat.ultimo)}`:''}</p>
+        <p class="av-dica">Destino: ${dest(dRelOk)}.</p>
+        <div class="av-acoes"><button type="button" class="btn sm" data-act="avisosPrevia" ${pode?'':'disabled'}>${ic('eye',14)} Pré-visualizar relatório</button></div>
+      </div>
+    </section>
   </fieldset>
-  <details class="av-imed" style="margin-top:10px"><summary><b>Aviso imediato</b> (opcional)${A.ghToken?' · <span class="pill okp"><i></i>ligado</span>':''}</summary>
-    <p style="margin:6px 0;color:var(--ink2);font-size:13px">Sem isso, até a NC Crítica espera a próxima verificação do GitHub (pode levar de 10 a 60 minutos). Com isso, a verificação roda assim que uma ronda com NC Crítica é registrada. Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe; veja a seção "Avisos por e-mail" do ESTRUTURA.md.</p>
-    <label class="field"><span>Repositório (usuário/nome)</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="minha-organizacao/ronda" autocomplete="off" autocapitalize="off"></label>
-    <label class="field"><span>Branch principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
-    <label class="field"><span>Token do GitHub ${A.ghToken?'(já salvo, deixe em branco para manter)':''}</span><input type="password" id="av-tok" value="" placeholder="${A.ghToken?'••••••••':'github_pat_…'}" autocomplete="new-password" data-lpignore="true" data-1p-ignore></label>
-    ${A.ghToken?'<label class="chk"><input type="checkbox" id="av-tokdel"> Remover o token salvo</label>':''}
+  ${falta.length?`<p class="av-dica" style="color:var(--warn)"><b>Sem e-mail cadastrado:</b> ${falta.map(u=>esc(u.nome)).join(', ')}. Edite em Responsáveis e usuários.</p>`:''}
+  ${pode?'':'<p class="av-dica">Os botões de teste e pré-visualização usam o aviso imediato: ligue os avisos, informe repositório e token abaixo e salve. Ou rode "Avisos por e-mail" manualmente na aba Actions do GitHub.</p>'}
+  <details class="av-imed"><summary><b>Aviso imediato</b> <small>(avançado)</small> ${A.ghToken?'<span class="pill okp"><i></i>ligado</span>':'<span class="pill off">desligado</span>'}</summary>
+    <p class="av-dica">Sem ele, uma NC Crítica espera a próxima verificação do GitHub (10 a 60 min). Com ele, a verificação roda assim que a ronda é registrada.</p>
+    <details class="av-mais"><summary>Saiba mais</summary><p class="av-dica">Use um token do GitHub restrito a este repositório e só com permissão de <b>Actions</b>. Ele fica salvo no banco e visível aos aparelhos da equipe. Detalhes na seção "Avisos por e-mail" do ESTRUTURA.md.</p></details>
+    <div class="av-grid">
+      <label class="field"><span>Repositório</span><input type="text" id="av-repo" value="${esc(A.repo||'')}" placeholder="usuário/nome" autocomplete="off" autocapitalize="off"></label>
+      <label class="field"><span>Branch principal</span><input type="text" id="av-ref" value="${esc(A.ref||'main')}" autocomplete="off" autocapitalize="off"></label>
+    </div>
+    <div class="av-tok" id="av-tok-bx">${A.ghToken?`<div class="av-tok-st" id="av-tok-st"><span class="pill okp"><i></i>Token salvo</span><button type="button" class="btn sm" data-act="avTokSubst">Substituir</button><button type="button" class="btn sm danger" data-act="avTokDel">Remover</button><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Criar token</a></div>`:''}
+      <label class="field" id="av-tok-fld" ${A.ghToken?'hidden':''}><span>Token do GitHub</span><input type="password" id="av-tok" value="" placeholder="github_pat_…" autocomplete="new-password" data-lpignore="true" data-1p-ignore></label>
+      ${A.ghToken?'':'<a class="av-dica" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">Criar token no GitHub (permissão Actions)</a>'}
+    </div>
   </details>
-  <p style="margin:10px 0 0">${stat}</p>
-  ${falta.length?`<p style="margin:8px 0 0;color:var(--warn)"><b>Sem e-mail cadastrado:</b> ${falta.map(u=>esc(u.nome)).join(', ')}. Edite o usuário em Responsáveis e usuários.</p>`:''}
-  <div style="margin-top:10px"><button type="button" class="btn sm" data-act="avisosSalvar">Salvar avisos</button></div>`};
+  <div class="av-foot"><span class="av-sujo" id="av-sujo" hidden>Alterações não salvas</span><button type="button" class="btn pri sm" data-act="avisosSalvar" id="av-salvar" disabled>Salvar avisos</button></div>`;
+  el.dataset.tok='';
+  const sujo=()=>{document.getElementById('av-sujo').hidden=false;document.getElementById('av-salvar').disabled=false};
+  const g=i=>document.getElementById(i);
+  const atualizaProx=()=>{const m=g('av-rel-modo').value,x=g('av-prox');if(!x)return;
+    const d=m==='mensal'?+g('av-rel-dmes').value:+g('av-rel-dsem').value,t=m!=='off'&&g('av-ativo').checked?RH.proximoRelatorio(m,d,+g('av-rel-hora').value):null;
+    x.textContent=t?t.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'})+', '+String(t.getHours()).padStart(2,'0')+':00':(g('av-ativo').checked?'—':'— (avisos desligados)')};
+  el.oninput=el.onchange=()=>{sujo();atualizaProx()};RH.avSujo=sujo;atualizaProx()};
+/* próximo envio do relatório (hora cheia, no fuso do aparelho) */
+RH.proximoRelatorio=(modo,dia,hora,ref=new Date())=>{
+  for(let i=0;i<70;i++){const x=new Date(ref);x.setDate(ref.getDate()+i);x.setHours(hora,0,0,0);
+    if((modo==='semanal'?x.getDay()===dia:x.getDate()===dia)&&x>ref)return x}
+  return null};
+RH.ON_CHANGE.push(el=>{if(el.id!=='av-ativo')return false;const d=document.getElementById('av-dep');if(d)d.disabled=!el.checked;return false});
 Object.assign(RH.ACT,{
+  avTokSubst:()=>{const c=document.getElementById('avisos-card');c.dataset.tok='subst';document.getElementById('av-tok-fld').hidden=false;document.getElementById('av-tok').focus();RH.avSujo&&RH.avSujo()},
+  avTokDel:()=>{const c=document.getElementById('avisos-card');c.dataset.tok='del';document.getElementById('av-tok-st').innerHTML='<span class="pill badp"><i></i>O token será removido ao salvar</span><button type="button" class="btn sm" data-act="avTokUndo">Desfazer</button>';RH.avSujo&&RH.avSujo()},
+  avTokUndo:()=>{RH.avisosCard()},
+  avisosTeste:async()=>{const r=await RH.avisoDisparar({teste:'true'});toast(r.ok?'Teste solicitado: os administradores com e-mail cadastrado devem receber em 1 a 2 minutos.':r.msg,r.ok?'ok':'bad')},
+  avisosPrevia:async()=>{const r=await RH.avisoDisparar({relatorio:'true'});toast(r.ok?'Pré-visualização solicitada: os administradores devem receber o relatório do último período em 1 a 2 minutos.':r.msg,r.ok?'ok':'bad')},
   avisosSalvar:async()=>{
-    const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok');
+    const hv=(document.getElementById('av-horas')?.value||'').trim(),v=id=>(document.getElementById(id)?.value||'').trim(),A0=S.cfg.avisos||{},repo=v('av-repo'),tok=v('av-tok'),acao=document.getElementById('avisos-card').dataset.tok;
     if(repo&&!/^[\w.-]+\/[\w.-]+$/.test(repo)){toast('Informe o repositório no formato usuário/nome (ex.: minha-organizacao/ronda).','bad');return}
-    const ghToken=document.getElementById('av-tokdel')?.checked?'':(tok||A0.ghToken||'');
+    const ghToken=acao==='del'?'':(tok||A0.ghToken||'');
     const rmo=v('av-rel-modo'),relatorio=rmo==='semanal'||rmo==='mensal'?{modo:rmo,dia:+(rmo==='mensal'?v('av-rel-dmes'):v('av-rel-dsem')),hora:+v('av-rel-hora')}:{modo:'off'};
     const cfg={...S.cfg,avisos:{relatorio,ativo:document.getElementById('av-ativo').checked,sevMin:+document.getElementById('av-sev').value,copiaAdmin:document.getElementById('av-adm').checked,horas:hv===''||isNaN(+hv)?8:Math.min(168,Math.max(0,Math.round(+hv))),repo,ref:v('av-ref')||'main',ghToken}};
     const ok=await RH.safe(async()=>{await RH.put('config','main',cfg);return true});
