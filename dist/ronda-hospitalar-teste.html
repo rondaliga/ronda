@@ -888,6 +888,17 @@ body.pn-dragging .kpi *{pointer-events:none}
 @media print{.pn-print{display:block!important;margin:2px 0 0;color:#444;font-size:12px}[data-act=pnAmpliar]{display:none!important}}
 .itfoto{flex:1 0 100%;display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink2);cursor:pointer}
 .itfoto input{margin-top:3px;flex:none}
+/* editor de itens: ícones de foto e aviso (compactos) */
+.itfoto{display:none}
+.irow .ic-btn.tg{opacity:.55}.irow .ic-btn.tg.on{opacity:1;color:var(--brand);border-color:var(--brand)}
+.irow .ic-btn.tg.on:last-of-type{color:var(--warn);border-color:var(--warn)}
+.irow-sub{flex:1 0 100%;display:flex;gap:8px;align-items:center;color:var(--muted)}
+.irow-sub.warn{color:var(--warn)}
+.irow-sub input{flex:1;min-width:0;font-size:13.5px}
+.fslot{grid-column:1/-1;padding:8px 0;border-top:1px dashed var(--line)}.fslot:first-of-type{border-top:0}
+.fslot .fsn{display:block;font-weight:600;font-size:13.5px;margin-bottom:4px}
+.irow-sub{max-width:100%;box-sizing:border-box}.irow-sub input{width:0;flex:1 1 auto}
+.ncp.fsb{background:transparent;border:1px solid var(--line)}
 
 </style>
 </head>
@@ -2580,9 +2591,11 @@ function startRonda(id){
   saveDraft();
   RH.renderView(true);scrollTo(0,0);
 }
+/* item com fotos exigidas (ex.: Disjuntor: Nível hélio, Pressão hélio...): cada foto é um espaço nomeado; 'foto:true' é o formato antigo */
+const fotosDe=it=>it.fotos?.length?it.fotos:it.foto?[it.t]:[];
 function itensDe(blocos){
   const itens={};
-  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,av:it.aviso||'',tmin:it.tmin??null,tmax:it.tmax??null,...(it.foto?{ft:true}:{}),r:it.foto?'FT':''}})));
+  blocos.forEach(bl=>alvos(bl).forEach(al=>(al.cl?.itens||[]).forEach(it=>{itens[prefix(bl.id,al)+it.id]={sid:bl.id,a:al.a,i:al.i,n:al.n,t:it.t,av:it.aviso||'',tmin:it.tmin??null,tmax:it.tmax??null,...(fotosDe(it).length?{fts:fotosDe(it),fs:fotosDe(it).map(n=>({n}))}:{}),r:''}})));
   return itens}
 
 /* ---------- rascunho da ronda em andamento (auto-save) ----------
@@ -2590,13 +2603,15 @@ function itensDe(blocos){
    Ao recarregar, fechar a aba ou voltar à tela, ela é restaurada; é apagada ao finalizar ou descartar. */
 const DRAFT_PREFIX='rh_ronda_draft:';
 const draftKey=()=>st.me?DRAFT_PREFIX+st.me.id:null;
-const CAMPOS=['r','tipoId','sev','desc','just','thumb','full','tv','auto','autoDesc','at'];   /* at = instante da 1ª resposta do item (tempo no local) */
+const CAMPOS=['r','tipoId','sev','desc','just','thumb','full','tv','auto','autoDesc','at'];   /* fs (fotos exigidas) é tratado à parte */   /* at = instante da 1ª resposta do item (tempo no local) */
 function gravar(k,R,nivel){
   /* nivel 0 = tudo; 1 = sem a foto grande; 2 = sem nenhuma foto (se o armazenamento estiver cheio) */
   const itens={};
   Object.entries(R.itens).forEach(([ik,it])=>{
-    if(!(it.r||it.desc||it.just||it.tipoId||it.tv))return;
-    const o={};CAMPOS.forEach(c=>{if(it[c]&&!(c==='full'&&nivel>=1)&&!(c==='thumb'&&nivel>=2))o[c]=it[c]});itens[ik]=o});
+    const temFs=it.fs&&it.fs.some(x=>x.thumb);
+    if(!(it.r||it.desc||it.just||it.tipoId||it.tv||temFs))return;
+    const o={};CAMPOS.forEach(c=>{if(it[c]&&!(c==='full'&&nivel>=1)&&!(c==='thumb'&&nivel>=2))o[c]=it[c]});
+    if(temFs)o.fs=it.fs.map(x=>({n:x.n,...(x.thumb&&nivel<2?{thumb:x.thumb}:{}),...(x.full&&nivel<1?{full:x.full}:{})}));itens[ik]=o});
   localStorage.setItem(k,JSON.stringify({v:1,uid:st.me.id,modeloId:R.modeloId,nome:R.nome,resp:R.resp,obs:R.obs||'',started:R.started,sub:R.sub||null,foco:R.foco||null,chk:R.chk||{},itens,savedAt:Date.now()}))}
 let draftT;
 function saveDraft(){
@@ -2615,7 +2630,8 @@ function restoreDraft(){
   if(!m||!RH.access.rondaVisivel(m,st.me)){clearDraft();return}   /* ronda removida ou sem acesso: descarta */
   const blocos=blocosDa(m),itens=itensDe(blocos);
   if(!blocos.length){clearDraft();return}
-  Object.entries(d.itens||{}).forEach(([ik,v])=>{if(itens[ik])CAMPOS.forEach(c=>{if(v[c]!=null)itens[ik][c]=v[c]})});
+  Object.entries(d.itens||{}).forEach(([ik,v])=>{if(!itens[ik])return;CAMPOS.forEach(c=>{if(v[c]!=null)itens[ik][c]=v[c]});
+    if(itens[ik].fs&&Array.isArray(v.fs))itens[ik].fs=itens[ik].fs.map(sl=>{const o=v.fs.find(z=>z.n===sl.n);return o?{...sl,...o}:sl})});
   st.R={modeloId:m.id,nome:m.nome,resp:m.responsavelId||'',blocos,itens,obs:d.obs||'',started:d.started||Date.now(),lib:libDe(m)};
   if(d.sub)st.R.sub=d.sub;
   st.R.chk=d.chk||{};   /* check-ins de presença (código + antena) */
@@ -2661,18 +2677,22 @@ function tempBox(it,k){
   return `<div class="tempin${sit&&sit!=='ok'?' fora':sit==='ok'?' dentro':''}"><label><span>Temperatura medida</span><span class="tin"><input type="text" inputmode="decimal" autocomplete="off" data-tv data-k="${k}" value="${esc(it.tv??'')}" placeholder="ex.: 22,5" aria-label="Temperatura medida em graus Celsius"><b>°C</b></span></label><small>${msg}</small></div>`}
 
 /* item (de sala ou de equipamento) cujo texto contém "Temperatura": exige foto (exceto se Inacessível) */
-const fotoObrig=it=>!!it&&(!!it.ft||(/temperatura/i.test(it.t||'')&&it.r!=='IN'));   /* ft = item "somente foto" (ex.: parâmetros da ressonância) */
+const fotoObrig=it=>!!it&&/temperatura/i.test(it.t||'')&&it.r!=='IN';
+const fsPend=it=>!!it.fts&&it.r!=='IN'&&it.fs.some(x=>!x.thumb);   /* faltam fotos exigidas do item */
 const alvoNome=it=>it.a==='e'?'equipamento':'sala';
-const fotoBtns=(it,k)=>`<div class="full ph">${it.thumb?`<img src="${it.thumb}" alt="Foto d${it.a==='e'?'o equipamento':'a sala'}"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}">Remover foto</button>`:''}
-  <button type="button" class="btn sm" data-act="camOpen" data-k="${k}">${ic('cam',16)} ${it.thumb?'Tirar outra foto':'Tirar foto'}</button>
-  <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"></label></div>`;
+const fotoBtns=(it,k,j)=>{const t=j==null?it:it.fs[j],sl=j==null?'':` data-s="${j}"`;
+  return `<div class="full ph">${t.thumb?`<img src="${t.thumb}" alt="${j==null?'Foto d'+(it.a==='e'?'o equipamento':'a sala'):'Foto: '+esc(t.n)}"><button type="button" class="btn sm" data-act="rmFoto" data-k="${k}"${sl}>Remover foto</button>`:''}
+  <button type="button" class="btn sm" data-act="camOpen" data-k="${k}"${sl}>${ic('cam',16)} ${t.thumb?'Tirar outra foto':'Tirar foto'}</button>
+  <label class="btn sm" style="cursor:pointer">${ic('up',16)} Da galeria<input class="sr" type="file" accept="image/*" data-nc-foto data-k="${k}"${sl}></label></div>`};
+/* fotos exigidas do item (some se o item for marcado Inacessível) */
+const fsHtml=(it,k)=>it.fts&&it.r!=='IN'?`<div class="ncp fsb"><div class="full"><b>Fotos obrigatórias (${it.fs.filter(x=>x.thumb).length} de ${it.fs.length})</b></div>${it.fs.map((x,j)=>`<div class="fslot"><span class="fsn">${x.thumb?'✓ ':''}${esc(x.n)}</span>${fotoBtns(it,k,j)}</div>`).join('')}</div>`:'';
 function itemHtml(k){
   const it=st.R.itens[k],nc=it.r==='NC',ina=it.r==='IN',tipo=nc?byId(S.tiposNC,it.tipoId):null;
-  if(it.ft)return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}<small class="ideal">Registro por foto: fotografe o visor. Não é preciso digitar o valor.</small></div></div>${RH.avisoBox(it.av)}<div class="ncp"><div class="full"><b>Foto (obrigatória)</b></div>${fotoBtns(it,k)}</div></div>`;
   return `<div class="it" id="it-${k}"><div class="it-row"><div class="it-t">${esc(it.t)}${RH.ehTemp(it.t)&&RH.fmtIdeal(it.tmin,it.tmax)?`<small class="ideal">Temperatura ideal: <b>${RH.fmtIdeal(it.tmin,it.tmax)}</b></small>`:''}</div>
   <div class="seg" role="group" aria-label="Resultado">${[['C','Conforme','c'],['NC','Não conforme','n'],['IN','Inacessível','a']].map(([v,l,c])=>`<button type="button" class="${c}" data-act="res" data-k="${k}" data-r="${v}" aria-pressed="${it.r===v}">${l}</button>`).join('')}</div></div>
   ${RH.avisoBox(it.av)}
   ${tempBox(it,k)}
+  ${fsHtml(it,k)}
   ${nc?`<div class="ncp"><label class="field"><span>Tipo de não conformidade</span><select data-nc="tipoId" data-k="${k}"><option value="">Selecione…</option>${S.tiposNC.map(t=>`<option value="${t.id}" ${it.tipoId===t.id?'selected':''}>${esc(t.nome)}</option>`).join('')}</select></label>
   <label class="field"><span>Severidade</span><select data-nc="sev" data-k="${k}">${[1,2,3,4].map(s=>`<option value="${s}" ${(it.sev||2)==s?'selected':''}>${s} · ${SEV[s]}</option>`).join('')}</select></label>
   ${tipo&&tipo.orient?`<div class="full">${RH.orientBox(tipo.orient)}</div>`:''}
@@ -2725,7 +2745,7 @@ function rondaForm(){
 RH.rondaForm=rondaForm;
 
 function progress(){
-  const v=Object.values(st.R.itens),t=v.length,a=v.filter(x=>x.ft?!!x.thumb:x.r).length,n=v.filter(x=>x.r==='NC').length;
+  const v=Object.values(st.R.itens),t=v.length,a=v.filter(x=>x.r).length,n=v.filter(x=>x.r==='NC').length;
   const pt=$('#prog-t');if(!pt)return;const pctP=t?Math.round(a/t*100):0;
   pt.textContent=`${a} de ${t} itens · ${pctP}%${n?` · ${n} NC${n>1?'s':''}`:''}`;$('#prog-b').style.width=(t?a/t*100:0)+'%';
   const bp=$('#btn-prox');if(bp){bp.hidden=a>=t;}}
@@ -2746,8 +2766,10 @@ async function submitRonda(){
   if(semTemp.length){semTemp.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.querySelector(`[data-tv][data-k="${semTemp[0][0]}"]`)?.focus();document.getElementById('it-'+semTemp[0][0])?.scrollIntoView({block:'center'});toast(semTemp.length===1?'Informe a temperatura medida no item de Temperatura.':`Informe a temperatura medida em ${semTemp.length} itens de Temperatura.`,'bad');return}
   const foraC=its.filter(([,i])=>i.r==='C'&&['baixa','alta'].includes(tempSit(i)));
   if(foraC.length){foraC.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+foraC[0][0])?.scrollIntoView({block:'center'});toast('Há temperatura fora da faixa ideal marcada como conforme. Registre como não conforme ou corrija a leitura.','bad');return}
+  const semFs=its.filter(([,i])=>fsPend(i));
+  if(semFs.length){semFs.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFs[0][0])?.scrollIntoView({block:'center'});toast(semFs.length===1?`Tire todas as fotos do item "${semFs[0][1].t}".`:`Faltam fotos em ${semFs.length} itens.`,'bad');return}
   const semFoto=its.filter(([,i])=>fotoObrig(i)&&!i.thumb);
-  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item que exige foto.':`Tire a foto em ${semFoto.length} itens que exigem foto.`,'bad');return}
+  if(semFoto.length){semFoto.forEach(([k])=>document.getElementById('it-'+k)?.classList.add('miss'));document.getElementById('it-'+semFoto[0][0])?.scrollIntoView({block:'center'});toast(semFoto.length===1?'Tire a foto do item de Temperatura.':`Tire a foto em ${semFoto.length} itens de Temperatura.`,'bad');return}
   /* presença no local: sem leitura válida do código (e da antena, se cadastrada) o bloco não pode ser finalizado */
   const pend=RH.local.pendencias(R);
   if(pend.length){document.getElementById('bl-'+pend[0].id)?.scrollIntoView({block:'start'});toast(pend.length===1?'Confirme a presença lendo o código do local antes de finalizar.':`Confirme a presença lendo o código de ${pend.length} locais antes de finalizar.`,'bad');return}
@@ -2765,9 +2787,11 @@ async function submitRonda(){
       const salaNome=sala?sala.nome:'Equipamentos',setor=bl.setor==='Sem setor'?'':bl.setor,respSetor=sala?sala.responsavelId:(S.salas.find(x=>(x.setor||'Sem setor')===bl.setor&&x.responsavelId)||{}).responsavelId;
       const v=mine.map(x=>x[1]),c=v.filter(i=>i.r==='C').length,nc=v.filter(i=>i.r==='NC').length,ina=v.filter(i=>i.r==='IN').length,rid=mk('r:'+sid,'r');
       const presenca=RH.local.evidencia(R,bl),ats=v.map(i=>i.at).filter(Boolean),tloc=ats.length>1?Math.max(...ats)-Math.min(...ats):0;   /* tloc: do 1º ao último item respondido neste local */
-      for(const [k,i] of mine)if(fotoObrig(i)&&i.full){const fid=mk('f:'+k,'f');await RH.put('fotos',fid,{data:i.full})}
+      for(const [k,i] of mine){if(fotoObrig(i)&&i.full){const fid=mk('f:'+k,'f');await RH.put('fotos',fid,{data:i.full})}
+        if(i.fts&&i.r!=='IN')for(let j=0;j<i.fs.length;j++)if(i.fs[j].full)await RH.put('fotos',mk('f:'+k+':'+j,'f'),{data:i.fs[j].full})}
       await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,ini:R.started,dur:Math.max(0,ts-R.started),tloc,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
-        pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.map(([k,i])=>({a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(RH.ehTemp(i.t)&&tempVal(i)!=null?{tv:tempVal(i)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})}))});
+        pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.flatMap(([k,i])=>[{a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(RH.ehTemp(i.t)&&tempVal(i)!=null?{tv:tempVal(i)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})},
+          ...(i.fts&&i.r!=='IN'?i.fs.map((x,j)=>({a:i.a,i:i.i,n:i.n,t:i.t+' · '+x.n,r:'FT',thumb:x.thumb,fotoId:mk('f:'+k+':'+j,'f')})):[])])});
       for(const [k,i] of mine.filter(([,i])=>i.r==='NC')){
         const tipo=byId(S.tiposNC,i.tipoId),eq=i.a==='e'?byId(S.equipamentos,i.i):null;let fotoId=null;
         if(i.full){fotoId=mk('f:'+k,'f');await RH.put('fotos',fotoId,{data:i.full})}
@@ -2787,7 +2811,7 @@ async function submitRonda(){
    (que em alguns celulares falha com "insuficiência de memória" e recarrega a página). */
 let camStream=null;
 function camClose(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}document.getElementById('cam-ov')?.remove()}
-async function camOpen(k,facing){
+async function camOpen(k,facing,slot){
   camClose();
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Este aparelho não permite abrir a câmera aqui. Use "Da galeria".','bad');return}
   try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing||'environment'},width:{ideal:1280},height:{ideal:960}},audio:false})}
@@ -2801,13 +2825,13 @@ async function camOpen(k,facing){
   document.body.appendChild(o);
   const v=o.querySelector('#cam-v');v.srcObject=camStream;try{await v.play()}catch(e){}
   o.querySelector('#cam-x').onclick=camClose;
-  o.querySelector('#cam-sw').onclick=()=>camOpen(k,(camStream&&camStream.getVideoTracks()[0].getSettings().facingMode)==='user'?'environment':'user');
+  o.querySelector('#cam-sw').onclick=()=>camOpen(k,(camStream&&camStream.getVideoTracks()[0].getSettings().facingMode)==='user'?'environment':'user',slot);
   o.querySelector('#cam-shot').onclick=async()=>{
     if(!v.videoWidth){toast('A câmera ainda está iniciando. Tente de novo.','bad');return}
     const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
     const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.9));c.width=c.height=0;camClose();
     const it=st.R&&st.R.itens[k];if(!it||!blob)return;
-    try{Object.assign(it,await RH.processImg(blob));repaint(k);saveDraft()}catch(err){toast('Não foi possível processar a foto.','bad')}};
+    try{Object.assign(slot!=null?it.fs[slot]:it,await RH.processImg(blob));repaint(k);saveDraft()}catch(err){toast('Não foi possível processar a foto.','bad')}};
 }
 addEventListener('pagehide',camClose);
 
@@ -2863,8 +2887,8 @@ Object.assign(RH.ACT,{
     {const bl=st.R.blocos.find(b=>b.id===it.sid);if(bl&&RH.local.estado(st.R,bl).bloqueado){toast('Leia o código do local antes de responder o checklist.','bad');return}}
     if(el.dataset.r==='C'&&['baixa','alta'].includes(tempSit(it))){toast('A temperatura medida está fora da faixa ideal: registre como não conforme ou corrija a leitura.','bad');return}
     it.r=it.r===el.dataset.r?'':el.dataset.r;if(it.r&&!it.at)it.at=Date.now();if(it.r!=='NC'||!it.auto){it.auto=false}if(it.r==='NC'&&!it.sev)it.sev=2;repaint(el.dataset.k);saveDraft();if(it.r==='IN')document.getElementById('ina-'+el.dataset.k)?.focus({preventScroll:true})},
-  camOpen:el=>camOpen(el.dataset.k),
-  rmFoto:el=>{const it=st.R.itens[el.dataset.k];it.thumb=it.full=null;repaint(el.dataset.k);saveDraft()},
+  camOpen:el=>camOpen(el.dataset.k,undefined,el.dataset.s!=null?+el.dataset.s:undefined),
+  rmFoto:el=>{const it=st.R.itens[el.dataset.k],t=el.dataset.s!=null?it.fs[+el.dataset.s]:it;t.thumb=t.full=null;repaint(el.dataset.k);saveDraft()},
   submitRonda
 });
 RH.ON_CHANGE.push(async el=>{
@@ -2878,7 +2902,7 @@ RH.ON_CHANGE.push(async el=>{
     if(f==='tipoId'){const t=byId(S.tiposNC,el.value);if(t&&!it.auto)it.sev=t.sev;repaint(el.dataset.k)} /* mostra a orientação do tipo */
     saveDraft();return true}
   if(el.dataset.ncFoto!=null){
-    if(el.files[0]){try{Object.assign(st.R.itens[el.dataset.k],await RH.processImg(el.files[0]));repaint(el.dataset.k);saveDraft()}catch(err){toast('Não foi possível ler a imagem.','bad')}}
+    if(el.files[0]){try{const it=st.R.itens[el.dataset.k];Object.assign(el.dataset.s!=null?it.fs[+el.dataset.s]:it,await RH.processImg(el.files[0]));repaint(el.dataset.k);saveDraft()}catch(err){toast('Não foi possível ler a imagem.','bad')}}
     return true}
   return false});
 RH.ON_INPUT.push(el=>{
@@ -3332,7 +3356,11 @@ function bkRonda(){
 
 /* ---------- formulário ---------- */
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
-const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button>${it.aviso||it._av?`<div class="orient aviso aviso-edit" role="note">${ic('alert',18)}<div><b>Aviso</b><input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Digite o aviso que o inspetor verá — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"></div><button type="button" class="ic-btn aviso-rm" data-act="itAvRm" data-i="${i}" aria-label="Remover aviso" title="Remover aviso">${ic('trash',14)}</button></div>`:`<button type="button" class="btn sm aviso-add" data-act="itAv" data-i="${i}">${ic('plus',14)} Adicionar aviso</button>`}<label class="itfoto"><input type="checkbox" data-itf="${i}" ${it.foto?'checked':''}> <span><b>Somente foto</b> · a pessoa só fotografa o visor/painel; não digita valor nem marca conforme/não conforme</span></label><div class="temp-ideal" data-tempbox="${i}"${RH.ehTemp(it.t)&&!it.foto?'':' hidden'}><span>Temperatura ideal</span><input type="text" inputmode="decimal" data-itmin="${i}" value="${esc(it.tmin??'')}" placeholder="mín. ex.: 20" aria-label="Temperatura ideal mínima do item ${i+1} (°C)"><span>a</span><input type="text" inputmode="decimal" data-itmax="${i}" value="${esc(it.tmax??'')}" placeholder="máx. ex.: 24" aria-label="Temperatura ideal máxima do item ${i+1} (°C)"><span>°C</span></div></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
+const itemsHtml=()=>st.M.items.map((it,i)=>{const fa=it._fl!=null,aa=!!(it.aviso||it._av);
+  return `<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button><button type="button" class="ic-btn tg${fa?' on':''}" data-act="itFt" data-i="${i}" aria-pressed="${fa}" aria-label="Exigir fotos neste item" title="Exigir fotos neste item (ex.: fotografar o visor)">${ic('cam',14)}</button><button type="button" class="ic-btn tg${aa?' on':''}" data-act="itAv" data-i="${i}" aria-pressed="${aa}" aria-label="Aviso para o inspetor" title="Aviso para o inspetor">${ic('alert',14)}</button>
+  ${fa?`<div class="irow-sub">${ic('cam',14)}<input type="text" data-itfl="${i}" value="${esc(it._fl)}" placeholder="Nome de cada foto, separados por vírgula (ex.: Nível hélio, Pressão hélio)" aria-label="Fotos exigidas no item ${i+1}"></div>`:''}
+  ${aa?`<div class="irow-sub warn">${ic('alert',14)}<input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Aviso que o inspetor verá (ex.: fechar e levar as chaves)" aria-label="Aviso do item ${i+1}"></div>`:''}
+  <div class="temp-ideal" data-tempbox="${i}"${RH.ehTemp(it.t)?'':' hidden'}><span>Temperatura ideal</span><input type="text" inputmode="decimal" data-itmin="${i}" value="${esc(it.tmin??'')}" placeholder="mín. ex.: 20" aria-label="Temperatura ideal mínima do item ${i+1} (°C)"><span>a</span><input type="text" inputmode="decimal" data-itmax="${i}" value="${esc(it.tmax??'')}" placeholder="máx. ex.: 24" aria-label="Temperatura ideal máxima do item ${i+1} (°C)"><span>°C</span></div></div>`}).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
 
 /* Setor (salas e equipamentos): sequência de percurso numerada (1º, 2º, ...) */
 const ordNome=k=>{const id=k.slice(2),x=k[0]==='s'?byId(S.salas,id):byId(S.equipamentos,id);return x};
@@ -3403,7 +3431,7 @@ function openEnt(ent,id,dupId,pre){
   if((ent==='salas'||ent==='equipamentos')&&!(d.itens||[]).length&&d.checklistId)d.itens=(byId(S.checklists,d.checklistId)?.itens||[]).map(x=>({...x}));   /* cadastro antigo: traz os itens do checklist vinculado */
   if(pre&&pre.nome)d.nome=pre.nome;
   if(ent==='equipamentos'&&!d.setor)d.setor=RH.setorEq(d);
-  st.M={ent,id,ordem:ent==='modelos'?(pre?.ordem?[...pre.ordem]:dupId?[]:RH.ordemDaRonda(d)):null,fromBulk:!!pre,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>({...x})),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
+  st.M={ent,id,ordem:ent==='modelos'?(pre?.ordem?[...pre.ordem]:dupId?[]:RH.ordemDaRonda(d)):null,fromBulk:!!pre,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>{const {foto,fotos,...r}=x;return {...r,...(fotos?.length?{_fl:fotos.join(', ')}:foto?{_fl:x.t}:{})}}),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
   if((ent==='checklists'||ent==='salas'||ent==='equipamentos')&&!st.M.items.length)st.M.items=[{id:'i'+uid(),t:''}];
   /* agenda da ronda (padrão: segunda a sexta às 08:00; ronda antiga sem agenda: todos os dias) */
   st.M.dias=RH.agenda.temAgenda(d)?[...d.dias]:(id?[0,1,2,3,4,5,6]:[1,2,3,4,5]);
@@ -3425,7 +3453,9 @@ async function saveEnt(form){
   const M=st.M,E=ENT[M.ent],err=m=>{$('#ent-err').textContent=m},data={},old=M.id?byId(S[E.col],M.id):null;
   for(const f of E.fields){
     if(f.t==='photo')continue;
-    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim(),...((x.aviso||'').trim()?{aviso:x.aviso.trim()}:{}),...(x.foto?{foto:true}:{}),...(!x.foto&&RH.ehTemp(x.t)&&RH.numTemp(x.tmin)!=null?{tmin:RH.numTemp(x.tmin)}:{}),...(!x.foto&&RH.ehTemp(x.t)&&RH.numTemp(x.tmax)!=null?{tmax:RH.numTemp(x.tmax)}:{})}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
+    if(f.t==='items'){const fl=x=>x._fl==null?[]:[...new Set(x._fl.split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).map(v=>v.slice(0,40)))].slice(0,8);
+      const semNome=M.items.find(x=>x.t.trim()&&x._fl!=null&&!fl(x).length);if(semNome)return err(`Informe o nome das fotos exigidas no item "${semNome.t.trim()}" ou desative o ícone de foto.`);
+      data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim(),...((x.aviso||'').trim()?{aviso:x.aviso.trim()}:{}),...(fl(x).length?{fotos:fl(x)}:{}),...(RH.ehTemp(x.t)&&RH.numTemp(x.tmin)!=null?{tmin:RH.numTemp(x.tmin)}:{}),...(RH.ehTemp(x.t)&&RH.numTemp(x.tmax)!=null?{tmax:RH.numTemp(x.tmax)}:{})}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
     if(f.t==='agenda'){
       const dias=[...form.querySelectorAll('[data-dia]:checked')].map(x=>+x.value),hs=[...new Set(M.horarios.filter(RH.agenda.validaHora))].sort();
       if(!dias.length)return err('Marque ao menos um dia da semana para a ronda.');
@@ -3519,8 +3549,8 @@ Object.assign(RH.ACT,{
   newEnt:()=>openEnt(st.cadTab), editEnt:el=>openEnt(st.cadTab,el.dataset.id), dupEnt:el=>openEnt(st.cadTab,null,el.dataset.id),
   delEnt:deleteEnt,entTab,
   itAdd:()=>{st.M.items.push({id:'i'+uid(),t:''});$('#items').innerHTML=itemsHtml();const i=document.querySelectorAll('[data-itx]');i[i.length-1]?.focus()},
-  itAv:el=>{st.M.items[+el.dataset.i]._av=true;$('#items').innerHTML=itemsHtml();document.querySelector(`[data-ita="${el.dataset.i}"]`)?.focus()},
-  itAvRm:el=>{const x=st.M.items[+el.dataset.i];x.aviso='';x._av=false;$('#items').innerHTML=itemsHtml()},
+  itAv:el=>{const x=st.M.items[+el.dataset.i];if(x.aviso||x._av){x.aviso='';x._av=false}else x._av=true;$('#items').innerHTML=itemsHtml();document.querySelector(`[data-ita="${el.dataset.i}"]`)?.focus()},
+  itFt:el=>{const x=st.M.items[+el.dataset.i];if(x._fl!=null)delete x._fl;else x._fl='';$('#items').innerHTML=itemsHtml();document.querySelector(`[data-itfl="${el.dataset.i}"]`)?.focus()},
   itDel:el=>{st.M.items.splice(+el.dataset.i,1);$('#items').innerHTML=itemsHtml()},
   ordAdd:()=>{const v=$('#ord-add').value;if(v){st.M.ordem.push(v);ordemRefresh()}},
   ordDel:el=>{const [k]=st.M.ordem.splice(+el.dataset.i,1),lib=st.M.liberacao;delete lib[k];Object.keys(lib).forEach(d=>{if(lib[d]===k)delete lib[d]});ordemRefresh()},
@@ -3547,15 +3577,15 @@ RH.ON_CHANGE.push(async el=>{
   if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
   if(el.dataset.bkDest!=null){prevLink();return true}
   if(el.dataset.lib!=null){if(el.value)st.M.liberacao[el.dataset.lib]=el.value;else delete st.M.liberacao[el.dataset.lib];ordemRefresh();return true}
-  if(el.dataset.itf!=null){const i=+el.dataset.itf;st.M.items[i].foto=el.checked;const b=document.querySelector(`[data-tempbox="${i}"]`);if(b)b.hidden=el.checked||!RH.ehTemp(st.M.items[i].t);return true}
   if(el.dataset.import!=null){if(el.files[0]){try{const n=await RH.store.importJSON(await el.files[0].text());toast(n+' registros importados.')}catch(err){toast(err.message||'Não foi possível importar o arquivo.','bad')}el.value=''}return true}
   if(el.dataset.entFoto!=null){if(el.files[0]){try{Object.assign(st.M.foto,await RH.processImg(el.files[0]),{remove:false});$('#foto-prev').innerHTML=fotoPrev()}catch(err){toast('Não foi possível ler a imagem.','bad')}}return true}
   return false});
 RH.ON_INPUT.push(el=>{
-  if(el.dataset.itx!=null){const i=+el.dataset.itx;st.M.items[i].t=el.value;const b=document.querySelector(`[data-tempbox="${i}"]`);if(b)b.hidden=!RH.ehTemp(el.value)||!!st.M.items[i].foto;return true}
+  if(el.dataset.itx!=null){const i=+el.dataset.itx;st.M.items[i].t=el.value;const b=document.querySelector(`[data-tempbox="${i}"]`);if(b)b.hidden=!RH.ehTemp(el.value);return true}
   if(el.dataset.itmin!=null){st.M.items[+el.dataset.itmin].tmin=el.value;return true}
   if(el.dataset.itmax!=null){st.M.items[+el.dataset.itmax].tmax=el.value;return true}
   if(el.dataset.ita!=null){st.M.items[+el.dataset.ita].aviso=el.value;return true}
+  if(el.dataset.itfl!=null){st.M.items[+el.dataset.itfl]._fl=el.value;return true}
   if(el.dataset.hx!=null){st.M.horarios[+el.dataset.hx]=el.value;return true}
   /* Tipos de NC: a orientação acompanha o nome enquanto a pessoa não a editar à mão */
   if(st.M&&st.M.ent==='tiposNC'){

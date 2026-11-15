@@ -261,7 +261,11 @@ function bkRonda(){
 
 /* ---------- formulário ---------- */
 const fotoPrev=()=>st.M.foto.thumb&&!st.M.foto.remove?`<img class="thumb" style="width:72px;height:72px" src="${st.M.foto.thumb}" alt="Foto atual">`:`<div class="thumb" style="width:72px;height:72px">${ic('dev',26)}</div>`;
-const itemsHtml=()=>st.M.items.map((it,i)=>`<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button>${it.aviso||it._av?`<div class="orient aviso aviso-edit" role="note">${ic('alert',18)}<div><b>Aviso</b><input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Digite o aviso que o inspetor verá — ex.: Fechar e levar as chaves para a portaria" aria-label="Aviso do item ${i+1}"></div><button type="button" class="ic-btn aviso-rm" data-act="itAvRm" data-i="${i}" aria-label="Remover aviso" title="Remover aviso">${ic('trash',14)}</button></div>`:`<button type="button" class="btn sm aviso-add" data-act="itAv" data-i="${i}">${ic('plus',14)} Adicionar aviso</button>`}<label class="itfoto"><input type="checkbox" data-itf="${i}" ${it.foto?'checked':''}> <span><b>Somente foto</b> · a pessoa só fotografa o visor/painel; não digita valor nem marca conforme/não conforme</span></label><div class="temp-ideal" data-tempbox="${i}"${RH.ehTemp(it.t)&&!it.foto?'':' hidden'}><span>Temperatura ideal</span><input type="text" inputmode="decimal" data-itmin="${i}" value="${esc(it.tmin??'')}" placeholder="mín. ex.: 20" aria-label="Temperatura ideal mínima do item ${i+1} (°C)"><span>a</span><input type="text" inputmode="decimal" data-itmax="${i}" value="${esc(it.tmax??'')}" placeholder="máx. ex.: 24" aria-label="Temperatura ideal máxima do item ${i+1} (°C)"><span>°C</span></div></div>`).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
+const itemsHtml=()=>st.M.items.map((it,i)=>{const fa=it._fl!=null,aa=!!(it.aviso||it._av);
+  return `<div class="irow"><input type="text" data-itx="${i}" value="${esc(it.t)}" placeholder="Ex.: Equipamento limpo e sem avarias" aria-label="Item ${i+1}"><button type="button" class="ic-btn" data-act="itUp" data-i="${i}" aria-label="Subir">${ic('up',14)}</button><button type="button" class="ic-btn" data-act="itDn" data-i="${i}" aria-label="Descer">${ic('dn',14)}</button><button type="button" class="ic-btn" data-act="itDel" data-i="${i}" aria-label="Remover">${ic('trash',14)}</button><button type="button" class="ic-btn tg${fa?' on':''}" data-act="itFt" data-i="${i}" aria-pressed="${fa}" aria-label="Exigir fotos neste item" title="Exigir fotos neste item (ex.: fotografar o visor)">${ic('cam',14)}</button><button type="button" class="ic-btn tg${aa?' on':''}" data-act="itAv" data-i="${i}" aria-pressed="${aa}" aria-label="Aviso para o inspetor" title="Aviso para o inspetor">${ic('alert',14)}</button>
+  ${fa?`<div class="irow-sub">${ic('cam',14)}<input type="text" data-itfl="${i}" value="${esc(it._fl)}" placeholder="Nome de cada foto, separados por vírgula (ex.: Nível hélio, Pressão hélio)" aria-label="Fotos exigidas no item ${i+1}"></div>`:''}
+  ${aa?`<div class="irow-sub warn">${ic('alert',14)}<input type="text" class="aviso-in" data-ita="${i}" value="${esc(it.aviso||'')}" placeholder="Aviso que o inspetor verá (ex.: fechar e levar as chaves)" aria-label="Aviso do item ${i+1}"></div>`:''}
+  <div class="temp-ideal" data-tempbox="${i}"${RH.ehTemp(it.t)?'':' hidden'}><span>Temperatura ideal</span><input type="text" inputmode="decimal" data-itmin="${i}" value="${esc(it.tmin??'')}" placeholder="mín. ex.: 20" aria-label="Temperatura ideal mínima do item ${i+1} (°C)"><span>a</span><input type="text" inputmode="decimal" data-itmax="${i}" value="${esc(it.tmax??'')}" placeholder="máx. ex.: 24" aria-label="Temperatura ideal máxima do item ${i+1} (°C)"><span>°C</span></div></div>`}).join('')||'<div class="hint" style="margin-bottom:8px">Nenhum item. Adicione os pontos que o inspetor deve verificar.</div>';
 
 /* Setor (salas e equipamentos): sequência de percurso numerada (1º, 2º, ...) */
 const ordNome=k=>{const id=k.slice(2),x=k[0]==='s'?byId(S.salas,id):byId(S.equipamentos,id);return x};
@@ -332,7 +336,7 @@ function openEnt(ent,id,dupId,pre){
   if((ent==='salas'||ent==='equipamentos')&&!(d.itens||[]).length&&d.checklistId)d.itens=(byId(S.checklists,d.checklistId)?.itens||[]).map(x=>({...x}));   /* cadastro antigo: traz os itens do checklist vinculado */
   if(pre&&pre.nome)d.nome=pre.nome;
   if(ent==='equipamentos'&&!d.setor)d.setor=RH.setorEq(d);
-  st.M={ent,id,ordem:ent==='modelos'?(pre?.ordem?[...pre.ordem]:dupId?[]:RH.ordemDaRonda(d)):null,fromBulk:!!pre,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>({...x})),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
+  st.M={ent,id,ordem:ent==='modelos'?(pre?.ordem?[...pre.ordem]:dupId?[]:RH.ordemDaRonda(d)):null,fromBulk:!!pre,liberacao:ent==='modelos'&&!dupId?{...(d.liberacao||{})}:{},items:(d.itens||[]).map(x=>{const {foto,fotos,...r}=x;return {...r,...(fotos?.length?{_fl:fotos.join(', ')}:foto?{_fl:x.t}:{})}}),foto:{thumb:d.thumb||null,fotoId:d.fotoId||null,full:null,remove:false},armed:false};
   if((ent==='checklists'||ent==='salas'||ent==='equipamentos')&&!st.M.items.length)st.M.items=[{id:'i'+uid(),t:''}];
   /* agenda da ronda (padrão: segunda a sexta às 08:00; ronda antiga sem agenda: todos os dias) */
   st.M.dias=RH.agenda.temAgenda(d)?[...d.dias]:(id?[0,1,2,3,4,5,6]:[1,2,3,4,5]);
@@ -354,7 +358,9 @@ async function saveEnt(form){
   const M=st.M,E=ENT[M.ent],err=m=>{$('#ent-err').textContent=m},data={},old=M.id?byId(S[E.col],M.id):null;
   for(const f of E.fields){
     if(f.t==='photo')continue;
-    if(f.t==='items'){data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim(),...((x.aviso||'').trim()?{aviso:x.aviso.trim()}:{}),...(x.foto?{foto:true}:{}),...(!x.foto&&RH.ehTemp(x.t)&&RH.numTemp(x.tmin)!=null?{tmin:RH.numTemp(x.tmin)}:{}),...(!x.foto&&RH.ehTemp(x.t)&&RH.numTemp(x.tmax)!=null?{tmax:RH.numTemp(x.tmax)}:{})}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
+    if(f.t==='items'){const fl=x=>x._fl==null?[]:[...new Set(x._fl.split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).map(v=>v.slice(0,40)))].slice(0,8);
+      const semNome=M.items.find(x=>x.t.trim()&&x._fl!=null&&!fl(x).length);if(semNome)return err(`Informe o nome das fotos exigidas no item "${semNome.t.trim()}" ou desative o ícone de foto.`);
+      data[f.k]=M.items.filter(x=>x.t.trim()).map(x=>({id:x.id,t:x.t.trim(),...((x.aviso||'').trim()?{aviso:x.aviso.trim()}:{}),...(fl(x).length?{fotos:fl(x)}:{}),...(RH.ehTemp(x.t)&&RH.numTemp(x.tmin)!=null?{tmin:RH.numTemp(x.tmin)}:{}),...(RH.ehTemp(x.t)&&RH.numTemp(x.tmax)!=null?{tmax:RH.numTemp(x.tmax)}:{})}));if(M.ent==='checklists'&&!data[f.k].length)return err('Adicione ao menos um item ao checklist.');continue}
     if(f.t==='agenda'){
       const dias=[...form.querySelectorAll('[data-dia]:checked')].map(x=>+x.value),hs=[...new Set(M.horarios.filter(RH.agenda.validaHora))].sort();
       if(!dias.length)return err('Marque ao menos um dia da semana para a ronda.');
@@ -448,8 +454,8 @@ Object.assign(RH.ACT,{
   newEnt:()=>openEnt(st.cadTab), editEnt:el=>openEnt(st.cadTab,el.dataset.id), dupEnt:el=>openEnt(st.cadTab,null,el.dataset.id),
   delEnt:deleteEnt,entTab,
   itAdd:()=>{st.M.items.push({id:'i'+uid(),t:''});$('#items').innerHTML=itemsHtml();const i=document.querySelectorAll('[data-itx]');i[i.length-1]?.focus()},
-  itAv:el=>{st.M.items[+el.dataset.i]._av=true;$('#items').innerHTML=itemsHtml();document.querySelector(`[data-ita="${el.dataset.i}"]`)?.focus()},
-  itAvRm:el=>{const x=st.M.items[+el.dataset.i];x.aviso='';x._av=false;$('#items').innerHTML=itemsHtml()},
+  itAv:el=>{const x=st.M.items[+el.dataset.i];if(x.aviso||x._av){x.aviso='';x._av=false}else x._av=true;$('#items').innerHTML=itemsHtml();document.querySelector(`[data-ita="${el.dataset.i}"]`)?.focus()},
+  itFt:el=>{const x=st.M.items[+el.dataset.i];if(x._fl!=null)delete x._fl;else x._fl='';$('#items').innerHTML=itemsHtml();document.querySelector(`[data-itfl="${el.dataset.i}"]`)?.focus()},
   itDel:el=>{st.M.items.splice(+el.dataset.i,1);$('#items').innerHTML=itemsHtml()},
   ordAdd:()=>{const v=$('#ord-add').value;if(v){st.M.ordem.push(v);ordemRefresh()}},
   ordDel:el=>{const [k]=st.M.ordem.splice(+el.dataset.i,1),lib=st.M.liberacao;delete lib[k];Object.keys(lib).forEach(d=>{if(lib[d]===k)delete lib[d]});ordemRefresh()},
@@ -476,15 +482,15 @@ RH.ON_CHANGE.push(async el=>{
   if(el.dataset.cf){const f=st.CF[st.cadTab];if(f){f[el.dataset.cf]=el.value;RH.renderView(true)}return true}
   if(el.dataset.bkDest!=null){prevLink();return true}
   if(el.dataset.lib!=null){if(el.value)st.M.liberacao[el.dataset.lib]=el.value;else delete st.M.liberacao[el.dataset.lib];ordemRefresh();return true}
-  if(el.dataset.itf!=null){const i=+el.dataset.itf;st.M.items[i].foto=el.checked;const b=document.querySelector(`[data-tempbox="${i}"]`);if(b)b.hidden=el.checked||!RH.ehTemp(st.M.items[i].t);return true}
   if(el.dataset.import!=null){if(el.files[0]){try{const n=await RH.store.importJSON(await el.files[0].text());toast(n+' registros importados.')}catch(err){toast(err.message||'Não foi possível importar o arquivo.','bad')}el.value=''}return true}
   if(el.dataset.entFoto!=null){if(el.files[0]){try{Object.assign(st.M.foto,await RH.processImg(el.files[0]),{remove:false});$('#foto-prev').innerHTML=fotoPrev()}catch(err){toast('Não foi possível ler a imagem.','bad')}}return true}
   return false});
 RH.ON_INPUT.push(el=>{
-  if(el.dataset.itx!=null){const i=+el.dataset.itx;st.M.items[i].t=el.value;const b=document.querySelector(`[data-tempbox="${i}"]`);if(b)b.hidden=!RH.ehTemp(el.value)||!!st.M.items[i].foto;return true}
+  if(el.dataset.itx!=null){const i=+el.dataset.itx;st.M.items[i].t=el.value;const b=document.querySelector(`[data-tempbox="${i}"]`);if(b)b.hidden=!RH.ehTemp(el.value);return true}
   if(el.dataset.itmin!=null){st.M.items[+el.dataset.itmin].tmin=el.value;return true}
   if(el.dataset.itmax!=null){st.M.items[+el.dataset.itmax].tmax=el.value;return true}
   if(el.dataset.ita!=null){st.M.items[+el.dataset.ita].aviso=el.value;return true}
+  if(el.dataset.itfl!=null){st.M.items[+el.dataset.itfl]._fl=el.value;return true}
   if(el.dataset.hx!=null){st.M.horarios[+el.dataset.hx]=el.value;return true}
   /* Tipos de NC: a orientação acompanha o nome enquanto a pessoa não a editar à mão */
   if(st.M&&st.M.ent==='tiposNC'){

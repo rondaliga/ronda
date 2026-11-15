@@ -191,7 +191,8 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - **Catálogo** (`CAT` em `js/features/painel.js`): os 6 indicadores e 16 gráficos/listas, incluindo Não conformidades por dia, Rondas por dia (produtividade) e Temperatura (média diária das leituras, fora da faixa e faixa ideal, a partir de `rondas/*.itens[].tv/.ideal`). Para criar um novo, acrescente a chave em `CAT` e a função em `TILE` ou `R`; ela recebe os dados já filtrados pelo local do item (`x.rs`, `x.ns`, `x.salas`, …).
 - **Apenas pessoal:** minimizar/expandir um cartão continua sendo preferência de cada aparelho.
 
-**Itens "Somente foto" (parâmetros de equipamentos, ex.: Ressonância)**
-- No cadastro (sala, equipamento ou checklist), cada item tem a opção **Somente foto** (`foto:true`). Na ronda, o item não tem Conforme/Não conforme nem campo de valor: só a foto, obrigatória (câmera ou galeria). A ronda não finaliza sem ela.
-- Resultado gravado como `r:'FT'` com `thumb` e `fotoId`: não entra no cálculo de conformidade (`c`, `nc`) nem gera NC. O histórico mostra a foto, com o nome do parâmetro, no bloco "Fotos de temperatura e parâmetros".
-- Uso nas salas Comando Ressonância 01 e 02: criar os itens "Nível hélio", "Pressão hélio", "Fluxo da água LPM" e "Temperatura da água" e marcar **Somente foto** em cada um.
+**Itens com fotos exigidas (ex.: Disjuntor da Ressonância)**
+- No cadastro (sala, equipamento ou checklist), cada item tem dois ícones pequenos: câmera (fotos exigidas) e alerta (aviso). Ao ligar a câmera, digite o nome de cada foto separado por vírgula (`fotos:[...]`, até 8). O aviso abre um campo simples; clicar de novo no ícone remove o aviso.
+- Na ronda o item continua com Conforme / Não conforme / Inacessível e mostra um espaço para cada foto (câmera ou galeria). Todas são obrigatórias, exceto se o item for Inacessível. Sem elas a ronda não finaliza.
+- Cada foto é gravada na ronda como entrada `r:'FT'` ("Disjuntor · Nível hélio") com `thumb` e `fotoId`: não entra em `c`/`nc` nem gera NC, e segue a limpeza de fotos. O histórico mostra todas no bloco "Fotos de temperatura e parâmetros".
+- Sala Comando Ressonância 01 e 02: um único item "Disjuntor" com as fotos "Nível hélio, Pressão hélio, Fluxo da água LPM, Temperatura da água". O formato antigo `foto:true` é lido como uma foto com o nome do item.

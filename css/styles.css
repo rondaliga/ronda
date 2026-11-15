@@ -871,3 +871,14 @@ body.pn-dragging .kpi *{pointer-events:none}
 @media print{.pn-print{display:block!important;margin:2px 0 0;color:#444;font-size:12px}[data-act=pnAmpliar]{display:none!important}}
 .itfoto{flex:1 0 100%;display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink2);cursor:pointer}
 .itfoto input{margin-top:3px;flex:none}
+/* editor de itens: ícones de foto e aviso (compactos) */
+.itfoto{display:none}
+.irow .ic-btn.tg{opacity:.55}.irow .ic-btn.tg.on{opacity:1;color:var(--brand);border-color:var(--brand)}
+.irow .ic-btn.tg.on:last-of-type{color:var(--warn);border-color:var(--warn)}
+.irow-sub{flex:1 0 100%;display:flex;gap:8px;align-items:center;color:var(--muted)}
+.irow-sub.warn{color:var(--warn)}
+.irow-sub input{flex:1;min-width:0;font-size:13.5px}
+.fslot{grid-column:1/-1;padding:8px 0;border-top:1px dashed var(--line)}.fslot:first-of-type{border-top:0}
+.fslot .fsn{display:block;font-weight:600;font-size:13.5px;margin-bottom:4px}
+.irow-sub{max-width:100%;box-sizing:border-box}.irow-sub input{width:0;flex:1 1 auto}
+.ncp.fsb{background:transparent;border:1px solid var(--line)}
