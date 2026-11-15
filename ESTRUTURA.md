@@ -56,7 +56,6 @@ js/features/            uma tela (ou função) por arquivo
   auth.js                 login e primeiro acesso
   conta.js                "Senha" no menu: o próprio usuário altera a sua senha
   painel.js               indicadores e gráficos
-  meusgraficos.js         widget "Meus gráficos" do Painel (gráfico e local por item, salvo no aparelho)
   ronda.js                Nova ronda: lista de rondas e preenchimento
   historico.js            histórico de rondas realizadas
   ncs.js                  não conformidades: tratar e excluir
@@ -82,8 +81,7 @@ python3 tests/remote_mock.py  # modo compartilhado contra um servidor simulado
 RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e_local.py   # testa o arquivo único (gere com --sem-config)
 python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
-python3 tests/meus_graficos.py # widget Meus gráficos do Painel
-python3 tests/painel_personalizar.py # personalizar todos os cartões do Painel
+python3 tests/painel_personalizar.py # Painel único: personalizar, compartilhar, permissões
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
 
@@ -180,18 +178,11 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Conferir sem esperar: Actions → "Avisos por e-mail" → *Run workflow* → marque **relatorio** (ou `node tools/avisos-email.mjs --relatorio`). Envia o último período completo só aos administradores e não altera o controle de envio.
 - **Salas abaixo da meta do hospital** (antes "Conformidade por sala"): o gráfico mostra só as salas cuja conformidade no período é menor que a meta definida em Cadastros → Hospital (padrão 95%); as que atingiram a meta e as sem rondas ficam ocultas.
 
-**Widget "Meus gráficos" (Painel)**
-- Cartão no topo do Painel (`js/features/meusgraficos.js`, chamado por `painel.js` com `RH.mg.html()`). A engrenagem ("Configurar") alterna entre o modo de exibição e o de edição.
-- Cada item tem **gráfico** e **local** próprios: *Hospital inteiro*, um *setor* ou uma *sala*. Até 8 itens; é possível adicionar, trocar e remover a qualquer momento (a prévia atualiza na hora).
-- Gráficos disponíveis: Conformidade por dia (com a meta), Não conformidades por dia, NCs por severidade, Pareto por tipo de NC, Situação das NCs, Temperatura (média diária das leituras, fora da faixa e faixa ideal), Produtividade (rondas por dia), Tempo médio por ronda e Salas com menor conformidade. Para incluir outro, acrescente uma entrada em `TIPOS` (`{nome, desc, render(d)}`; `d` traz `rs`, `ns`, `days`, `start`, `meta` já filtrados pelo local).
-- **Mover:** segure o clique (mouse ou caneta, 0,35 s) num gráfico e arraste sobre outro; ao soltar, ele ocupa o lugar do destino e a ordem é salva (Esc cancela). No toque da tela e no teclado, use os botões ↑ ↓ de cada item na engrenagem.
-- **Alerta de meta:** na Conformidade por dia, o valor fica vermelho e diz "abaixo da meta de N%" quando o período está abaixo da meta do hospital (verde quando atingida), e os dias abaixo da meta aparecem com ponto vermelho.
-- O período é o do filtro "Período" do Painel; o filtro "Setor" do Painel não interfere (cada item tem o seu local).
-- Persistência: `localStorage`, chave `rh.painel.meus.v1.<id do usuário>` (cada usuário tem a sua; fica só neste aparelho). Se a sala escolhida for excluída, o item mostra "Este local não existe mais".
-- A temperatura vem de `rondas/*.itens[].tv` (leitura) e `.ideal` (faixa), gravados desde a 1.0.10; os dados de exemplo não trazem leituras de temperatura.
-
-**Personalizar o Painel (todos os cartões)**
-- Botão **Personalizar painel** (ao lado de "Minimizar tudo"): cada cartão ganha uma barra com **Local**, **↑ ↓** e **Ocultar/Mostrar**. **Concluir** sai do modo; **Restaurar padrão** (2 toques) volta ordem, locais e cartões ocultos ao original.
-- **Local por cartão**: *Seguir o filtro do Painel* (padrão), *Hospital inteiro*, um *setor* ou uma *sala*. O local escolhido substitui o filtro Setor só naquele cartão e aparece em azul ao lado do título. Os 6 indicadores do topo seguem sempre o filtro Setor. O cartão "Meus gráficos" tem um local por gráfico.
-- **Mover**: ↑ ↓ ou segurar o clique (mouse/caneta, 0,35 s) num cartão e arrastar sobre outro (Esc cancela). **Ocultar** tira o cartão do Painel (na edição ele fica esmaecido, com "Mostrar").
-- Persistência: `localStorage`, chave `rh.painel.layout.v1.<id do usuário>` = `{ordem, ocultos, loc}`. Cartões novos de versões futuras entram no fim da ordem. Código: `lay()`, `card()` e o objeto `R` (um cartão por chave) em `js/features/painel.js`; para criar um cartão novo, acrescente a chave em `ORDEM` e uma função em `R` que recebe os dados já filtrados pelo local (`x.rs`, `x.ns`, `x.salas`, …).
+**Painel único da instituição (personalizável)**
+- **Todos veem o mesmo.** Gestores e administradores montam o painel; todos os usuários com acesso ao Painel veem exatamente a mesma configuração. Ela fica no banco compartilhado, no documento `config/painel` (`{kpis:[{id,t,loc}], cards:[{id,t,loc}], v, por, em}`), e vale em qualquer aparelho. Não há mais painel individual ("Meus gráficos" foi removido). Sem configuração salva, vale o painel padrão. Só o administrador e o gestor veem os botões de personalizar; o inspetor não acessa o Painel. Se dois gestores editarem ao mesmo tempo, vale a última gravação.
+- **Padrão para ambiente hospitalar.** Indicadores: Conformidade geral, Rondas realizadas, NCs não resolvidas, Tempo médio de resolução, Cobertura de salas, Rondas em atraso. Gráficos, nesta ordem: Conformidade por dia, NCs por setor, NCs por severidade, Situação das NCs, Pareto, Salas abaixo da meta, Mapa de calor setor × horário, Problemas que se repetem, Equipamentos com mais NCs, Tempo médio por ronda e por local, Rondas em atraso e NCs recentes. Todos os cartões têm título, legenda (unidade e período) e, quando houver, o local. O cabeçalho mostra o hospital, o período e a hora da atualização. **Imprimir / PDF** gera uma versão limpa para reuniões e comissões (sem menu e botões).
+- **Personalizar painel** (botão no topo; **Concluir** sai): cada indicador e cada gráfico ganha uma barra com **Local**, **↑ ↓** e **Excluir** (2 toques). **Adicionar ao painel** inclui qualquer indicador ou gráfico do catálogo, inclusive um que foi excluído ou o mesmo gráfico para outro local. **Restaurar padrão** (2 toques) volta tudo ao original.
+- **Local por item:** *Seguir o filtro do Painel* (padrão), *Hospital inteiro*, um *setor* ou uma *sala*. Substitui o filtro Setor só naquele item, e o local aparece em destaque no cartão.
+- **Mover:** ↑ ↓ ou segurar o clique (mouse/caneta, 0,35 s) e arrastar sobre outro item do mesmo grupo (indicadores entre indicadores, gráficos entre gráficos); Esc cancela. No toque da tela use ↑ ↓.
+- **Catálogo** (`CAT` em `js/features/painel.js`): os 6 indicadores e 16 gráficos/listas, incluindo Não conformidades por dia, Rondas por dia (produtividade) e Temperatura (média diária das leituras, fora da faixa e faixa ideal, a partir de `rondas/*.itens[].tv/.ideal`). Para criar um novo, acrescente a chave em `CAT` e a função em `TILE` ou `R`; ela recebe os dados já filtrados pelo local do item (`x.rs`, `x.ns`, `x.salas`, …).
+- **Apenas pessoal:** minimizar/expandir um cartão continua sendo preferência de cada aparelho.

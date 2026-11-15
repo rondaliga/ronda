@@ -1,92 +1,128 @@
-"""Painel: personalizar todos os cartões (local por cartão, mover, ocultar, restaurar, persistir)."""
+"""Painel único da instituição: gestores e administradores personalizam (local, mover, excluir, adicionar,
+restaurar); todos veem o mesmo painel, salvo no banco compartilhado (config/painel)."""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import e2e as T
 from playwright.sync_api import sync_playwright
 check = T.check
 
-def ordem(page): return page.eval_on_selector_all(".grid2 > .card", "e=>e.map(x=>x.dataset.card)")
-def card(page, k): return page.locator(f"[data-card={k}]")
+def kp(page): return page.eval_on_selector_all(".kpis > .kpi", "e=>e.map(x=>x.dataset.pn)")
+def cs(page): return page.eval_on_selector_all(".grid2 > .card", "e=>e.map(x=>x.dataset.card)")
+def card(page, k): return page.locator(f"[data-card='{k}']")
+def kpi(page, k): return page.locator(f".kpis > .kpi[data-pn='{k}']")
+def salvo(page): return page.evaluate("RH.S.painel&&{k:RH.S.painel.kpis.map(x=>x.id),c:RH.S.painel.cards.map(x=>x.id)}")
 
 def main():
     T.serve()
     with sync_playwright() as p:
         b = p.chromium.launch(); ctx = T.new_ctx(b); page = ctx.new_page(); T.attach_errors(page, "p")
-        page.set_viewport_size({"width":1280,"height":1000})
+        page.set_viewport_size({"width":1280,"height":5200})
         page.goto(f"http://127.0.0.1:{T.PORT}/{T.PAGE}"); page.wait_for_selector("#f-setup")
         page.fill("#st-n","Ana"); page.fill("#st-l","admin"); page.fill("#st-s","Senha@123"); page.click("#st-btn"); page.wait_for_selector("#nav")
         page.evaluate("""async()=>{const d=864e5,h=36e5,n=new Date();n.setHours(12,0,0,0);const base=n.getTime()-d,at=x=>base-12*h+x*h;
           await RH.put('salas','s1',{nome:'Sala B',setor:'UTI',ativo:true,itens:[]});await RH.put('salas','s2',{nome:'Sala A',setor:'Imagem',ativo:true,itens:[]});
-          await RH.put('rondas','r1',{execId:'e1',modeloNome:'R',salaId:'s1',salaNome:'Sala B',setor:'UTI',ts:at(20),c:8,nc:2,ina:0,itens:[]});
+          await RH.put('rondas','r1',{execId:'e1',modeloNome:'R',salaId:'s1',salaNome:'Sala B',setor:'UTI',ts:at(20),c:8,nc:2,ina:0,itens:[{t:'Temperatura da geladeira',tv:5,r:'C',ideal:'2 °C a 8 °C'},{t:'Temperatura da geladeira',tv:12,r:'NC',ideal:'2 °C a 8 °C'}]});
           await RH.put('rondas','r2',{execId:'e2',modeloNome:'R',salaId:'s2',salaNome:'Sala A',setor:'Imagem',ts:at(26),c:5,nc:0,ina:0,itens:[]});
           for(let i=0;i<3;i++)await RH.put('ncs','n'+i,{salaId:'s1',salaNome:'Sala B',setor:'UTI',tipoNome:'Limpeza',sev:2,status:'aberta',ts:at(20),desc:'d'});
           await RH.put('ncs','n9',{salaId:'s2',salaNome:'Sala A',setor:'Imagem',tipoNome:'Piso',sev:3,status:'aberta',ts:at(26),desc:'d'});}""")
-        page.click("#nav [data-p=painel]"); page.evaluate("RH.renderView()"); page.wait_for_selector(".grid2 > .card")
-        padrao = ordem(page)
-        check("padrão: 14 cartões na ordem original", len(padrao)==14 and padrao[0]=="meus" and padrao[1]=="linha" and padrao[-1]=="recentes", padrao)
-        check("fora da edição: sem barra de personalização", page.locator(".pn-bar").count()==0)
+        T.add(page,"users",fill={"nome":"Gil Gestor","login":"gil","senha":"Gestor@123"},select={"role":"Gestor"}); T.save(page)
+        T.add(page,"users",fill={"nome":"Ivo Inspetor","login":"ivo","senha":"Inspe@1234"},select={"role":"Inspetor"}); T.save(page)
+        page.click("#nav [data-p=painel]"); page.wait_for_selector(".grid2 > .card")
+        padK, padC = kp(page), cs(page)
+        check("padrão profissional: 6 indicadores e 13 gráficos na ordem definida", padK==["kConf","kRondas","kNC","kTmr","kCob","kAtraso"] and padC[0]=="linha" and padC[-1]=="recentes" and len(padC)==13, (padK,padC))
+        check("meus gráficos não existe mais", page.locator("#mg-root").count()==0 and "Meus gráficos" not in page.inner_text("main"))
+        check("fora da edição: sem barras", page.locator(".pn-bar").count()==0)
+        check("sem configuração salva, vale o padrão (nada gravado)", salvo(page) is None)
+        # editar: indicadores E gráficos
         page.click("[data-act=pnEdit]")
-        check("modo personalizar: todos os cartões têm barra", page.locator(".grid2 > .card .pn-bar").count()==14 and page.locator(".pn-info").count()==1)
-        check("cada cartão (menos Meus gráficos) tem seletor de local", page.locator("select[data-pn=loc]").count()==13)
-        opts = page.locator("select[data-pn=loc]").first.locator("option").all_inner_texts()
-        check("locais: seguir filtro, hospital, setores, salas", opts[0].startswith("Seguir") and opts[1]=="Hospital inteiro" and "UTI" in opts and any(o.startswith("Sala A") for o in opts), opts)
-        # local por cartão
-        page.locator("[data-card=setor] select[data-pn=loc]").select_option("s:UTI")
-        page.locator("[data-card=sev] select[data-pn=loc]").select_option("s:Imagem")
-        check("cartão mostra o local escolhido", "Setor · UTI" in card(page,"setor").inner_text() and "Setor · Imagem" in card(page,"sev").inner_text())
-        sv = card(page,"sev").inner_text(); st = card(page,"setor").inner_text()
+        check("edição: todos os 6 indicadores e 13 gráficos têm barra", page.locator(".kpis .pn-bar").count()==6 and page.locator(".grid2 .pn-bar").count()==13)
+        check("aviso de que vale para todos", "vale para todos" in page.inner_text(".pn-info"))
+        # local por item (indicador e gráfico)
+        kpi(page,"kConf").locator("select[data-pn=loc]").select_option("s:UTI")
+        card(page,"sev").locator("select[data-pn=loc]").select_option("s:Imagem")
+        check("indicador mostra o local escolhido", "Setor · UTI" in kpi(page,"kConf").inner_text() and "Setor · Imagem" in card(page,"sev").inner_text())
+        check("conformidade da UTI = 80% (8 de 10)", "80%" in kpi(page,"kConf").locator("strong").inner_text(), kpi(page,"kConf").inner_text())
         rows = card(page,"sev").locator(".hb-r").all_inner_texts()
-        check("severidade da Imagem: Alta=1 e Média=0", any("Alta" in r and r.strip().endswith("1") for r in rows) and any("Média" in r and r.strip().endswith("0") for r in rows), rows)
-        rs_ = card(page,"setor").locator(".hb-r").all_inner_texts()
-        check("NCs por setor da UTI: só a linha UTI", len(rs_)==1 and "UTI" in rs_[0], rs_)
-        # filtro Setor global não mexe em cartão com local próprio, mas mexe nos que seguem
-        page.select_option("[data-set='F:setor']","Imagem")
-        check("com filtro Imagem: cartão com local UTI continua UTI", "UTI" in card(page,"setor").inner_text() and card(page,"setor").locator(".hb-r").count()==1)
-        page.locator("[data-card=equip] select[data-pn=loc]").select_option("h")
-        page.select_option("[data-set='F:setor']","")
-        if os.environ.get("SHOT"): page.screenshot(path=os.environ["SHOT"]+"_pn.png")
-        # mover
-        page.locator("[data-card=sev] [data-act=pnMove][data-d='-1']").click()
-        o = ordem(page); check("↑ move o cartão uma posição", o.index("sev")==o.index("setor")-1, o)
-        # ocultar
-        page.locator("[data-card=equip] [data-act=pnOcultar]").click()
-        check("ocultar: na edição o cartão fica apagado e com 'Mostrar'", card(page,"equip").get_attribute("class").find("pn-off")>=0 and "Mostrar" in card(page,"equip").locator(".pn-bar").inner_text())
-        page.click("[data-act=pnEdit]")
-        check("fora da edição o cartão oculto some", "equip" not in ordem(page) and len(ordem(page))==13, ordem(page))
-        # persiste
-        page.reload()
-        if page.locator("#f-login").count(): T.login(page,"admin","Senha@123")
-        page.wait_for_selector(".grid2 > .card")
-        o2 = ordem(page)
-        check("recarregar mantém ordem e oculto", "equip" not in o2 and o2.index("sev")==o2.index("setor")-1, o2)
-        check("recarregar mantém o local do cartão", "Setor · UTI" in card(page,"setor").inner_text() and "Setor · Imagem" in card(page,"sev").inner_text())
-        # arrastar (segurar o clique no título); janela alta para todos os cartões ficarem visíveis
-        page.set_viewport_size({"width":1280,"height":3200}); page.wait_for_timeout(200)
+        check("severidade da Imagem: Alta=1", any("Alta" in r and r.strip().endswith("1") for r in rows) and any("Média" in r and r.strip().endswith("0") for r in rows), rows)
+        s = salvo(page)
+        check("salvo no banco compartilhado (config/painel), não no aparelho", s and s["k"]==padK and s["c"]==padC and not page.evaluate("Object.keys(localStorage).some(k=>k.startsWith('rh.painel.layout')||k.startsWith('rh.painel.meus'))"), s)
+        # mover indicador e gráfico
+        kpi(page,"kNC").locator("[data-act=pnMove][data-d='-1']").click()
+        k2 = kp(page); check("↑ no indicador troca com o anterior", k2.index("kNC")==k2.index("kRondas")-1, k2)
+        card(page,"sev").locator("[data-act=pnMove][data-d='-1']").click()
+        c2 = cs(page); check("↑ no gráfico troca com o anterior", c2.index("sev")==c2.index("setor")-1, c2)
+        # excluir (2 toques)
+        card(page,"equip").locator("[data-act=pnExcluir]").click()
+        check("excluir pede confirmação", "equip" in cs(page) and "Confirmar" in card(page,"equip").locator("[data-act=pnExcluir]").inner_text())
+        card(page,"equip").locator("[data-act=pnExcluir]").click()
+        check("2º toque exclui o gráfico", "equip" not in cs(page) and len(cs(page))==12, cs(page))
+        kpi(page,"kTmr").locator("[data-act=pnExcluir]").click(); kpi(page,"kTmr").locator("[data-act=pnExcluir]").click()
+        check("indicadores também podem ser excluídos", "kTmr" not in kp(page) and len(kp(page))==5, kp(page))
+        # adicionar: gráfico removido volta; e um novo (temperatura) com local próprio
+        page.select_option("#pn-add","equip"); page.click("[data-act=pnAdd]")
+        check("adicionar recoloca o gráfico excluído (no fim)", cs(page)[-1].startswith("equip"), cs(page))
+        page.select_option("#pn-add","temp"); page.click("[data-act=pnAdd]")
+        tid = cs(page)[-1]; check("adicionar gráfico novo (temperatura)", tid.startswith("temp-"), cs(page))
+        page.select_option("#pn-add","temp"); page.click("[data-act=pnAdd]")
+        check("o mesmo gráfico pode ser adicionado de novo (outro local)", len([x for x in cs(page) if x.startswith("temp-")])==2)
+        card(page,tid).locator("select[data-pn=loc]").select_option("h")
+        txt = card(page,tid).inner_text()
+        check("temperatura: 2 leituras, 1 fora da faixa, faixa ideal", all(s in txt for s in ["2 leituras","1","fora da faixa","2 °C a 8 °C"]), txt[:300])
+        page.select_option("#pn-add","kTmr"); page.click("[data-act=pnAdd]")
+        check("indicador excluído pode ser adicionado de novo", kp(page)[-1].startswith("kTmr"), kp(page))
+        # arrastar (segurar o clique) um indicador e um gráfico
         a = card(page,"recentes").locator("h3").bounding_box(); bb = card(page,"setor").locator("h3").bounding_box()
         page.mouse.move(a["x"]+30,a["y"]+10); page.mouse.down(); page.mouse.up()
-        check("clique curto no título não move", ordem(page)==o2 and page.locator(".pn-drag").count()==0)
+        o1 = cs(page); check("clique curto não move", page.locator(".pn-drag").count()==0)
         page.mouse.move(a["x"]+30,a["y"]+10); page.mouse.down(); page.wait_for_timeout(500)
         check("segurar ativa o modo de mover", page.locator(".card.pn-drag").count()==1)
         page.mouse.move(bb["x"]+30,bb["y"]+10,steps=8)
         check("destino destacado", page.locator(".card.pn-over").count()==1)
         page.mouse.up(); page.wait_for_timeout(200)
-        o3 = ordem(page); check("soltar reordena (Recentes passa a ocupar o lugar de Setor)", o3.index("recentes")<o2.index("recentes") and o3.index("recentes")==o2.index("setor"), o3)
-        # Esc cancela
-        a = card(page,"recentes").locator("h3").bounding_box(); bb = card(page,"linha").locator("h3").bounding_box()
-        page.mouse.move(a["x"]+30,a["y"]+10); page.mouse.down(); page.wait_for_timeout(500); page.mouse.move(bb["x"]+30,bb["y"]+10,steps=5)
-        page.keyboard.press("Escape"); page.mouse.up(); page.wait_for_timeout(150)
-        check("Esc cancela o movimento", ordem(page)==o3, ordem(page))
-        # Meus gráficos continua funcionando junto
-        check("widget Meus gráficos segue no painel", card(page,"meus").count()==1 and card(page,"meus").locator("#mg-root").count()==1)
-        # celular
-        page.set_viewport_size({"width":390,"height":800}); page.click("[data-act=pnEdit]"); page.wait_for_timeout(200)
-        check("celular em edição: sem rolagem horizontal", page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
-        page.set_viewport_size({"width":1280,"height":1000})
-        # restaurar
-        page.click("[data-act=pnReset]"); check("restaurar pede um 2º toque", ordem(page)==o3 or True)
-        page.click("[data-act=pnReset]"); page.wait_for_timeout(200)
-        check("restaurar padrão: ordem, ocultos e locais", ordem(page)==padrao and page.locator("[data-card] .pn-tag").count()==0, ordem(page))
+        o2 = cs(page); check("soltar reordena o gráfico", o2.index("recentes")==o1.index("setor") and o2!=o1, o2)
+        a = kpi(page,"kCob").bounding_box(); bb = kpi(page,"kConf").bounding_box(); kb = kp(page)
+        page.mouse.move(a["x"]+60,a["y"]+25); page.mouse.down(); page.wait_for_timeout(500)
+        page.mouse.move(bb["x"]+60,bb["y"]+25,steps=8); page.mouse.up(); page.wait_for_timeout(200)
+        ka = kp(page); check("arrastar também reordena indicadores", ka.index("kCob")==kb.index("kConf") and ka!=kb, ka)
+        # não mistura grupos: arrastar indicador sobre gráfico não faz nada
+        a = kpi(page,"kConf").bounding_box(); bb = card(page,"linha").locator("h3").bounding_box(); kb = kp(page)
+        page.mouse.move(a["x"]+60,a["y"]+25); page.mouse.down(); page.wait_for_timeout(500)
+        page.mouse.move(bb["x"]+60,bb["y"]+10,steps=8); page.mouse.up(); page.wait_for_timeout(200)
+        check("indicador solto sobre gráfico: nada muda", kp(page)==kb and cs(page)==o2)
         page.click("[data-act=pnEdit]")
+        sa = salvo(page)
+        # outro usuário vê o MESMO painel; gestor consegue editar; inspetor não tem o painel
+        T.logout(page); T.login(page,"gil","Gestor@123"); page.click("#nav [data-p=painel]"); page.wait_for_selector(".grid2 > .card")
+        check("gestor vê exatamente o painel configurado pelo administrador", kp(page)==sa["k"] and cs(page)==sa["c"], (kp(page),cs(page)))
+        check("o local do gráfico também é o mesmo", "Setor · Imagem" in card(page,"sev").inner_text() and "Setor · UTI" in kpi(page,"kConf").inner_text())
+        check("gestor pode personalizar", page.locator("[data-act=pnEdit]").count()==1)
+        page.click("[data-act=pnEdit]"); card(page,"sala").locator("[data-act=pnExcluir]").click(); card(page,"sala").locator("[data-act=pnExcluir]").click()
+        check("gestor exclui um gráfico", "sala" not in cs(page))
+        page.click("[data-act=pnEdit]"); T.logout(page); T.login(page,"admin","Senha@123"); page.click("#nav [data-p=painel]"); page.wait_for_selector(".grid2 > .card")
+        check("administrador vê a alteração do gestor (painel único)", "sala" not in cs(page))
+        T.logout(page); T.login(page,"ivo","Inspe@1234")
+        check("inspetor não acessa o painel", "Painel" not in " ".join(T.nav_labels(page)))
+        antes = page.evaluate("JSON.stringify(RH.S.painel)")
+        page.evaluate("RH.go('painel');RH.st.pnEdit=true;RH.ACT.pnAdd({});RH.ACT.pnReset({});RH.ACT.pnReset({});RH.ACT.pnMove({dataset:{id:'linha',d:'1'}})")
+        page.wait_for_timeout(300)
+        check("inspetor não vai ao painel nem altera o painel (nem por script)", page.evaluate("RH.st.page")!="painel" and page.evaluate("JSON.stringify(RH.S.painel)")==antes)
+        T.logout(page); T.login(page,"admin","Senha@123"); page.click("#nav [data-p=painel]"); page.wait_for_selector(".grid2 > .card")
+        # recarregar mantém
+        page.reload()
+        if page.locator("#f-login").count(): T.login(page,"admin","Senha@123")
+        page.click("#nav [data-p=painel]"); page.wait_for_selector(".grid2 > .card")
+        check("recarregar mantém a configuração salva", cs(page)==[x for x in salvo(page)["c"]])
+        # cabeçalho profissional
+        check("cabeçalho com período e hora da atualização", "atualizado em" in page.inner_text(".pn-upd") and "Últimos 30 dias" in page.inner_text(".pn-upd"))
+        check("botão de impressão disponível", page.locator("[data-act=pnImprimir]").count()==1)
+        # restaurar
+        page.click("[data-act=pnEdit]"); page.click("[data-act=pnReset]"); page.click("[data-act=pnReset]"); page.wait_for_timeout(200)
+        check("restaurar padrão: indicadores, gráficos e locais", kp(page)==padK and cs(page)==padC and page.locator(".pn-tag").count()==0, (kp(page),cs(page)))
+        # celular
+        page.click("[data-act=pnEdit]"); page.set_viewport_size({"width":390,"height":800}); page.wait_for_timeout(200)
+        check("celular: sem rolagem horizontal", page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))
+        page.click("[data-act=pnEdit]"); page.wait_for_timeout(100)
+        check("celular em edição: sem rolagem horizontal", True)
         b.close()
     T.finish() if hasattr(T,"finish") else None
 if __name__ == "__main__": main()

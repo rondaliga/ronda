@@ -24,7 +24,7 @@ const ready={};
 function sync(col){
   let q=st.db.collection(col);if(col==='rondas'||col==='ncs')q=q.orderBy('ts','desc').limit(RH.LIMITE);
   q.onSnapshot(s=>{const rows=s.docs.map(d=>({id:d.id,...d.data()}));
-    if(col==='config')S.cfg=rows.find(r=>r.id==='main')||{};else S[col]=rows;
+    if(col==='config'){S.cfg=rows.find(r=>r.id==='main')||{};S.painel=rows.find(r=>r.id==='painel')||null}else S[col]=rows;   /* config/painel = painel único da instituição */
     ready[col]=true;onData()},e=>{console.error(col,e);ready[col]=true;onData()});
 }
 function onData(){

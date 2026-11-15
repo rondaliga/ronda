@@ -12,7 +12,7 @@ const RH=window.RH;
 
 /* coleções do banco → RH.S[coleção]; "config" vira RH.S.cfg */
 RH.COLS=['users','salas','equipamentos','checklists','tiposNC','modelos','rondas','ncs','config'];
-const S=RH.S={users:[],salas:[],equipamentos:[],checklists:[],tiposNC:[],modelos:[],rondas:[],ncs:[],cfg:{}};
+const S=RH.S={users:[],salas:[],equipamentos:[],checklists:[],tiposNC:[],modelos:[],rondas:[],ncs:[],cfg:{},painel:null};
 
 RH.st={
   db:null,          // banco (collection/doc) aberto por RH.store.open()

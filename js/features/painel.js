@@ -4,37 +4,65 @@
 (()=>{
 const RH=window.RH;
 const {$,esc,S,F,pc,dur,ago,fd,fdt,fdm,sod,ic,empty,sevPill,stPill,SEV,ST}=RH;
-let cache=null;
+let cache={};
 F.paretoPor=F.paretoPor||'tipo';   /* Pareto agrupado por: tipo | item | setor */
 
 /* cartões do painel que a pessoa minimizou (lembrado neste navegador) */
 const MINKEY='rh.painel.min';
 const minSet=()=>{if(RH.st.minCards)return RH.st.minCards;let a=[];try{a=JSON.parse(localStorage.getItem(MINKEY)||'[]')}catch(e){}return RH.st.minCards=new Set(Array.isArray(a)?a:[])};
 const saveMin=()=>{try{localStorage.setItem(MINKEY,JSON.stringify([...minSet()]))}catch(e){}};
-/* ---- layout personalizável do Painel: ordem, cartões ocultos e local de cada cartão (salvo neste aparelho, por usuário) ---- */
-const LAYK=()=>'rh.painel.layout.v1.'+(RH.st.me?.id||'anon');
-const ORDEM=['meus','linha','setor','sev','situacao','pareto','repet','equip','atraso','calor','tempoRonda','tempoLocal','sala','recentes'];
-let LAY=null,LAYDE=null;
-const lay=()=>{const k=LAYK();if(LAY&&LAYDE===k)return LAY;let a={};try{a=JSON.parse(localStorage.getItem(k)||'{}')||{}}catch(e){}
-  const ord=Array.isArray(a.ordem)?a.ordem.filter(x=>ORDEM.includes(x)):[];
-  LAY={ordem:[...new Set([...ord,...ORDEM])],ocultos:Array.isArray(a.ocultos)?a.ocultos.filter(x=>ORDEM.includes(x)):[],
-    loc:a.loc&&typeof a.loc==='object'?Object.fromEntries(Object.entries(a.loc).filter(([k,v])=>ORDEM.includes(k)&&typeof v==='string'&&v)):{}};LAYDE=k;return LAY};
-const saveLay=()=>{try{localStorage.setItem(LAYK(),JSON.stringify(lay()))}catch(e){}};
-/* local de um cartão: '' = segue o filtro Setor do Painel · 'h' = hospital inteiro · 's:Setor' · 'r:idDaSala' */
+/* ---- Painel único da instituição ----
+   Gestores e administradores montam o painel (quais indicadores e gráficos, em que ordem e para qual local);
+   todos os usuários com acesso ao Painel veem exatamente o mesmo. A configuração fica no banco compartilhado
+   (documento config/painel), não no aparelho. Sem configuração salva, vale o painel padrão (PADRAO). */
+const CAT={
+  kConf:['kpi','Conformidade geral'],kRondas:['kpi','Rondas realizadas'],kNC:['kpi','NCs não resolvidas'],kTmr:['kpi','Tempo médio de resolução'],kCob:['kpi','Cobertura de salas'],kAtraso:['kpi','Rondas em atraso'],
+  linha:['card','Conformidade por dia'],ncdia:['card','Não conformidades por dia'],prod:['card','Rondas por dia (produtividade)'],temp:['card','Temperatura (controle ambiental)'],
+  setor:['card','Não conformidades por setor'],sev:['card','NCs por severidade'],situacao:['card','Situação das NCs'],pareto:['card','Pareto das NCs'],repet:['card','Problemas que se repetem'],equip:['card','Equipamentos com mais NCs'],
+  atraso:['card','Rondas em atraso'],calor:['card','Mapa de calor: setor × horário'],tempoRonda:['card','Tempo médio por ronda'],tempoLocal:['card','Tempo médio por local'],sala:['card','Salas abaixo da meta'],recentes:['card','Não conformidades recentes']};
+const PADRAO=()=>({kpis:['kConf','kRondas','kNC','kTmr','kCob','kAtraso'].map(t=>({id:t,t,loc:''})),
+  cards:['linha','setor','sev','situacao','pareto','sala','calor','repet','equip','tempoRonda','tempoLocal','atraso','recentes'].map(t=>({id:t,t,loc:''}))});
+const limpa=(a,tipo)=>{const ids=new Set();return (Array.isArray(a)?a:[]).filter(x=>x&&CAT[x.t]&&CAT[x.t][0]===tipo&&typeof x.id==='string'&&x.id&&!ids.has(x.id)&&ids.add(x.id)).map(x=>({id:x.id,t:x.t,loc:typeof x.loc==='string'?x.loc:''}))};
+const doc=()=>{const d=S.painel;return d&&(Array.isArray(d.kpis)||Array.isArray(d.cards))?{kpis:limpa(d.kpis,'kpi'),cards:limpa(d.cards,'card')}:PADRAO()};
+const pode=()=>RH.access.gerencia()&&RH.st.canWrite!==false;
+const edita=()=>!!RH.st.pnEdit&&pode();
+const gravar=d=>{const v={kpis:d.kpis,cards:d.cards,v:1,por:RH.st.me?.nome||'',em:Date.now()};S.painel=v;RH.renderView(true);RH.safe(()=>RH.put('config','painel',v))};
+const novoId=t=>t+'-'+Math.random().toString(36).slice(2,6);
+/* local de cada item: '' = segue o filtro Setor do Painel · 'h' = hospital inteiro · 's:Setor' · 'r:idDaSala' */
 const locSetores=()=>[...new Set(S.salas.filter(s=>s.ativo!==false).map(s=>s.setor).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
 const locNomeP=v=>{if(v==='h')return 'Hospital inteiro';if(v.startsWith('s:')){const s=v.slice(2);return locSetores().includes(s)?'Setor · '+s:null}
   if(v.startsWith('r:')){const x=S.salas.find(z=>z.id===v.slice(2)&&z.ativo!==false);return x?'Sala · '+x.nome:null}return null};
 const locOptsP=sel=>{const o=(v,t)=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(t)}</option>`,sl=S.salas.filter(s=>s.ativo!==false).sort((a,b)=>(a.nome||'').localeCompare(b.nome||'')),st=locSetores();
   return o('','Seguir o filtro do Painel')+o('h','Hospital inteiro')+(sel&&sel!=='h'&&locNomeP(sel)==null?o(sel,'Local não encontrado'):'')+(st.length?`<optgroup label="Setores">${st.map(s=>o('s:'+s,s)).join('')}</optgroup>`:'')+(sl.length?`<optgroup label="Salas">${sl.map(s=>o('r:'+s.id,s.nome+(s.setor?' · '+s.setor:''))).join('')}</optgroup>`:'')};
-const pnBar=(k,t,loc,off)=>{const i=lay().ordem.indexOf(k),n=lay().ordem.length;
-  return `<div class="pn-bar" role="group" aria-label="Personalizar: ${esc(t)}">${k==='meus'?'<small>Cada gráfico deste cartão tem o seu próprio local.</small>':`<label class="field"><span>Local</span><select data-pn="loc" data-k="${k}">${locOptsP(loc)}</select></label>`}
-  <div class="pn-btns"><button type="button" class="btn sm" data-act="pnMove" data-k="${k}" data-d="-1" ${i<=0?'disabled':''} aria-label="Mover ${esc(t)} para cima" title="Mover para cima">↑</button><button type="button" class="btn sm" data-act="pnMove" data-k="${k}" data-d="1" ${i>=n-1?'disabled':''} aria-label="Mover ${esc(t)} para baixo" title="Mover para baixo">↓</button><button type="button" class="btn sm ghost" data-act="pnOcultar" data-k="${k}" aria-label="${off?'Mostrar':'Ocultar'} ${esc(t)}">${off?'Mostrar':'Ocultar'}</button></div></div>`};
+const tagLoc=it=>it.loc?`<em class="pn-tag">${esc(locNomeP(it.loc)||'local não encontrado')}</em>`:'';
+/* barra de edição de um item: local, mover e excluir */
+const pnBar=it=>{const nome=CAT[it.t][1],L=doc()[CAT[it.t][0]==='kpi'?'kpis':'cards'],i=L.findIndex(x=>x.id===it.id);
+  return `<div class="pn-bar" role="group" aria-label="Personalizar: ${esc(nome)}"><label class="field"><span>Local</span><select data-pn="loc" data-id="${esc(it.id)}">${locOptsP(it.loc)}</select></label>
+  <div class="pn-btns"><button type="button" class="btn sm" data-act="pnMove" data-id="${esc(it.id)}" data-d="-1" ${i<=0?'disabled':''} aria-label="Mover ${esc(nome)} para trás" title="Mover para trás">↑</button><button type="button" class="btn sm" data-act="pnMove" data-id="${esc(it.id)}" data-d="1" ${i>=L.length-1?'disabled':''} aria-label="Mover ${esc(nome)} para frente" title="Mover para frente">↓</button><button type="button" class="btn sm ghost danger" data-act="pnExcluir" data-id="${esc(it.id)}" aria-label="Excluir ${esc(nome)} do painel">Excluir</button></div></div>`};
 
-/* cartão com botão de minimizar: k = chave, t = título, sub = texto pequeno ao lado do título */
-const card=(k,t,sub,body,cls='')=>{const mn=minSet().has(k),ed=!!RH.st.pnEdit,L=lay(),off=L.ocultos.includes(k),loc=L.loc[k]||'';
-  if(off&&!ed)return '';
-  const tag=loc?`<span class="pn-tag">${esc(locNomeP(loc)||'local não encontrado')}</span>`:'',sb=[sub,tag].filter(Boolean).join(' · ');
-  return `<div class="card ${cls} ${mn?'min':''} ${off?'pn-off':''}" data-card="${k}"><h3><span class="ct">${esc(t)}${sb?` <small>${sb}</small>`:''}</span><button type="button" class="ic-btn min-btn" data-act="togCard" data-k="${k}" aria-expanded="${!mn&&!off}" aria-label="${mn?'Expandir':'Minimizar'}: ${esc(t)}" title="${mn?'Expandir':'Minimizar'}">${ic(mn?'dn':'up',14)}</button></h3>${ed?pnBar(k,t,loc,off):''}<div class="card-b" ${mn||off?'hidden':''}>${off?'':body}</div></div>`};
+/* cartão com botão de minimizar: it = item do painel, t = título, sub = legenda (unidade/período) */
+const card=(it,t,sub,body,cls='')=>{const k=it.id,mn=minSet().has(k),tg=tagLoc(it),sb=[sub,tg].filter(Boolean).join(' · ');
+  return `<div class="card ${cls} ${mn?'min':''}" data-card="${esc(k)}" data-pn="${esc(k)}"><h3><span class="ct">${esc(t)}${sb?` <small>${sb}</small>`:''}</span><button type="button" class="ic-btn min-btn" data-act="togCard" data-k="${esc(k)}" aria-expanded="${!mn}" aria-label="${mn?'Expandir':'Minimizar'}: ${esc(t)}" title="${mn?'Expandir':'Minimizar'}">${ic(mn?'dn':'up',14)}</button></h3>${edita()?pnBar(it):''}<div class="card-b" ${mn?'hidden':''}>${body}</div></div>`};
+const tile=(it,l,v,sub,cls='',extra='')=>`<div class="kpi" data-pn="${esc(it.id)}"><label>${l}${tagLoc(it)}</label><strong class="${cls}">${v}</strong><small>${sub}</small>${extra}${edita()?pnBar(it):''}</div>`;
+
+/* série diária em SVG (linha ou colunas), usada nos gráficos de NCs, rondas e temperatura */
+function serie(pts,o){
+  const nums=pts.map(p=>p.v).filter(v=>v!=null);if(!nums.length)return empty(o.vazio||'Sem dados no período');
+  const W=o.W||360,H=o.H||150,L=36,R=8,T=10,B=22,n=pts.length,mx0=Math.max(...nums),mn0=Math.min(...nums);
+  let lo,hi;
+  if(o.bar){lo=0;hi=Math.max(1,Math.ceil(mx0*1.1))}
+  else{const b=o.band||[];lo=Math.floor(Math.min(mn0,...b)-1);hi=Math.ceil(Math.max(mx0,...b)+1)}
+  const x=i=>L+(n<2?(W-L-R)/2:i*(W-L-R)/(n-1)),y=v=>T+(1-(v-lo)/(hi-lo||1))*(H-T-B),fm=o.fmt||(v=>String(v));
+  const tk=[lo,(lo+hi)/2,hi].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/><text x="${L-5}" y="${y(v)+4}" text-anchor="end" fill="var(--muted)" font-size="10">${fm(Math.round(v*10)/10)}</text>`).join('');
+  const ix=[0,Math.floor((n-1)/2),n-1].filter((v,i,a)=>a.indexOf(v)===i),xl=ix.map(i=>`<text x="${x(i)}" y="${H-6}" text-anchor="${i===0?'start':i===n-1?'end':'middle'}" fill="var(--muted)" font-size="10">${fdm(pts[i].t)}</text>`).join('');
+  const ref=o.band?`<rect x="${L}" y="${y(o.band[1])}" width="${W-L-R}" height="${Math.max(1,y(o.band[0])-y(o.band[1]))}" fill="var(--good)" opacity=".14"/>`:'';
+  let corpo='';
+  if(o.bar){const bw=Math.max(1.5,(W-L-R)/n*.7);corpo=pts.map((p,i)=>p.v?`<rect x="${(x(i)-bw/2).toFixed(1)}" y="${y(p.v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(lo)-y(p.v)).toFixed(1)}" rx="1.5" fill="${o.cor||'var(--c1)'}"/>`:'').join('')}
+  else{let d='',pen=false;pts.forEach((p,i)=>{if(p.v==null){pen=false;return}d+=(pen?'L':'M')+x(i).toFixed(1)+' '+y(p.v).toFixed(1);pen=true});
+    const ult=pts.map((p,i)=>p.v!=null?i:-1).filter(i=>i>=0).pop();
+    corpo=`<path d="${d}" fill="none" stroke="var(--c1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`+pts.map((p,i)=>p.v==null?'':`<circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${i===ult?4:n>31?0:2.5}" fill="${o.alerta&&o.alerta(p)?'var(--s3)':'var(--c1)'}" stroke="var(--surface)" stroke-width="1.5"/>`).join('')}
+  const alvo=pts.map((p,i)=>`<rect x="${(x(i)-(W-L-R)/n/2).toFixed(1)}" y="${T}" width="${((W-L-R)/n).toFixed(1)}" height="${H-T-B}" fill="transparent" data-tip="${esc(fdm(p.t)+': '+(p.v==null?'sem dados':(o.tip?o.tip(p):fm(Math.round(p.v*10)/10))))}"/>`).join('');
+  return `<svg class="pn-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.aria||'')}">${tk}${ref}${xl}${corpo}${alvo}</svg>`}
 
 function hbars(rows,o={}){
   rows=rows.filter(r=>r.v>0||o.keepZero);if(!rows.length)return empty('Sem dados no período');
@@ -76,100 +104,101 @@ function tempoLocais(rs){
   return Object.entries(g).map(([l,x])=>({l,v:x.s/x.k,t:fmtMin(x.s/x.k),tip:`${l}: média ${fmtMin(x.s/x.k)} em ${x.k} registro${x.k===1?'':'s'}`})).sort((a,b)=>b.v-a.v).slice(0,8)}
 
 RH.pages.painel=()=>{
-  const now=Date.now(),days=F.periodo,start=sod(now-(days-1)*864e5);
+  const now=Date.now(),days=F.periodo,start=sod(now-(days-1)*864e5),ini0=start-days*864e5,meta=+S.cfg.meta||95;
   const setores=[...new Set(S.salas.map(s=>s.setor).filter(Boolean))].sort();
   const okSet=x=>!F.setor||x.setor===F.setor;
-  const rs=S.rondas.filter(r=>r.ts>=start&&okSet(r)), ns=S.ncs.filter(n=>n.ts>=start&&okSet(n));
-  let C=0,N=0,I=0;rs.forEach(r=>{C+=r.c;N+=r.nc;I+=(r.ina||0)+(r.na||0)});
-  const pct=C+N?C/(C+N)*100:null, meta=+S.cfg.meta||95;
-  const abertas=S.ncs.filter(n=>n.status!=='resolvida'&&okSet(n)), graves=abertas.filter(n=>n.sev>=3);
-  const rz=ns.filter(n=>n.status==='resolvida'&&n.resolvidoEm), tmr=rz.length?rz.reduce((a,n)=>a+(n.resolvidoEm-n.ts),0)/rz.length/36e5:null;
-  const nExec=new Set(rs.map(r=>r.execId||r.id)).size;
-  /* período anterior (mesma duração) para as setas de variação */
-  const ini0=start-days*864e5, rs0=S.rondas.filter(r=>r.ts>=ini0&&r.ts<start&&okSet(r));
-  let C0=0,N0=0;rs0.forEach(r=>{C0+=r.c;N0+=r.nc});
-  const pct0=C0+N0?C0/(C0+N0)*100:null, nExec0=new Set(rs0.map(r=>r.execId||r.id)).size;
-  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">Igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
-
-  /* salas inspecionadas no período */
-  const salas=S.salas.filter(s=>s.ativo!==false&&(!F.setor||s.setor===F.setor));
-  const insp=new Set(rs.map(r=>r.salaId)), cob=salas.length?salas.filter(s=>insp.has(s.id)).length/salas.length*100:null;
-
-  /* rondas (cadastro "Nome da ronda") em atraso: última execução mais antiga que a periodicidade */
   const lastM={};S.rondas.forEach(r=>{if(r.modeloId&&(!lastM[r.modeloId]||r.ts>lastM[r.modeloId]))lastM[r.modeloId]=r.ts});
-  const modelos=S.modelos.filter(m=>m.ativo!==false&&(!F.setor||RH.salasDaRonda(m).some(s=>s.setor===F.setor)||RH.equipsDaRonda(m).some(e=>RH.setorEq(e)===F.setor)));
-  const atraso=modelos.filter(m=>RH.agenda.atrasada(m,lastM[m.id]??null,now));
-
-  /* série diária */
-  const ser=[];for(let i=0;i<days;i++){ser.push({t:start+i*864e5,c:0,n:0,r:0})}
-  rs.forEach(r=>{const i=Math.min(days-1,Math.floor((sod(r.ts)-start)/864e5));if(ser[i]){ser[i].c+=r.c;ser[i].n+=r.nc;ser[i].r++}});
-  const nd=ser.map(()=>0);ns.forEach(n=>{const i=Math.min(days-1,Math.max(0,Math.floor((sod(n.ts)-start)/864e5)));nd[i]++});
+  const delta=(a,b,un,sobe)=>{if(a==null||b==null)return '';const d=a-b;if(Math.abs(d)<0.05)return '<span class="dl eq">Igual ao período anterior</span>';const bom=sobe?d>0:d<0;return `<span class="dl ${bom?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d).toLocaleString('pt-BR',{maximumFractionDigits:1})}${un} vs. período anterior</span>`};
   /* minigráfico: linha simples dos valores diários (null = dia sem dados, fica como lacuna) */
   const spark=(vals,cor)=>{const pts=vals.map((v,i)=>v==null?null:[i,v]).filter(Boolean);if(pts.length<2)return '';
     const W=120,H=28,mx=Math.max(...pts.map(p=>p[1])),mn=Math.min(...pts.map(p=>p[1])),sp=mx-mn||1,x=i=>2+i*(W-4)/Math.max(1,vals.length-1),y=v=>H-3-(v-mn)/sp*(H-6);
     let d='',prev=-9;pts.forEach(([i,v])=>{d+=(i-prev===1?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);prev=i});
     const l=pts[pts.length-1];return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="${d}" fill="none" stroke="${cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><circle cx="${x(l[0]).toFixed(1)}" cy="${y(l[1]).toFixed(1)}" r="2.2" fill="${cor}"/></svg>`};
-  const spC=spark(ser.map(d=>d.c+d.n?d.c/(d.c+d.n)*100:null),'var(--brand,#0b6bcb)'),spR=spark(ser.map(d=>d.r),'var(--brand,#0b6bcb)'),spN=spark(nd,'var(--s3,#d97706)');
   const cnt=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x);if(k)m[k]=(m[k]||0)+1});return Object.entries(m).map(([l,v])=>({l,v})).sort((a,b)=>b.v-a.v)};
-  /* dados de cada cartão: o local do cartão (se houver) substitui o filtro Setor do Painel */
+  const idx=ts=>Math.min(days-1,Math.max(0,Math.floor((sod(ts)-start)/864e5))),dias=()=>Array.from({length:days},(_,i)=>({t:start+i*864e5,c:0,n:0,r:0,k:new Set(),nc:0,ts:0,tn:0,tf:0}));
+
+  /* dados de cada item: o local do item (se houver) substitui o filtro Setor do Painel */
   const okDe=loc=>!loc?okSet:loc==='h'?(()=>true):loc.startsWith('s:')?(x=>x.setor===loc.slice(2)):(x=>x.salaId===loc.slice(2));
   const salaOkDe=loc=>!loc?(s=>!F.setor||s.setor===F.setor):loc==='h'?(()=>true):loc.startsWith('s:')?(s=>s.setor===loc.slice(2)):(s=>s.id===loc.slice(2));
   const modOkDe=loc=>!loc?(m=>!F.setor||RH.salasDaRonda(m).some(s=>s.setor===F.setor)||RH.equipsDaRonda(m).some(e=>RH.setorEq(e)===F.setor)):loc==='h'?(()=>true)
     :loc.startsWith('s:')?(m=>RH.salasDaRonda(m).some(s=>s.setor===loc.slice(2))||RH.equipsDaRonda(m).some(e=>RH.setorEq(e)===loc.slice(2))):(m=>RH.salasDaRonda(m).some(s=>s.id===loc.slice(2)));
   const ctx=loc=>{
     const ok=okDe(loc),rs=S.rondas.filter(r=>r.ts>=start&&ok(r)),ns=S.ncs.filter(n=>n.ts>=start&&ok(n)),salas=S.salas.filter(s=>s.ativo!==false&&salaOkDe(loc)(s));
+    let C=0,N=0,I=0;rs.forEach(r=>{C+=r.c;N+=r.nc;I+=(r.ina||0)+(r.na||0)});const pct=C+N?C/(C+N)*100:null;
+    const rs0=S.rondas.filter(r=>r.ts>=ini0&&r.ts<start&&ok(r));let C0=0,N0=0;rs0.forEach(r=>{C0+=r.c;N0+=r.nc});
+    const abertas=S.ncs.filter(n=>n.status!=='resolvida'&&ok(n)),rz=ns.filter(n=>n.status==='resolvida'&&n.resolvidoEm);
+    const insp=new Set(rs.map(r=>r.salaId));
     const ser=[];for(let i=0;i<days;i++)ser.push({t:start+i*864e5,c:0,n:0,r:0});
     rs.forEach(r=>{const i=Math.min(days-1,Math.floor((sod(r.ts)-start)/864e5));if(ser[i]){ser[i].c+=r.c;ser[i].n+=r.nc;ser[i].r++}});
+    const nd=ser.map(()=>0);ns.forEach(n=>{nd[idx(n.ts)]++});
     const stC={aberta:0,tratamento:0,resolvida:0};ns.forEach(n=>stC[n.status]=(stC[n.status]||0)+1);
     const porSala=salas.map(s=>{let c=0,n=0;rs.filter(r=>r.salaId===s.id).forEach(r=>{c+=r.c;n+=r.nc});return {s,p:c+n?c/(c+n)*100:null}}).sort((a,b)=>(a.p??101)-(b.p??101));
-    return {rs,ns,salas,ser,stC,stT:ns.length||1,porSala,abaixo:porSala.filter(x=>x.p!=null&&x.p<meta),   /* só salas abaixo da meta de conformidade do hospital (Cadastros → Hospital) */
+    return {rs,ns,salas,ser,nd,C,N,I,pct,pct0:C0+N0?C0/(C0+N0)*100:null,nExec:new Set(rs.map(r=>r.execId||r.id)).size,nExec0:new Set(rs0.map(r=>r.execId||r.id)).size,
+      abertas,graves:abertas.filter(n=>n.sev>=3),rz,tmr:rz.length?rz.reduce((a,n)=>a+(n.resolvidoEm-n.ts),0)/rz.length/36e5:null,nInsp:salas.filter(s=>insp.has(s.id)).length,
+      cob:salas.length?salas.filter(s=>insp.has(s.id)).length/salas.length*100:null,
+      stC,stT:ns.length||1,porSala,abaixo:porSala.filter(y=>y.p!=null&&y.p<meta),   /* só salas abaixo da meta de conformidade do hospital (Cadastros → Hospital) */
       porSetor:cnt(ns,n=>n.setor),porEq:cnt(ns.filter(n=>n.eqNome),n=>n.eqNome+(n.salaNome?' · '+n.salaNome:'')).slice(0,6),
       tRonda:tempoRondas(rs),tLocal:tempoLocais(rs),sevRows:[4,3,2,1].map(s=>({l:SEV[s],v:ns.filter(n=>n.sev===s).length,c:`var(--s${s})`})),
       rec:S.ncs.filter(ok).slice(0,6),atraso:S.modelos.filter(m=>m.ativo!==false&&modOkDe(loc)(m)).filter(m=>RH.agenda.atrasada(m,lastM[m.id]??null,now))}};
-  const cx={},X=k=>{const l=lay().loc[k]||'';return cx[l]??=ctx(l)};
+  const cx={},X=loc=>cx[loc]??=ctx(loc);
   const stCol={aberta:'var(--s3)',tratamento:'var(--s1)',resolvida:'var(--good)'},semTempo=empty('Sem dados de tempo no período','O tempo é registrado nas rondas feitas a partir da versão 1.0.12.');
   const PARETO={tipo:['Tipo de NC',n=>n.tipoNome],item:['Item verificado',n=>n.itemTexto],setor:['Setor',n=>n.setor]},pp=PARETO[F.paretoPor]?F.paretoPor:'tipo';
-  const tile=(l,v,sub,cls='',extra='')=>`<div class="kpi"><label>${l}</label><strong class="${cls}">${v}</strong><small>${sub}</small>${extra}</div>`;
-  const R={
-    meus:()=>card('meus','Meus gráficos','personalizável',RH.mg?RH.mg.html():'','span2'),
-    linha:x=>{cache={ser:x.ser,meta};return card('linha','Conformidade por dia',`meta ${meta}%`,'<div id="ch-line"></div>','span2')},
-    setor:x=>card('setor','Não conformidades por setor',`${x.ns.length} no período`,hbars(x.porSetor)),
-    sev:x=>card('sev','Por severidade','',hbars(x.sevRows,{keepZero:1})),
-    situacao:x=>card('situacao','Situação das NCs do período','',x.ns.length?`<div class="seg-bar" role="img" aria-label="Distribuição por situação">${Object.keys(ST).map(k=>x.stC[k]?`<i style="flex:${x.stC[k]};background:${stCol[k]}" data-tip="${ST[k]}: ${x.stC[k]}"></i>`:'').join('')}</div>
-   <div class="legend">${Object.keys(ST).map(k=>`<span><i style="background:${stCol[k]}"></i>${ST[k]} <b>${x.stC[k]||0}</b> <small>(${Math.round((x.stC[k]||0)/x.stT*100)}%)</small></span>`).join('')}</div>`:empty('Sem NCs no período')),
-    pareto:x=>card('pareto','Pareto das NCs',`no período · por ${PARETO[pp][0].toLowerCase().replace(" nc"," NC")}`,`<label class="field pt-sel"><span>Agrupar por</span><select data-set="F:paretoPor">${Object.entries(PARETO).map(([k,v])=>`<option value="${k}" ${k===pp?'selected':''}>${v[0]}</option>`).join('')}</select></label>${paretoHtml(cnt(x.ns,PARETO[pp][1]))}`),
-    repet:x=>card('repet','Problemas que se repetem',`no período · mesmo item e local`,(()=>{const g=RH.recGrupos(x.ns).slice(0,6);return g.length?hbars(g):empty('Nenhum item com 2 ou mais NCs no período')})()),
-    equip:x=>card('equip','Equipamentos com mais NCs','',hbars(x.porEq)),
-    atraso:x=>card('atraso','Rondas em atraso','',x.atraso.length?`<div class="hb">${x.atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${RH.ordemDaRonda(m).length} ${RH.ordemDaRonda(m).length===1?'local':'locais'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.')),
-    calor:x=>card('calor','Mapa de calor: setor × horário','% de itens não conformes',heatHtml(x.rs),'span2'),
-    tempoRonda:x=>card('tempoRonda','Tempo médio por ronda','duração total da execução',x.tRonda.length?hbars(x.tRonda,{w:78}):semTempo),
-    tempoLocal:x=>card('tempoLocal','Tempo médio por local','1º ao último item respondido',x.tLocal.length?hbars(x.tLocal,{w:78}):semTempo),
-    sala:x=>card('sala','Salas abaixo da meta do hospital',`meta do hospital: ${meta}% · ${x.abaixo.length} de ${x.porSala.filter(y=>y.p!=null).length} salas com rondas`,x.abaixo.length?`<div class="hb">${x.abaixo.map(y=>`<div class="hb-r" data-tip="${esc(y.s.nome)}: ${pc(y.p)} (meta do hospital: ${meta}%)"><span class="hb-l">${esc(y.s.nome)}</span><span class="hb-t"><i style="width:${y.p}%;background:var(--s3)"></i></span><span class="hb-v">${Math.round(y.p)}%</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Só aparecem as salas com conformidade menor que a meta de ${meta}% no período. As que atingiram a meta e as sem rondas ficam ocultas.</p>`:x.porSala.some(y=>y.p!=null)?empty('Nenhuma sala abaixo da meta do hospital','Todas as salas com rondas no período atingiram a meta de '+meta+'%.'):empty(x.porSala.length?'Sem rondas no período':'Nenhuma sala cadastrada',x.porSala.length?'':'Cadastre salas em Cadastros.'),'span2'),
-    recentes:x=>card('recentes','Não conformidades recentes','',x.rec.length?`<div class="tw" style="border:0"><table><thead><tr><th>Data</th><th>Local</th><th>Descrição</th><th>Severidade</th><th>Situação</th></tr></thead><tbody>${x.rec.map(n=>`<tr data-act="ncOpen" data-id="${n.id}"><td class="num">${fdt(n.ts)}</td><td>${esc(n.eqNome||n.salaNome)}<small>${esc(n.eqNome?n.salaNome:n.setor||'')}</small></td><td>${esc((n.desc||n.itemTexto||'').slice(0,80))}</td><td>${sevPill(n.sev)}</td><td>${stPill(n.status)}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma não conformidade registrada'),'span2')};
-  const L0=lay(),cartoes=L0.ordem.filter(k=>RH.st.pnEdit||!L0.ocultos.includes(k)).map(k=>R[k](k==='meus'?null:X(k))).join('');
+  const BRAND='var(--brand,#0b6bcb)';
 
+  /* indicadores (linha de cima) */
+  const TILE={
+    kConf:(it,x)=>tile(it,'Conformidade geral',pc(x.pct),x.pct==null?'Sem rondas no período':x.pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,x.pct==null?'':x.pct>=meta?'good':'badc',delta(x.pct,x.pct0,' p.p.',true)+spark(x.ser.map(d=>d.c+d.n?d.c/(d.c+d.n)*100:null),BRAND)),
+    kRondas:(it,x)=>tile(it,'Rondas realizadas',x.nExec.toLocaleString('pt-BR'),`${(x.C+x.N).toLocaleString('pt-BR')} itens avaliados${x.I?` · ${x.I.toLocaleString('pt-BR')} inacessíve${x.I===1?'l':'is'}`:''}`,'',delta(x.nExec0?x.nExec:null,x.nExec0||null,'',true)+spark(x.ser.map(d=>d.r),BRAND)),
+    kNC:(it,x)=>tile(it,'NCs não resolvidas',x.abertas.length,`${x.graves.length} de severidade alta ou crítica`,x.graves.length?'badc':'',spark(x.nd,'var(--s3,#d97706)')),
+    kTmr:(it,x)=>tile(it,'Tempo médio de resolução',dur(x.tmr),`${x.rz.length} NC${x.rz.length===1?'':'s'} resolvida${x.rz.length===1?'':'s'}`),
+    kCob:(it,x)=>tile(it,'Cobertura de salas',pc(x.cob),`${x.nInsp} de ${x.salas.length} salas inspecionadas`),
+    kAtraso:(it,x)=>tile(it,'Rondas em atraso',x.atraso.length,x.atraso.length?'Ver "Rondas em atraso" abaixo':'Todas dentro da agenda',x.atraso.length?'badc':'good')};
+
+  /* gráficos e listas */
+  const R={
+    linha:(it,x)=>{cache[it.id]={ser:x.ser,meta};return card(it,'Conformidade por dia',`% de itens conformes · meta ${meta}%`,`<div class="ch-line" data-id="${esc(it.id)}"></div>`,'span2')},
+    ncdia:(it,x)=>{const s=dias();x.ns.forEach(n=>s[idx(n.ts)].nc++);return card(it,'Não conformidades por dia',`${x.ns.length} no período`,x.ns.length?serie(s.map(a=>({t:a.t,v:a.nc})),{bar:1,cor:'var(--s3)',tip:p=>p.v+' NC'+(p.v===1?'':'s'),aria:'Não conformidades por dia'}):empty('Nenhuma NC no período'))},
+    prod:(it,x)=>{const s=dias();x.rs.forEach(r=>s[idx(r.ts)].k.add(r.execId||r.id));const tot=x.nExec;return card(it,'Rondas por dia (produtividade)',tot?`${tot} no período · média de ${(tot/days).toLocaleString('pt-BR',{maximumFractionDigits:1})} por dia`:'',tot?serie(s.map(a=>({t:a.t,v:a.k.size})),{bar:1,tip:p=>p.v+' ronda'+(p.v===1?'':'s'),aria:'Rondas por dia'}):empty('Sem rondas no período'))},
+    temp:(it,x)=>{const s=dias();let tot=0,fora=0,faixa=null,mix=false;
+      x.rs.forEach(r=>(r.itens||[]).forEach(i=>{if(!RH.ehTemp(i.t)||i.tv==null||isNaN(+i.tv))return;const a=s[idx(r.ts)];a.ts+=+i.tv;a.tn++;tot++;if(i.r==='NC'){fora++;a.tf++}
+        const m=/(-?[\d.,]+)\s*°C\s*a\s*(-?[\d.,]+)\s*°C/.exec(i.ideal||'');if(m){const f=[RH.numTemp(m[1]),RH.numTemp(m[2])];if(f[0]!=null&&f[1]!=null){if(!faixa)faixa=f;else if(faixa[0]!==f[0]||faixa[1]!==f[1])mix=true}}}));
+      return card(it,'Temperatura (controle ambiental)',tot?`${tot} leitura${tot===1?'':'s'} · <b class="${fora?'badc':''}">${fora}</b> fora da faixa${faixa&&!mix?` · ideal ${RH.fmtIdeal(faixa[0],faixa[1])}`:''}`:'',
+        tot?serie(s.map(a=>({t:a.t,v:a.tn?a.ts/a.tn:null,n:a.tn,f:a.tf})),{band:faixa&&!mix?faixa:null,alerta:p=>p.f>0,fmt:v=>String(v).replace('.',','),tip:p=>`média ${(Math.round(p.v*10)/10).toLocaleString('pt-BR')} °C · ${p.n} leitura${p.n===1?'':'s'}${p.f?` · ${p.f} fora da faixa`:''}`,aria:'Temperatura média diária'}):empty('Sem leituras de temperatura no período','Aparecem quando um item de temperatura é respondido numa ronda.'))},
+    setor:(it,x)=>card(it,'Não conformidades por setor',`${x.ns.length} no período`,hbars(x.porSetor)),
+    sev:(it,x)=>card(it,'Não conformidades por severidade','no período',hbars(x.sevRows,{keepZero:1})),
+    situacao:(it,x)=>card(it,'Situação das NCs','no período',x.ns.length?`<div class="seg-bar" role="img" aria-label="Distribuição por situação">${Object.keys(ST).map(k=>x.stC[k]?`<i style="flex:${x.stC[k]};background:${stCol[k]}" data-tip="${ST[k]}: ${x.stC[k]}"></i>`:'').join('')}</div>
+   <div class="legend">${Object.keys(ST).map(k=>`<span><i style="background:${stCol[k]}"></i>${ST[k]} <b>${x.stC[k]||0}</b> <small>(${Math.round((x.stC[k]||0)/x.stT*100)}%)</small></span>`).join('')}</div>`:empty('Sem NCs no período')),
+    pareto:(it,x)=>card(it,'Pareto das NCs',`no período · por ${PARETO[pp][0].toLowerCase().replace(" nc"," NC")}`,`<label class="field pt-sel"><span>Agrupar por</span><select data-set="F:paretoPor">${Object.entries(PARETO).map(([k,v])=>`<option value="${k}" ${k===pp?'selected':''}>${v[0]}</option>`).join('')}</select></label>${paretoHtml(cnt(x.ns,PARETO[pp][1]))}`),
+    repet:(it,x)=>card(it,'Problemas que se repetem','no período · mesmo item e local',(()=>{const g=RH.recGrupos(x.ns).slice(0,6);return g.length?hbars(g):empty('Nenhum item com 2 ou mais NCs no período')})()),
+    equip:(it,x)=>card(it,'Equipamentos com mais NCs','no período',hbars(x.porEq)),
+    atraso:(it,x)=>card(it,'Rondas em atraso','última execução fora da periodicidade',x.atraso.length?`<div class="hb">${x.atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${RH.ordemDaRonda(m).length} ${RH.ordemDaRonda(m).length===1?'local':'locais'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'),'span2'),
+    calor:(it,x)=>card(it,'Mapa de calor: setor × horário','% de itens não conformes',heatHtml(x.rs),'span2'),
+    tempoRonda:(it,x)=>card(it,'Tempo médio por ronda','duração total da execução',x.tRonda.length?hbars(x.tRonda,{w:78}):semTempo),
+    tempoLocal:(it,x)=>card(it,'Tempo médio por local','1º ao último item respondido',x.tLocal.length?hbars(x.tLocal,{w:78}):semTempo),
+    sala:(it,x)=>card(it,'Salas abaixo da meta',`meta do hospital: ${meta}% · ${x.abaixo.length} de ${x.porSala.filter(y=>y.p!=null).length} salas com rondas`,x.abaixo.length?`<div class="hb">${x.abaixo.map(y=>`<div class="hb-r" data-tip="${esc(y.s.nome)}: ${pc(y.p)} (meta do hospital: ${meta}%)"><span class="hb-l">${esc(y.s.nome)}</span><span class="hb-t"><i style="width:${y.p}%;background:var(--s3)"></i></span><span class="hb-v">${Math.round(y.p)}%</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Só aparecem as salas com conformidade menor que a meta de ${meta}% no período. As que atingiram a meta e as sem rondas ficam ocultas.</p>`:x.porSala.some(y=>y.p!=null)?empty('Nenhuma sala abaixo da meta do hospital','Todas as salas com rondas no período atingiram a meta de '+meta+'%.'):empty(x.porSala.length?'Sem rondas no período':'Nenhuma sala cadastrada',x.porSala.length?'':'Cadastre salas em Cadastros.'),'span2'),
+    recentes:(it,x)=>card(it,'Não conformidades recentes','mais recentes primeiro',x.rec.length?`<div class="tw" style="border:0"><table><thead><tr><th>Data</th><th>Local</th><th>Descrição</th><th>Severidade</th><th>Situação</th></tr></thead><tbody>${x.rec.map(n=>`<tr data-act="ncOpen" data-id="${n.id}"><td class="num">${fdt(n.ts)}</td><td>${esc(n.eqNome||n.salaNome)}<small>${esc(n.eqNome?n.salaNome:n.setor||'')}</small></td><td>${esc((n.desc||n.itemTexto||'').slice(0,80))}</td><td>${sevPill(n.sev)}</td><td>${stPill(n.status)}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma não conformidade registrada'),'span2')};
+
+  cache={};
+  const ed=edita(),D=doc();
+  const kp=D.kpis.map(it=>TILE[it.t](it,X(it.loc))).join(''),cs=D.cards.map(it=>R[it.t](it,X(it.loc))).join('');
+  const opt=k=>Object.entries(CAT).filter(([,v])=>v[0]===k).map(([t,v])=>`<option value="${t}">${esc(v[1])}</option>`).join('');
+  const nativo=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
   setTimeout(()=>RH.armAviso&&RH.armAviso(),0);
-  return `<div id="arm-aviso"></div>${RH.avisoLimite(['rondas','ncs'])}<div class="top"><div><h1>Painel de controle</h1><p>Indicadores de conformidade das rondas${F.setor?' · '+esc(F.setor):' · todos os setores'}</p></div>
+  return `<div id="arm-aviso"></div>${RH.avisoLimite(['rondas','ncs'])}<div class="top"><div><h1>Painel de controle</h1><p>${esc(S.cfg.hospital||'')}${S.cfg.hospital?' · ':''}Conformidade das rondas e gestão de não conformidades · ${F.setor?'Setor '+esc(F.setor):'todos os setores'}</p><p class="pn-upd">Últimos ${days} dias · atualizado em ${fdt(now)}</p></div>
   <div class="filters"><label class="field"><span>Período</span><select data-set="F:periodo" data-num="1">${[7,30,90].map(d=>`<option value="${d}" ${d===days?'selected':''}>Últimos ${d} dias</option>`).join('')}</select></label>
   <label class="field"><span>Setor</span><select data-set="F:setor"><option value="">Todos os setores</option>${setores.map(s=>`<option ${s===F.setor?'selected':''}>${esc(s)}</option>`).join('')}</select></label></div>
-  <div class="tools"><button type="button" class="btn sm${RH.st.pnEdit?' pri':''}" data-act="pnEdit" aria-pressed="${!!RH.st.pnEdit}">${ic(RH.st.pnEdit?'check':'gear',14)} ${RH.st.pnEdit?'Concluir':'Personalizar painel'}</button>${RH.st.pnEdit?'<button type="button" class="btn sm" data-act="pnReset">Restaurar padrão</button>':''}<button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button></div></div>
-  <section class="kpis" aria-label="Indicadores">
-  ${tile('Conformidade geral',pc(pct),pct==null?'Sem rondas no período':pct>=meta?`Meta de ${meta}% atingida`:`Abaixo da meta de ${meta}%`,pct==null?'':pct>=meta?'good':'badc',delta(pct,pct0,' p.p.',true)+spC)}
-  ${tile('Rondas realizadas',nExec.toLocaleString('pt-BR'),`${(C+N).toLocaleString('pt-BR')} itens avaliados${I?` · ${I.toLocaleString('pt-BR')} inacessíve${I===1?'l':'is'}`:''}`,'',delta(nExec0?nExec:null,nExec0||null,'',true)+spR)}
-  ${tile('NCs não resolvidas',abertas.length,`${graves.length} de severidade alta ou crítica`,graves.length?'badc':'',spN)}
-  ${tile('Tempo médio de resolução',dur(tmr),`${rz.length} NC${rz.length===1?'':'s'} resolvida${rz.length===1?'':'s'}`)}
-  ${tile('Cobertura de salas',pc(cob),`${salas.filter(s=>insp.has(s.id)).length} de ${salas.length} salas inspecionadas`)}
-  ${tile('Rondas em atraso',atraso.length,atraso.length?'Veja a lista abaixo':'Todas dentro da agenda',atraso.length?'badc':'good')}
-  </section>
-  ${RH.st.pnEdit?`<div class="banner pn-info" role="note"><b>Personalizar painel.</b> Escolha o local de cada cartão (ou deixe seguir o filtro Setor), mova com ↑ ↓ ou segurando o clique e arrastando, e oculte o que não precisa. Fica salvo neste aparelho. Os indicadores de cima seguem sempre o filtro Setor.</div>`:''}
-  <section class="grid2">${cartoes}
-  </section>`;
+  <div class="tools">${pode()?`<button type="button" class="btn sm${ed?' pri':''}" data-act="pnEdit" aria-pressed="${ed}">${ic(ed?'check':'gear',14)} ${ed?'Concluir':'Personalizar painel'}</button>${ed?'<button type="button" class="btn sm" data-act="pnReset">Restaurar padrão</button>':''}`:''}<button type="button" class="btn sm" data-act="togTodos" data-v="min">Minimizar tudo</button><button type="button" class="btn sm" data-act="togTodos" data-v="exp">Expandir tudo</button>${nativo?'':'<button type="button" class="btn sm" data-act="pnImprimir">Imprimir / PDF</button>'}</div></div>
+  ${ed?`<div class="banner pn-info" role="note"><b>Personalizar painel: vale para todos.</b> As alterações aparecem para todos os gestores e administradores e ficam salvas no banco compartilhado. Em cada indicador ou gráfico escolha o local, mova (↑ ↓ ou segurando o clique e arrastando) ou exclua; use "Adicionar ao painel" para incluir de novo ou acrescentar outro.</div>
+  <div class="pn-add"><label class="field"><span>Adicionar ao painel</span><select id="pn-add"><optgroup label="Indicadores">${opt('kpi')}</optgroup><optgroup label="Gráficos e listas">${opt('card')}</optgroup></select></label><button type="button" class="btn sm pri" data-act="pnAdd">Adicionar</button></div>`:''}
+  <section class="kpis${ed?' pn-ed':''}" aria-label="Indicadores">${kp}</section>
+  <section class="grid2" aria-label="Gráficos">${cs}</section>
+  ${!kp&&!cs?`<div class="empty"><b>Nenhum indicador ou gráfico no painel</b><span>${pode()?'Use "Personalizar painel" e "Adicionar ao painel".':'Peça a um gestor ou administrador para montar o painel.'}</span></div>`:''}`;
 };
 
-/* gráfico de linha da conformidade diária (SVG próprio) */
-function drawLine(){
-  const el=$('#ch-line');if(!el||!cache)return;
-  const {ser,meta}=cache,W=Math.max(300,el.clientWidth||640),H=230,L=40,Rr=14,T=12,B=26;
+/* gráfico de linha da conformidade diária (SVG próprio); pode haver mais de um no painel (um por item, cada qual com o seu local) */
+function drawLine(){document.querySelectorAll('.ch-line').forEach(el=>{const c=cache[el.dataset.id];if(c)drawOne(el,c)})}
+function drawOne(el,c){
+  const {ser,meta}=c,W=Math.max(300,el.clientWidth||640),H=230,L=40,Rr=14,T=12,B=26;
   const pts=ser.map((d,i)=>({i,t:d.t,v:d.c+d.n?d.c/(d.c+d.n)*100:null,r:d.r,n:d.n}));
   const vals=pts.filter(p=>p.v!=null).map(p=>p.v);
   if(!vals.length){el.innerHTML=empty('Sem rondas no período','Registre uma ronda para ver a evolução da conformidade.');return}
@@ -180,7 +209,7 @@ function drawLine(){
   let d='',pen=false;pts.forEach(p=>{if(p.v==null){pen=false;return}d+=(pen?'L':'M')+x(p.i).toFixed(1)+' '+y(p.v).toFixed(1);pen=true});
   const dots=pts.filter(p=>p.v!=null).map((p,k,a)=>`<circle cx="${x(p.i)}" cy="${y(p.v)}" r="${k===a.length-1?5:pts.length>45?0:3}" fill="var(--c1)" stroke="var(--surface)" stroke-width="2"/>`).join('');
   el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Conformidade diária, de ${pc(Math.min(...vals))} a ${pc(Math.max(...vals))}">${g}
-  <line x1="${L}" x2="${W-Rr}" y1="${y(meta)}" y2="${y(meta)}" stroke="var(--good)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${W-Rr}" y="${y(meta)-5}" text-anchor="end" fill="var(--ok)" font-size="11" font-weight="600">Meta ${meta}%</text>
+  <line x1="${L}" x2="${W-Rr}" y1="${y(meta)}" y2="${y(meta)}" stroke="var(--good)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${L+6}" y="${y(meta)-6}" text-anchor="start" fill="var(--ok)" font-size="11" font-weight="600">Meta ${meta}%</text>
   <path d="${d}" fill="none" stroke="var(--c1)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${dots}${xt}
   <line id="xh" y1="${T}" y2="${H-B}" stroke="var(--line2)" stroke-dasharray="3 3" visibility="hidden"/><circle id="xd" r="5" fill="var(--c1)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><rect x="${L}" y="${T}" width="${W-L-Rr}" height="${H-T-B}" fill="transparent" id="xr"/></svg>`;
   const svg=el.firstChild,r=$('#xr',svg),xh=$('#xh',svg),xd=$('#xd',svg);
@@ -190,59 +219,69 @@ function drawLine(){
     RH.showTip(`${fd(best.t)} · ${pc(best.v)} · ${best.r} ${best.r===1?'local':'locais'} · ${best.n} NC`,e.clientX,e.clientY)};
   const sai=()=>{RH.tip.hidden=true;xh.setAttribute('visibility','hidden');xd.setAttribute('visibility','hidden')};
   r.addEventListener('pointermove',mv);r.addEventListener('pointerdown',mv);r.addEventListener('pointerleave',sai);r.addEventListener('pointercancel',sai);
-  if(!r._t){r._t=1;document.addEventListener('pointerdown',ev=>{if(!ev.target.closest||!ev.target.closest('#ch-line'))sai()},{passive:true})}
 }
 RH.after.painel=drawLine;
-RH.painelUi={hbars,paretoHtml,tempoRondas};   /* usado pelo widget Meus gráficos (meusgraficos.js) */
 Object.assign(RH.ACT,{togCard:el=>{
   const k=el.dataset.k,box=el.closest('.card'),m=minSet(),fechar=!m.has(k);
   fechar?m.add(k):m.delete(k);saveMin();
   box.classList.toggle('min',fechar);box.querySelector('.card-b').hidden=fechar;
   el.setAttribute('aria-expanded',String(!fechar));el.innerHTML=ic(fechar?'dn':'up',14);
   const t=box.querySelector('.ct').firstChild.textContent.trim();el.setAttribute('aria-label',(fechar?'Expandir':'Minimizar')+': '+t);el.title=fechar?'Expandir':'Minimizar';
-  if(!fechar&&k==='linha')drawLine()},
+  if(!fechar)drawLine()},
   /* minimiza ou expande todos os cartões de uma vez */
   togTodos:el=>{const fechar=el.dataset.v==='min',m=minSet();
     document.querySelectorAll('.card[data-card]').forEach(c=>{const k=c.dataset.card;fechar?m.add(k):m.delete(k)});saveMin();RH.renderView(true)}});
-/* ---- personalizar o painel: ações, troca de local e mover cartões (↑ ↓ ou segurando o clique) ---- */
+/* ---- personalizar o painel (só gestor e administrador): local, mover, excluir, adicionar, restaurar ---- */
+const achar=(D,id)=>{for(const k of ['kpis','cards']){const i=D[k].findIndex(x=>x.id===id);if(i>=0)return {k,i}}return null};
+let exId=null,exT,rsArm=false,rsT;
 Object.assign(RH.ACT,{
-  pnEdit:()=>{RH.st.pnEdit=!RH.st.pnEdit;RH.renderView(true)},
-  pnMove:el=>{const L=lay(),i=L.ordem.indexOf(el.dataset.k),j=i+(+el.dataset.d);if(i<0||j<0||j>=L.ordem.length)return;[L.ordem[i],L.ordem[j]]=[L.ordem[j],L.ordem[i]];saveLay();RH.renderView(true);
-    document.querySelector(`[data-act=pnMove][data-k="${el.dataset.k}"][data-d="${el.dataset.d}"]:not([disabled])`)?.focus()},
-  pnOcultar:el=>{const L=lay(),k=el.dataset.k,i=L.ocultos.indexOf(k);i<0?L.ocultos.push(k):L.ocultos.splice(i,1);saveLay();RH.renderView(true)},
-  pnReset:()=>{if(!RH.confirmArm(RH.ACT.pnReset,'Toque de novo para restaurar a ordem, os locais e os cartões ocultos.'))return;
-    LAY={ordem:[...ORDEM],ocultos:[],loc:{}};LAYDE=LAYK();saveLay();RH.renderView(true);RH.toast('Painel restaurado ao padrão.')}});
+  pnEdit:()=>{if(!pode())return;RH.st.pnEdit=!RH.st.pnEdit;RH.renderView(true)},
+  pnMove:el=>{if(!pode())return;const D=doc(),f=achar(D,el.dataset.id);if(!f)return;const L=D[f.k],j=f.i+(+el.dataset.d);if(j<0||j>=L.length)return;[L[f.i],L[j]]=[L[j],L[f.i]];gravar(D);
+    document.querySelector(`[data-act=pnMove][data-id="${CSS.escape(el.dataset.id)}"][data-d="${el.dataset.d}"]:not([disabled])`)?.focus()},
+  pnExcluir:el=>{if(!pode())return;const id=el.dataset.id;
+    if(exId!==id){exId=id;clearTimeout(exT);el.classList.add('arm');el.textContent='Confirmar exclusão';exT=setTimeout(()=>{exId=null;if(el.isConnected){el.classList.remove('arm');el.textContent='Excluir'}},3500);return}
+    exId=null;clearTimeout(exT);const D=doc(),f=achar(D,id);if(!f)return;D[f.k].splice(f.i,1);gravar(D);RH.toast('Removido do painel de todos. Para recolocar, use "Adicionar ao painel".')},
+  pnAdd:()=>{const t=document.getElementById('pn-add')?.value;if(!pode()||!CAT[t])return;const D=doc();D[CAT[t][0]==='kpi'?'kpis':'cards'].push({id:novoId(t),t,loc:''});gravar(D);RH.toast('Adicionado ao painel de todos.')},
+  pnReset:()=>{if(!pode())return;if(!rsArm){rsArm=true;clearTimeout(rsT);rsT=setTimeout(()=>rsArm=false,3500);RH.toast('Toque de novo para restaurar o painel padrão (vale para todos).');return}
+    rsArm=false;gravar(PADRAO());RH.toast('Painel restaurado ao padrão.')},
+  pnImprimir:()=>window.print()});
 RH.ON_CHANGE.push(el=>{
   if(el.dataset.pn!=='loc')return false;
-  const L=lay(),k=el.dataset.k;if(!ORDEM.includes(k))return true;
-  if(el.value)L.loc[k]=el.value;else delete L.loc[k];
-  saveLay();RH.renderView(true);return true});
+  if(!pode())return true;
+  const D=doc(),f=achar(D,el.dataset.id);if(!f)return true;
+  D[f.k][f.i].loc=el.value;gravar(D);return true});
+/* arrastar: segurar o clique (mouse/caneta, 0,35 s) num indicador ou gráfico e soltar sobre outro do mesmo grupo; no toque use ↑ ↓ */
 let dc=null;
+const SEL='.kpis > .kpi[data-pn], .grid2 > .card[data-pn]';
+/* uma atualização de dados no meio do gesto redesenha o painel: procura de novo o item arrastado */
+const vivo=()=>{if(!dc.el.isConnected){const n=[...document.querySelectorAll(SEL)].find(x=>x.dataset.pn===dc.id);if(n){dc.el=n;if(dc.on)n.classList.add('pn-drag')}}return dc.el};
 const fimCard=ok=>{
   if(!dc)return;const d=dc;dc=null;clearTimeout(d.t);document.body.classList.remove('pn-dragging');
   try{d.el.releasePointerCapture(d.pid)}catch(e){}
   if(!d.on)return;
-  d.el.classList.remove('pn-drag');d.el.style.transform='';d.el.style.zIndex='';
+  dc=d;const ev=vivo();dc=null;ev.classList.remove('pn-drag');ev.style.transform='';ev.style.zIndex='';
   document.querySelectorAll('.pn-over').forEach(x=>x.classList.remove('pn-over'));
-  if(ok&&d.alvo&&d.alvo!==d.k){const L=lay(),i=L.ordem.indexOf(d.k),j=L.ordem.indexOf(d.alvo);if(i>=0&&j>=0){const [m]=L.ordem.splice(i,1);L.ordem.splice(j,0,m);saveLay();RH.toast('Cartão movido.')}}
+  if(ok&&d.alvo&&d.alvo!==d.id&&pode()){const D=doc(),a=achar(D,d.id),b=achar(D,d.alvo);
+    if(a&&b&&a.k===b.k){const [m]=D[a.k].splice(a.i,1);D[a.k].splice(b.i,0,m);gravar(D);RH.toast('Movido.');return}}
   RH.renderView(true)};
 document.addEventListener('pointerdown',e=>{
-  if(e.pointerType==='touch'||e.button!==0||RH.st.page!=='painel')return;
-  const el=e.target.closest&&e.target.closest('.grid2 > .card[data-card]');if(!el)return;
-  if(e.target.closest('button,select,input,textarea,a,tr,[data-act],.mg-item,.mg-edit,.mg-top,.pn-bar,label'))return;
+  if(e.pointerType==='touch'||e.button!==0||RH.st.page!=='painel'||!edita())return;
+  const el=e.target.closest&&e.target.closest(SEL);if(!el)return;
+  if(e.target.closest('button,select,input,textarea,a,tr,[data-act],.pn-bar'))return;
   fimCard(false);
-  dc={el,k:el.dataset.card,pid:e.pointerId,x:e.clientX,y:e.clientY,on:false,alvo:null,
-    t:setTimeout(()=>{if(!dc)return;dc.on=true;el.classList.add('pn-drag');document.body.classList.add('pn-dragging');try{el.setPointerCapture(dc.pid)}catch(_){}},350)}});
+  dc={el,id:el.dataset.pn,pid:e.pointerId,x:e.clientX,y:e.clientY,on:false,alvo:null,
+    t:setTimeout(()=>{if(!dc)return;dc.on=true;const v=vivo();v.classList.add('pn-drag');document.body.classList.add('pn-dragging');try{v.setPointerCapture(dc.pid)}catch(_){}},350)}});
 document.addEventListener('pointermove',e=>{
   if(!dc||e.pointerId!==dc.pid)return;
   if(!dc.on){if(Math.hypot(e.clientX-dc.x,e.clientY-dc.y)>6){clearTimeout(dc.t);dc=null}return}
-  const el=dc.el;el.style.transform=`translate(${e.clientX-dc.x}px,${e.clientY-dc.y}px)`;el.style.zIndex=5;
+  const el=vivo();el.style.transform=`translate(${e.clientX-dc.x}px,${e.clientY-dc.y}px)`;el.style.zIndex=5;
   el.style.pointerEvents='none';const sob=document.elementFromPoint(e.clientX,e.clientY);el.style.pointerEvents='';
-  const alvo=sob&&sob.closest&&sob.closest('.grid2 > .card[data-card]');
+  const alvo=sob&&sob.closest&&sob.closest(SEL);
   document.querySelectorAll('.pn-over').forEach(x=>x.classList.remove('pn-over'));
-  dc.alvo=alvo&&alvo!==el?alvo.dataset.card:null;if(dc.alvo)alvo.classList.add('pn-over')});
+  dc.alvo=alvo&&alvo!==el&&alvo.parentNode===el.parentNode?alvo.dataset.pn:null;if(dc.alvo)alvo.classList.add('pn-over')});
 document.addEventListener('pointerup',e=>{if(dc&&e.pointerId===dc.pid)fimCard(true)});
 document.addEventListener('pointercancel',()=>fimCard(false));
 addEventListener('keydown',e=>{if(e.key==='Escape'&&dc&&dc.on){e.stopImmediatePropagation();fimCard(false)}},true);
+document.addEventListener('pointerdown',ev=>{if(!ev.target.closest||!ev.target.closest('.ch-line')){RH.tip&&(RH.tip.hidden=true);document.querySelectorAll('.ch-line [id=xh],.ch-line [id=xd]').forEach(e=>e.setAttribute('visibility','hidden'))}},{passive:true});
 let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(RH.st.page==='painel')drawLine()},150)});
 })();
