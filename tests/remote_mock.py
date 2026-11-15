@@ -73,7 +73,7 @@ def main():
         a.click("#nav [data-p=cadastros]"); a.click("[data-act=cadTab][data-k=salas]"); a.click("[data-act=newEnt]")
         a.fill("#ff-nome", "UTI 1"); a.fill("#ff-setor", "UTI"); a.click("#f-ent button[type=submit]"); a.wait_for_selector("#f-ent", state="detached")
         a.click("[data-act=cadTab][data-k=modelos]"); a.click("[data-act=newEnt]")
-        a.fill("#ff-nome", "Ronda UTI"); a.locator("#salas-pick label.chk", has_text="UTI 1").locator("input").check()
+        a.fill("#ff-nome", "Ronda UTI"); a.select_option("#ord-add", value=a.evaluate("[...document.querySelectorAll('#ord-add option')].find(o=>o.value&&/UTI 1/.test(o.textContent)).value")); a.click("[data-act=ordAdd]")
         a.click("#f-ent button[type=submit]"); a.wait_for_selector("#f-ent", state="detached")
         a.wait_for_timeout(300)
         check("dados chegam ao servidor simulado", any(k.startswith("modelos/") for k in DB) and any(k.startswith("salas/") for k in DB) and "config/main" in DB)
@@ -86,7 +86,8 @@ def main():
         bpage.fill("#lg-login", "admin"); bpage.fill("#lg-senha", "Senha@123"); bpage.click("#f-login button[type=submit]"); bpage.wait_for_selector("#nav")
         check("segundo aparelho vê a ronda cadastrada", bpage.evaluate("RH.S.modelos.map(m=>m.nome)") == ["Ronda UTI"])
         # sincronização em tempo (polling 4s): cria em A, aparece em B
-        a.click("[data-act=newEnt]"); a.fill("#ff-nome", "Ronda B"); a.locator("#salas-pick label.chk", has_text="UTI 1").locator("input").check()
+        a.evaluate("RH.put('salas','sala_b',{nome:'UTI 2',setor:'UTI',ativo:true,itens:[]})"); a.wait_for_timeout(300)   # cada sala pertence a uma só ronda: a 2ª ronda usa outra sala
+        a.click("[data-act=newEnt]"); a.fill("#ff-nome", "Ronda B"); a.select_option("#ord-add", value=a.evaluate("[...document.querySelectorAll('#ord-add option')].find(o=>o.value&&/UTI 2/.test(o.textContent)).value")); a.click("[data-act=ordAdd]")
         a.click("#f-ent button[type=submit]"); a.wait_for_selector("#f-ent", state="detached")
         bpage.wait_for_function("RH.S.modelos.length===2", timeout=9000)
         check("alteração em um aparelho chega ao outro automaticamente", True)

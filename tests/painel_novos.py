@@ -48,10 +48,10 @@ def main():
         tr = page.inner_text("main")
         check("tempo por ronda: UTI 15 min (ignora a de 20 h)", "15 min" in tr and "Ronda UTI" in tr, tr[:0])
         check("tempo por local: Sala B 6 min e Sala A 3 min", "6 min" in tr and "3 min" in tr)
-        sc = page.locator(".card:has-text('Salas abaixo da média do hospital')")
+        sc = page.locator(".card:has-text('Salas abaixo da meta do hospital')")
         nomes = sc.locator(".hb-l").all_inner_texts()
-        check("salas: só as abaixo da média do hospital (Sala B), sem a Sala A", nomes==["Sala B"], nomes)
-        check("salas: mostra a média do hospital", "média do hospital:" in sc.inner_text())
+        check("salas: só as abaixo da meta do hospital (Sala B), sem a Sala A", nomes==["Sala B"], nomes)
+        check("salas: mostra a meta do hospital", "meta do hospital: 95%" in sc.inner_text())
         # celular sem rolagem horizontal da página
         page.set_viewport_size({"width":390,"height":800}); page.wait_for_timeout(200)
         check("celular: página sem rolagem horizontal", page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"))

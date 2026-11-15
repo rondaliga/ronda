@@ -75,9 +75,10 @@ Rondas feitas antes desta versão continuam no histórico (uma linha por sala).
 ## Testes
 Requer Python 3 e Playwright (`pip install playwright && playwright install chromium`).
 ```
-python3 tests/e2e.py          # fluxo completo em modo local (nunca toca o banco real)
+python3 tests/e2e_local.py    # fluxo completo em modo local (nunca toca o banco real)
+# tests/e2e.py é só o apoio comum dos testes em navegador (servidor, login, cadastros); não roda sozinho
 python3 tests/remote_mock.py  # modo compartilhado contra um servidor simulado
-RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e.py   # testa o arquivo único (gere com --sem-config)
+RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e_local.py   # testa o arquivo único (gere com --sem-config)
 python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
@@ -174,4 +175,4 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Conteúdo: conformidade (com variação em pontos percentuais e meta), rondas executadas, itens, NCs por severidade (comparadas ao período anterior), NCs resolvidas e tempo médio até resolver, não resolvidas hoje (Alta/Crítica, há mais de 7 dias), tempo médio por ronda, salas verificadas, Pareto (5 maiores tipos) e setores com mais NCs.
 - Na 1ª execução depois de ligar (ou ao trocar a frequência) o serviço só registra o ponto de partida e envia no **próximo** horário programado. Cada período é enviado uma vez (`estado.relat`); se algum envio falhar, só quem faltou recebe na tentativa seguinte. Se o fluxo ficar parado por mais de 72 h, o relatório atrasado é pulado.
 - Conferir sem esperar: Actions → "Avisos por e-mail" → *Run workflow* → marque **relatorio** (ou `node tools/avisos-email.mjs --relatorio`). Envia o último período completo só aos administradores e não altera o controle de envio.
-- **Salas abaixo da média do hospital** (antes "Conformidade por sala"): o gráfico mostra só as salas cuja conformidade no período é menor que a conformidade geral do hospital (o cartão "Conformidade geral"); as acima da média e as sem rondas ficam ocultas.
+- **Salas abaixo da meta do hospital** (antes "Conformidade por sala"): o gráfico mostra só as salas cuja conformidade no período é menor que a meta definida em Cadastros → Hospital (padrão 95%); as que atingiram a meta e as sem rondas ficam ocultas.
