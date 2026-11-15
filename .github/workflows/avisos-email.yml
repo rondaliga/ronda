@@ -1,11 +1,15 @@
 name: Avisos por e-mail
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
     inputs:
       teste:
         description: 'Enviar e-mail de teste aos administradores'
+        type: boolean
+        default: false
+      relatorio:
+        description: 'Enviar aos administradores o relatório do último período completo (para conferir)'
         type: boolean
         default: false
 concurrency:
@@ -27,5 +31,5 @@ jobs:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
           EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
-          TZ: America/Fortaleza
-        run: node tools/avisos-email.mjs ${{ inputs.teste && '--teste' || '' }}
+          TZ: ${{ vars.RONDA_TZ || 'America/Fortaleza' }}
+        run: node tools/avisos-email.mjs ${{ inputs.teste && '--teste' || '' }} ${{ inputs.relatorio && '--relatorio' || '' }}
