@@ -40,7 +40,7 @@ def scan(page, code, bssid):
     page.evaluate("([c,b])=>{window.__c=c;window.__b=b}", [code, bssid])
 
 def click_scan(page, nome):
-    page.locator(f"section.bl:has(h2:has-text('{nome}')) [data-act=chkScan]").click()
+    page.locator(f"section.bl:has(.gh b:has-text('{nome}')) [data-act=chkScan]").click()
     page.wait_for_timeout(250)
 
 def main():
@@ -113,21 +113,21 @@ def main():
         check("Finalizar sem presença é bloqueado", "Faltam" in toast(page) or "Confirme a presença" in toast(page), toast(page))
 
         scan(page, "999999", "aa:bb:cc:dd:ee:01"); click_scan(page, "UTI 01")
-        check("Código desconhecido rejeitado", "não corresponde" in page.inner_text("section.bl:has(h2:has-text('UTI 01'))") and page.locator(".items.locked").count() == 2)
+        check("Código desconhecido rejeitado", "não corresponde" in page.inner_text("section.bl:has(.gh b:has-text('UTI 01'))") and page.locator(".items.locked").count() == 2)
         scan(page, "RH-S-UTI02", "aa:bb:cc:dd:ee:01"); click_scan(page, "UTI 01")
-        check("Foto do código de outra sala: rejeitada, diz de qual sala é", 'pertence a "UTI 02"' in page.inner_text("section.bl:has(h2:has-text('UTI 01'))"))
+        check("Foto do código de outra sala: rejeitada, diz de qual sala é", 'pertence a "UTI 02"' in page.inner_text("section.bl:has(.gh b:has-text('UTI 01'))"))
         scan(page, "RH-S-UTI01", "aa:bb:cc:dd:ee:02"); click_scan(page, "UTI 01")
-        check("Código certo + antena de outra sala: rejeitado", "ponto de acesso Wi-Fi que não pertence" in page.inner_text("section.bl:has(h2:has-text('UTI 01'))"))
+        check("Código certo + antena de outra sala: rejeitado", "ponto de acesso Wi-Fi que não pertence" in page.inner_text("section.bl:has(.gh b:has-text('UTI 01'))"))
         page.evaluate("RH.local.provedorBssid=async()=>({motivo:'navegador'})")
         scan(page, "RH-S-UTI01", ""); click_scan(page, "UTI 01")
-        check("Sem leitura de BSSID (navegador) + política 'exigir': rejeitado", "não permite ler o ponto de acesso" in page.inner_text("section.bl:has(h2:has-text('UTI 01'))"))
+        check("Sem leitura de BSSID (navegador) + política 'exigir': rejeitado", "não permite ler o ponto de acesso" in page.inner_text("section.bl:has(.gh b:has-text('UTI 01'))"))
         page.evaluate("RH.local.provedorBssid=async()=>window.__b")
         scan(page, "rh-s-uti01", "AA:BB:CC:DD:FF:12"); click_scan(page, "UTI 01")
-        check("Leitura válida (curinga da antena) libera a sala", page.locator("section.bl:has(h2:has-text('UTI 01')) .chk-box.ok").count() == 1 and page.locator(".items.locked").count() == 1)
+        check("Leitura válida (curinga da antena) libera a sala", page.locator("section.bl:has(.gh b:has-text('UTI 01')) .chk-box.ok").count() == 1 and page.locator(".items.locked").count() == 1)
 
         # rascunho mantém o check-in
         page.reload(); page.wait_for_selector(".rhead")
-        check("Recarregar a página mantém a presença confirmada", page.locator("section.bl:has(h2:has-text('UTI 01')) .chk-box.ok").count() == 1)
+        check("Recarregar a página mantém a presença confirmada", page.locator("section.bl:has(.gh b:has-text('UTI 01')) .chk-box.ok").count() == 1)
         page.evaluate("RH.local.leitor=async()=>window.__c; RH.local.provedorBssid=async()=>window.__b")
 
         scan(page, "RH-S-UTI02", "aa:bb:cc:dd:ee:02"); click_scan(page, "UTI 02")
@@ -193,12 +193,12 @@ def main():
         check("Vínculo gravado na ronda", page.evaluate("Object.keys(RH.S.modelos.find(m=>m.id==='m1').liberacao||{}).length") == 1)
         page.click("#nav [data-p=ronda]"); page.click("[data-act=pickRonda]"); page.wait_for_selector(".rhead")
         check("Ambas começam bloqueadas", page.locator(".items.locked").count() == 2)
-        check("UTI 02 pede o código da UTI 01", "código de UTI 01" in page.inner_text("section.bl:has(h2:has-text('UTI 02'))"))
+        check("UTI 02 pede o código da UTI 01", "código de UTI 01" in page.inner_text("section.bl:has(.gh b:has-text('UTI 02'))"))
         scan(page, "RH-S-UTI02", "aa:bb:cc:dd:ee:02")
-        page.locator("section.bl:has(h2:has-text('UTI 02')) [data-act=chkScan]").click(); page.wait_for_timeout(250)
+        page.locator("section.bl:has(.gh b:has-text('UTI 02')) [data-act=chkScan]").click(); page.wait_for_timeout(250)
         check("Código do próprio dependente não libera (só o da chave)", page.locator(".items.locked").count() == 2)
         scan(page, "RH-S-UTI01", "aa:bb:cc:dd:ee:01")
-        page.locator("section.bl:has(h2:has-text('UTI 02')) [data-act=chkScan]").click(); page.wait_for_timeout(250)
+        page.locator("section.bl:has(.gh b:has-text('UTI 02')) [data-act=chkScan]").click(); page.wait_for_timeout(250)
         check("Ler a chave (código + antena dela) libera todas", page.locator(".items.locked").count() == 0 and page.locator(".chk-box.ok").count() == 2)
         for b in page.query_selector_all(".seg button.c"): b.click()
         page.click("#btn-sub"); page.wait_for_selector(".top h1:has-text('Histórico de rondas')")
@@ -212,16 +212,16 @@ def main():
         page.evaluate("""()=>{RH.local.leitor=null;RH.local.provedorBssid=async()=>'aa:bb:cc:dd:ee:01';
           window.BarcodeDetector=class{static async getSupportedFormats(){return['code_128','qr_code']}constructor(o){this.o=o}async detect(v){window.__frames=(window.__frames||0)+1;return window.__frames>2?[{rawValue:'RH-S-UTI01'}]:[]}}}""")
         page.click("#nav [data-p=ronda]"); page.click("[data-act=pickRonda]"); page.wait_for_selector(".rhead")
-        page.locator("section.bl:has(h2:has-text('UTI 01')) [data-act=chkScan]").click()
+        page.locator("section.bl:has(.gh b:has-text('UTI 01')) [data-act=chkScan]").click()
         page.wait_for_selector("#scan-ov", timeout=3000)
         check("Painel de leitura abre com a câmera", page.locator("#scan-v").count() == 1)
         page.wait_for_selector("#scan-ov", state="detached", timeout=4000)
         page.wait_for_timeout(300)
-        check("Leitura pela câmera confirma a presença e fecha o painel", page.locator("section.bl:has(h2:has-text('UTI 01')) .chk-box.ok").count() == 1)
+        check("Leitura pela câmera confirma a presença e fecha o painel", page.locator("section.bl:has(.gh b:has-text('UTI 01')) .chk-box.ok").count() == 1)
         check("Câmera é desligada ao terminar", page.evaluate("document.querySelectorAll('video').length") == 0)
-        page.locator("section.bl:has(h2:has-text('UTI 02')) [data-act=chkScan]").click()
+        page.locator("section.bl:has(.gh b:has-text('UTI 02')) [data-act=chkScan]").click()
         page.wait_for_selector("#scan-ov"); page.click("#scan-x"); page.wait_for_timeout(200)
-        check("Cancelar fecha o painel sem registrar nada", page.locator("#scan-ov").count() == 0 and page.locator("section.bl:has(h2:has-text('UTI 02')) .items.locked").count() == 1)
+        check("Cancelar fecha o painel sem registrar nada", page.locator("#scan-ov").count() == 0 and page.locator("section.bl:has(.gh b:has-text('UTI 02')) .items.locked").count() == 1)
 
         # ---------- etiquetas (QR Code / código de barras) ----------
         print("\n== Etiquetas ==")

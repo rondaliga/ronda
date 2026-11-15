@@ -900,6 +900,16 @@ body.pn-dragging .kpi *{pointer-events:none}
 .irow-sub{max-width:100%;box-sizing:border-box}.irow-sub input{width:0;flex:1 1 auto}
 .ncp.fsb{background:transparent;border:1px solid var(--line)}
 
+/* ronda: cabeçalho único por local, com "Ler código" no canto direito */
+.bl+.bl{margin-top:18px}
+.grp>.gh .gh-act{margin:0 0 0 auto;flex:none;padding:0;border:0;background:transparent;color:inherit}
+.grp>.gh .gh-act .btn{width:auto;white-space:nowrap}
+.chk-note{padding:8px 14px;border:1px solid var(--line);border-top:0;background:var(--surface);color:var(--muted);font-size:13px;font-weight:600}
+.chk-note.blk{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.chk-note .err{margin-top:2px;min-height:0;font-weight:500}
+.grp>.chk-note+.items{border-top:0}
+@media (max-width:560px){.grp>.gh{flex-wrap:wrap}.grp>.gh .gh-act{flex:1 0 100%;margin:0}.grp>.gh .gh-act .btn{width:100%}}
+
 </style>
 </head>
 <body>
@@ -2707,26 +2717,27 @@ function itemHtml(k){
 /* ---------- presença no local (código de barras + antena Wi-Fi) ---------- */
 const hora=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 const REDE={confere:'ponto de acesso Wi-Fi conferido',indisponivel:'ponto de acesso Wi-Fi não verificado',sem_cadastro:'local sem ponto de acesso cadastrado',nao_exigida:''};
+/* presença no local: o botão "Ler código" (ou o selo de presença confirmada) fica no canto direito do cabeçalho do local;
+   só o aviso de bloqueio ou de falha aparece em uma linha abaixo do cabeçalho */
 function chkHtml(bl,e){
-  if(!e.ativo)return '';
-  if(e.semCodigo)return '';   /* local sem código cadastrado: nada a mostrar (a ausência aparece no cadastro e no histórico) */
-  if(e.ok)return `<div class="chk-box ok"><span class="pill okp"><i></i>Presença confirmada${e.dependente?' em '+esc(e.alvo.nome):''} às ${hora(e.ok.ts)}</span><small>${esc(REDE[e.ok.rede]||'')}</small></div>`;
+  if(!e.ativo||e.semCodigo)return {acao:'',nota:''};   /* sem código cadastrado: nada a mostrar (a ausência aparece no cadastro e no histórico) */
+  if(e.ok)return {acao:`<div class="chk-box gh-act ok"><span class="pill okp" title="${esc(REDE[e.ok.rede]||'')}"><i></i>Presença confirmada${e.dependente?' em '+esc(e.alvo.nome):''} às ${hora(e.ok.ts)}</span></div>`,nota:''};
   const f=e.falhas[e.falhas.length-1];
   const nDep=RH.local.dependentes(st.R,bl.id).length,alvoId=e.viaId||bl.id;
   const msg=e.dependente?`Leia o código de ${esc(e.alvo.nome)} para liberar este local.`:nDep?`Leia o código do local para liberar este local e mais ${nDep} do grupo.`:'Leia o código do local para liberar o checklist.';
-  return `<div class="chk-box pend${e.bloqueado?' blk':''}"><div><b>${e.bloqueado?msg:'Presença no local ainda não confirmada (opcional).'}</b>${f?`<div class="err" role="alert">${esc(f.msg)}</div>`:''}</div>
-    <button type="button" class="btn pri sm" data-act="chkScan" data-id="${esc(alvoId)}">${ic('cam',16)} Ler código${e.dependente?' de '+esc(e.alvo.nome):' do local'}</button></div>`}
+  return {acao:`<div class="chk-box gh-act pend${e.bloqueado?' blk':''}"><button type="button" class="btn pri sm" data-act="chkScan" data-id="${esc(alvoId)}" title="${e.bloqueado?'':'Confirmar a presença (opcional)'}">${ic('cam',16)} Ler código${e.dependente?' de '+esc(e.alvo.nome):''}</button></div>`,
+    nota:e.bloqueado||f?`<div class="chk-note${e.bloqueado?' blk':''}">${e.bloqueado?esc(msg):''}${f?`<div class="err" role="alert">${esc(f.msg)}</div>`:''}</div>`:''}}
 
 function blocoHtml(bl){
   const R=st.R,e=RH.local.estado(R,bl);
   const sala=bl.tipo==='sala'?byId(S.salas,bl.salaId):null;
-  const h=sala?`<div class="sala-h"><h2>${esc(sala.nome)}</h2><small>${esc(sala.setor||'')}${sala.andar?' · '+esc(sala.andar):''}</small></div>`
-    :`<div class="sala-h"><h2>Equipamentos</h2><small>${esc(bl.setor)}</small></div>`;
-  return `<section class="bl" id="bl-${esc(bl.id)}">${h}${chkHtml(bl,e)}`+alvos(bl).map(al=>{
+  const ck=chkHtml(bl,e);
+  return `<section class="bl" id="bl-${esc(bl.id)}">`+alvos(bl).map(al=>{
     const ks=Object.keys(R.itens).filter(k=>k.startsWith(prefix(bl.id,al)));
     const ico=al.eq?thumbEq(al.eq):`<div class="thumb">${ic('shield',22)}</div>`;
-    if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem itens a verificar${st.me.role==='admin'?' · cadastre em Cadastros':''}</small></div></div></div>`;
-    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${esc(al.eq?(RH.setorEq(al.eq)||''):[sala?.setor,sala?.andar].filter(Boolean).join(' · '))}</small></div></div><div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
+    const sub=al.eq?(RH.setorEq(al.eq)||''):[sala?.setor,sala?.andar].filter(Boolean).join(' · ');
+    if(!ks.length)return `<div class="grp noitems"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>Sem itens a verificar${st.me.role==='admin'?' · cadastre em Cadastros':''}</small></div>${ck.acao}</div>${ck.nota}</div>`;
+    return `<div class="grp"><div class="gh">${ico}<div class="t"><b>${tagTipo(al.a)}${esc(al.n)}</b><small>${esc(sub)}</small></div>${ck.acao}</div>${ck.nota}<div class="items${e.bloqueado?' locked':''}"${e.bloqueado?' inert aria-disabled="true"':''}>${ks.map(itemHtml).join('')}</div></div>`}).join('')+'</section>'}
 
 function repaintBloco(id){
   const bl=st.R&&st.R.blocos.find(b=>b.id===id),el=document.getElementById('bl-'+id);

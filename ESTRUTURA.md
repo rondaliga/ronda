@@ -196,3 +196,7 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Na ronda o item continua com Conforme / Não conforme / Inacessível e mostra um espaço para cada foto (câmera ou galeria). Todas são obrigatórias, exceto se o item for Inacessível. Sem elas a ronda não finaliza.
 - Cada foto é gravada na ronda como entrada `r:'FT'` ("Disjuntor · Nível hélio") com `thumb` e `fotoId`: não entra em `c`/`nc` nem gera NC, e segue a limpeza de fotos. O histórico mostra todas no bloco "Fotos de temperatura e parâmetros".
 - Sala Comando Ressonância 01 e 02: um único item "Disjuntor" com as fotos "Nível hélio, Pressão hélio, Fluxo da água LPM, Temperatura da água". O formato antigo `foto:true` é lido como uma foto com o nome do item.
+
+**Cabeçalho único por local na ronda**
+- Cada sala ou equipamento tem um único cabeçalho (selo Sala/Equipamento, nome e setor). O título repetido por setor foi removido.
+- O botão **Ler código** fica no canto direito desse cabeçalho; depois da leitura vira o selo "Presença confirmada às HH:MM". Só o aviso de bloqueio ou de falha da leitura aparece em uma linha abaixo. No celular, o botão ocupa a linha inteira do cabeçalho.

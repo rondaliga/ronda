@@ -882,3 +882,13 @@ body.pn-dragging .kpi *{pointer-events:none}
 .fslot .fsn{display:block;font-weight:600;font-size:13.5px;margin-bottom:4px}
 .irow-sub{max-width:100%;box-sizing:border-box}.irow-sub input{width:0;flex:1 1 auto}
 .ncp.fsb{background:transparent;border:1px solid var(--line)}
+
+/* ronda: cabeçalho único por local, com "Ler código" no canto direito */
+.bl+.bl{margin-top:18px}
+.grp>.gh .gh-act{margin:0 0 0 auto;flex:none;padding:0;border:0;background:transparent;color:inherit}
+.grp>.gh .gh-act .btn{width:auto;white-space:nowrap}
+.chk-note{padding:8px 14px;border:1px solid var(--line);border-top:0;background:var(--surface);color:var(--muted);font-size:13px;font-weight:600}
+.chk-note.blk{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.chk-note .err{margin-top:2px;min-height:0;font-weight:500}
+.grp>.chk-note+.items{border-top:0}
+@media (max-width:560px){.grp>.gh{flex-wrap:wrap}.grp>.gh .gh-act{flex:1 0 100%;margin:0}.grp>.gh .gh-act .btn{width:100%}}
