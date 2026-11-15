@@ -71,7 +71,7 @@ def main():
         page.evaluate("RH.rondaDraft.clear(); RH.st.R=null")
         page.evaluate("RH.st.cadTab='hospital'"); page.evaluate("RH.go('cadastros')"); page.wait_for_selector("#arm-card .arm-bar")
         check("cartão de armazenamento no Cadastros → Hospital", "de 500 MB" in page.inner_text("#arm-card"))
-        page.fill("#arm-lim", "1"); page.fill("#arm-real", "480"); page.click("[data-act=armSalvar]"); page.wait_for_timeout(600)
+        page.click("#arm-card .av-imed > summary"); page.fill("#arm-lim", "1"); page.fill("#arm-real", "480"); page.click("[data-act=armSalvar]"); page.wait_for_timeout(600)
         c = page.evaluate("({l:RH.S.cfg.dbLimiteMB,e:RH.S.cfg.dbExtraMB})")
         check("calibração grava o ajuste e ignora limite inválido", c["e"] and c["e"] > 400 and c["l"] != 1, c)
         page.evaluate("RH.go('painel')"); page.wait_for_selector(".kpis"); page.wait_for_timeout(800)

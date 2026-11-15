@@ -210,3 +210,9 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Botões **Enviar e-mail de teste** e **Pré-visualizar relatório** disparam o fluxo `avisos-email.yml` com as entradas `teste` e `relatorio` (enviam aos administradores). Exigem avisos ligados, repositório e token salvos.
 - Token: depois de salvo aparece só como "Token salvo" com Substituir e Remover (a remoção só vale ao salvar; há Desfazer) e link para criar o token.
 - O botão **Salvar avisos** fica fixo no fim do cartão, habilitado só quando há alterações ("Alterações não salvas").
+
+**Cartões do Hospital no mesmo padrão**
+- **Armazenamento do banco** (agora com as informações de "Fotos e armazenamento"): selo com o percentual usado, barra, uso/limite e fotos, ritmo e previsão em uma linha de dica; "Como as fotos são apagadas" e "Calibrar estimativa (avançado)" ficam recolhidos.
+- **Dados de exemplo**: selo ("Nenhum" ou "N registros ativos"), dica curta e um botão.
+- **Backup e base de dados**: selo (Banco compartilhado / Somente neste aparelho), dica curta e três botões pequenos (exportar, importar, trocar código de acesso).
+- Todos usam as classes `cfg-card`, `av-head`, `av-dica`, `av-acoes`, `av-imed`, `av-mais`, `av-grid` e `av-un`, definidas em `css/styles.css`.
