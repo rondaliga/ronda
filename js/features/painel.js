@@ -116,6 +116,7 @@ RH.pages.painel=()=>{
   ${tile('Rondas em atraso',atraso.length,atraso.length?'Veja a lista abaixo':'Todas dentro da agenda',atraso.length?'badc':'good')}
   </section>
   <section class="grid2">
+  ${card('meus','Meus gráficos','personalizável',RH.mg?RH.mg.html():'','span2')}
   ${card('linha','Conformidade por dia',`meta ${meta}%`,'<div id="ch-line"></div>','span2')}
   ${card('setor','Não conformidades por setor',`${ns.length} no período`,hbars(porSetor))}
   ${card('sev','Por severidade','',hbars(sevRows,{keepZero:1}))}
@@ -160,6 +161,7 @@ function drawLine(){
   if(!r._t){r._t=1;document.addEventListener('pointerdown',ev=>{if(!ev.target.closest||!ev.target.closest('#ch-line'))sai()},{passive:true})}
 }
 RH.after.painel=drawLine;
+RH.painelUi={hbars,paretoHtml,tempoRondas};   /* usado pelo widget Meus gráficos (meusgraficos.js) */
 Object.assign(RH.ACT,{togCard:el=>{
   const k=el.dataset.k,box=el.closest('.card'),m=minSet(),fechar=!m.has(k);
   fechar?m.add(k):m.delete(k);saveMin();

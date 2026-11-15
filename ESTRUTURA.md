@@ -56,6 +56,7 @@ js/features/            uma tela (ou função) por arquivo
   auth.js                 login e primeiro acesso
   conta.js                "Senha" no menu: o próprio usuário altera a sua senha
   painel.js               indicadores e gráficos
+  meusgraficos.js         widget "Meus gráficos" do Painel (gráfico e local por item, salvo no aparelho)
   ronda.js                Nova ronda: lista de rondas e preenchimento
   historico.js            histórico de rondas realizadas
   ncs.js                  não conformidades: tratar e excluir
@@ -81,6 +82,7 @@ python3 tests/remote_mock.py  # modo compartilhado contra um servidor simulado
 RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e_local.py   # testa o arquivo único (gere com --sem-config)
 python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
+python3 tests/meus_graficos.py # widget Meus gráficos do Painel
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
 
@@ -176,3 +178,13 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Na 1ª execução depois de ligar (ou ao trocar a frequência) o serviço só registra o ponto de partida e envia no **próximo** horário programado. Cada período é enviado uma vez (`estado.relat`); se algum envio falhar, só quem faltou recebe na tentativa seguinte. Se o fluxo ficar parado por mais de 72 h, o relatório atrasado é pulado.
 - Conferir sem esperar: Actions → "Avisos por e-mail" → *Run workflow* → marque **relatorio** (ou `node tools/avisos-email.mjs --relatorio`). Envia o último período completo só aos administradores e não altera o controle de envio.
 - **Salas abaixo da meta do hospital** (antes "Conformidade por sala"): o gráfico mostra só as salas cuja conformidade no período é menor que a meta definida em Cadastros → Hospital (padrão 95%); as que atingiram a meta e as sem rondas ficam ocultas.
+
+**Widget "Meus gráficos" (Painel)**
+- Cartão no topo do Painel (`js/features/meusgraficos.js`, chamado por `painel.js` com `RH.mg.html()`). A engrenagem ("Configurar") alterna entre o modo de exibição e o de edição.
+- Cada item tem **gráfico** e **local** próprios: *Hospital inteiro*, um *setor* ou uma *sala*. Até 8 itens; é possível adicionar, trocar e remover a qualquer momento (a prévia atualiza na hora).
+- Gráficos disponíveis: Conformidade por dia (com a meta), Não conformidades por dia, NCs por severidade, Pareto por tipo de NC, Situação das NCs, Temperatura (média diária das leituras, fora da faixa e faixa ideal), Produtividade (rondas por dia), Tempo médio por ronda e Salas com menor conformidade. Para incluir outro, acrescente uma entrada em `TIPOS` (`{nome, desc, render(d)}`; `d` traz `rs`, `ns`, `days`, `start`, `meta` já filtrados pelo local).
+- **Mover:** segure o clique (mouse ou caneta, 0,35 s) num gráfico e arraste sobre outro; ao soltar, ele ocupa o lugar do destino e a ordem é salva (Esc cancela). No toque da tela e no teclado, use os botões ↑ ↓ de cada item na engrenagem.
+- **Alerta de meta:** na Conformidade por dia, o valor fica vermelho e diz "abaixo da meta de N%" quando o período está abaixo da meta do hospital (verde quando atingida), e os dias abaixo da meta aparecem com ponto vermelho.
+- O período é o do filtro "Período" do Painel; o filtro "Setor" do Painel não interfere (cada item tem o seu local).
+- Persistência: `localStorage`, chave `rh.painel.meus.v1.<id do usuário>` (cada usuário tem a sua; fica só neste aparelho). Se a sala escolhida for excluída, o item mostra "Este local não existe mais".
+- A temperatura vem de `rondas/*.itens[].tv` (leitura) e `.ideal` (faixa), gravados desde a 1.0.10; os dados de exemplo não trazem leituras de temperatura.
