@@ -282,7 +282,7 @@ details.guide{margin-bottom:12px} details.guide summary{cursor:pointer;font-weig
 /* duplicar e minimizar */
 .th-act,.td-act{width:1%;white-space:nowrap;text-align:right}
 .td-act .btn{gap:6px}
-.top .tools{display:flex;gap:6px;align-items:flex-end}
+.top .tools{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap}
 .card h3 .ct{min-width:0}
 .min-btn{flex:none}
 .card.min{padding-bottom:6px}
@@ -851,3 +851,18 @@ body.mg-dragging .mg-item *{pointer-events:none}
 @media (max-width:640px){.mg-btns{justify-self:start}}
 .mg-sum .good{color:var(--ok)} .mg-sum .badc{color:var(--bad)}
 .mg-item{user-select:none;-webkit-user-select:none}
+
+/* Painel personalizável (v1.0.12): barra de edição, cartão oculto, arrastar */
+.pn-info{margin:0 0 12px}
+.pn-bar{display:flex;gap:10px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;padding:8px 10px;margin:0 0 10px;border:1px dashed var(--line2);border-radius:10px;background:var(--surface2)}
+.pn-bar .field{min-width:200px;flex:1 1 200px;max-width:340px;margin:0}
+.pn-bar small{color:var(--muted)}
+.pn-btns{display:flex;gap:6px;align-items:center}
+.pn-tag{color:var(--c1);font-weight:600}
+.card.pn-off{opacity:.6;border-style:dashed}
+.card.pn-off h3 .ct{text-decoration:line-through;text-decoration-color:var(--muted)}
+.grid2>.card[data-card]{transition:box-shadow .15s,border-color .15s}
+.card.pn-drag{cursor:grabbing;box-shadow:0 12px 32px rgba(0,0,0,.28);border-color:var(--c1);opacity:.92;position:relative}
+.card.pn-over{border-color:var(--c1);box-shadow:0 0 0 3px color-mix(in srgb,var(--c1) 30%,transparent)}
+body.pn-dragging{user-select:none;cursor:grabbing}
+body.pn-dragging .card *{pointer-events:none}

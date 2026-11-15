@@ -83,6 +83,7 @@ RH_PAGE=dist/ronda-hospitalar-teste.html python3 tests/e2e_local.py   # testa o 
 python3 tests/painel_novos.py # Pareto, mapa de calor e tempos do Painel
 python3 tests/relatorio_ui.py # configuração do relatório periódico
 python3 tests/meus_graficos.py # widget Meus gráficos do Painel
+python3 tests/painel_personalizar.py # personalizar todos os cartões do Painel
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
 
@@ -188,3 +189,9 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - O período é o do filtro "Período" do Painel; o filtro "Setor" do Painel não interfere (cada item tem o seu local).
 - Persistência: `localStorage`, chave `rh.painel.meus.v1.<id do usuário>` (cada usuário tem a sua; fica só neste aparelho). Se a sala escolhida for excluída, o item mostra "Este local não existe mais".
 - A temperatura vem de `rondas/*.itens[].tv` (leitura) e `.ideal` (faixa), gravados desde a 1.0.10; os dados de exemplo não trazem leituras de temperatura.
+
+**Personalizar o Painel (todos os cartões)**
+- Botão **Personalizar painel** (ao lado de "Minimizar tudo"): cada cartão ganha uma barra com **Local**, **↑ ↓** e **Ocultar/Mostrar**. **Concluir** sai do modo; **Restaurar padrão** (2 toques) volta ordem, locais e cartões ocultos ao original.
+- **Local por cartão**: *Seguir o filtro do Painel* (padrão), *Hospital inteiro*, um *setor* ou uma *sala*. O local escolhido substitui o filtro Setor só naquele cartão e aparece em azul ao lado do título. Os 6 indicadores do topo seguem sempre o filtro Setor. O cartão "Meus gráficos" tem um local por gráfico.
+- **Mover**: ↑ ↓ ou segurar o clique (mouse/caneta, 0,35 s) num cartão e arrastar sobre outro (Esc cancela). **Ocultar** tira o cartão do Painel (na edição ele fica esmaecido, com "Mostrar").
+- Persistência: `localStorage`, chave `rh.painel.layout.v1.<id do usuário>` = `{ordem, ocultos, loc}`. Cartões novos de versões futuras entram no fim da ordem. Código: `lay()`, `card()` e o objeto `R` (um cartão por chave) em `js/features/painel.js`; para criar um cartão novo, acrescente a chave em `ORDEM` e uma função em `R` que recebe os dados já filtrados pelo local (`x.rs`, `x.ns`, `x.salas`, …).
