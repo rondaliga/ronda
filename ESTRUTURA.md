@@ -84,7 +84,7 @@ python3 tests/relatorio_ui.py # configuração do relatório periódico
 python3 tests/painel_personalizar.py # Painel único: personalizar, compartilhar, permissões
 python3 tests/avisos_ui.py # Tela de avisos por e-mail (blocos, próximo envio, token, teste)
 python3 tests/nc_visto.py # Detalhe da NC: Visto resolve
-python3 tests/foto_parametros.py # Itens "Somente foto" (parâmetros da Ressonância)
+python3 tests/foto_parametros.py # Item com fotos exigidas (Disjuntor da Ressonância)
 node tests/avisos_test.mjs    # avisos e relatório por e-mail (banco e provedor simulados)
 ```
 
@@ -226,3 +226,7 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 **Lista de não conformidades**
 - Filtros de situação: **Abertas** (padrão; tudo o que não está resolvido, inclusive registros antigos "em tratamento"), **Resolvidas** e **Todas**.
 - A coluna Responsável (e "Resp." nos cartões do celular) foi removida. O título da página continua contando "não resolvidas".
+
+## v1.0.13: painel único, fotos exigidas, telas simplificadas e revisão geral
+- Painel de Controle único e editável (nomes, locais, ampliar, preenchimento automático). Item com fotos exigidas (ex.: Disjuntor da Ressonância). Cabeçalho único por local com "Ler código". Telas de avisos por e-mail, armazenamento, dados de exemplo e backup reorganizadas. Detalhe da NC com "Visto" que resolve. Lista de NCs só com Abertas, Resolvidas e Todas, sem coluna Responsável.
+- Revisão geral: sintaxe de todos os arquivos, botões × funções, cache do aplicativo, versões e navegação por todas as telas (computador e celular, tema claro e escuro, com dados de exemplo) sem erros. A versão subiu para 1.0.13 para que os aparelhos recebam as novidades (o cache do aplicativo muda com a versão).
