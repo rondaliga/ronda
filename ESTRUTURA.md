@@ -222,3 +222,7 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - O detalhe mostra só o essencial (tipo e severidade no título, local e ronda, foto, repetição, orientação, descrição, item, quem registrou) e uma única caixa **Marcar como visto**.
 - Marcar grava na hora `status:'resolvida'`, `resolvidoPor` (o gestor ou administrador logado) e `resolvidoEm`; aparece "Visualizado por NOME em DATA". Desmarcar reabre (`status:'aberta'`, limpa quem viu). Só gestor e administrador marcam; os demais veem "Aguardando visualização".
 - Saíram do detalhe Situação, Responsável pela correção, Severidade e Ação corretiva (os dados antigos continuam no banco; a ação registrada anteriormente aparece como texto de leitura). Não há mais botão Salvar.
+
+**Lista de não conformidades**
+- Filtros de situação: **Abertas** (padrão; tudo o que não está resolvido, inclusive registros antigos "em tratamento"), **Resolvidas** e **Todas**.
+- A coluna Responsável (e "Resp." nos cartões do celular) foi removida. O título da página continua contando "não resolvidas".

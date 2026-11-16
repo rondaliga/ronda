@@ -28,7 +28,7 @@ RH.st={
 };
 
 RH.F={periodo:30,setor:''};
-RH.NF={status:'abertas',sev:'',setor:'',q:''};
+RH.NF={status:'aberta',sev:'',setor:'',q:''};
 RH.HF={ronda:'',periodo:30};
 
 RH.pages={};       // pages[nome]() → HTML da tela
