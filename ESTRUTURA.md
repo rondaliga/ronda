@@ -230,3 +230,8 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 ## v1.0.13: painel único, fotos exigidas, telas simplificadas e revisão geral
 - Painel de Controle único e editável (nomes, locais, ampliar, preenchimento automático). Item com fotos exigidas (ex.: Disjuntor da Ressonância). Cabeçalho único por local com "Ler código". Telas de avisos por e-mail, armazenamento, dados de exemplo e backup reorganizadas. Detalhe da NC com "Visto" que resolve. Lista de NCs só com Abertas, Resolvidas e Todas, sem coluna Responsável.
 - Revisão geral: sintaxe de todos os arquivos, botões × funções, cache do aplicativo, versões e navegação por todas as telas (computador e celular, tema claro e escuro, com dados de exemplo) sem erros. A versão subiu para 1.0.13 para que os aparelhos recebam as novidades (o cache do aplicativo muda com a versão).
+
+## v1.0.14: tempo por ronda com horário de conclusão
+- Cartão "Tempo médio por ronda" mostra, abaixo de cada ronda, "concluída dd/mm às HH:MM (início HH:MM)" da última execução.
+- Ao passar o mouse/tocar na barra: tempo respondendo itens, deslocamento/espera entre locais, pausa (app fechado) e local mais demorado.
+- Nova propriedade `pausa` (ms) nas rondas: tempo em que a ronda ficou salva em rascunho e o app parado (> 5 min). Duração = abertura → envio (`ts`); `pausa` permite separar o tempo ocioso.

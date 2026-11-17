@@ -88,7 +88,7 @@ def main():
         check("celular: filtros de NC escondidos até tocar em Filtros", not page.is_visible("#nc-q"))
         page.click("[data-act=ncFiltros]"); page.wait_for_timeout(200)
         check("celular: botão Filtros abre busca/severidade/setor", page.is_visible("#nc-q"))
-        check("rodapé mostra a versão do app", f"Versão {page.evaluate('RH.VERSAO')} · publicada em " in page.inner_text(".foot") and page.evaluate("RH.VERSAO")=="1.0.13")
+        check("rodapé mostra a versão do app", f"Versão {page.evaluate('RH.VERSAO')} · publicada em " in page.inner_text(".foot") and page.evaluate("RH.VERSAO")=="1.0.14")
         print("erros:", T.errors)
         b.close()
 main()

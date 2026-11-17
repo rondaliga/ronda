@@ -936,3 +936,4 @@ body.pn-dragging .kpi *{pointer-events:none}
 .visto input:disabled{cursor:not-allowed}
 .visto .vt{display:grid;gap:2px}.visto .vt b{font-size:14.5px}.visto .vt small{color:var(--muted);font-size:13px;line-height:1.4}
 .visto.ok{border-color:var(--ok);background:var(--ok-bg)}.visto.ok .vt b{color:var(--ok)}
+.hb-sub{display:block;font-size:11px;color:var(--ink3,var(--ink2));opacity:.8;margin-top:1px;overflow:hidden;text-overflow:ellipsis}

@@ -140,7 +140,7 @@ function gravar(k,R,nivel){
     if(!(it.r||it.desc||it.just||it.tipoId||it.tv||temFs))return;
     const o={};CAMPOS.forEach(c=>{if(it[c]&&!(c==='full'&&nivel>=1)&&!(c==='thumb'&&nivel>=2))o[c]=it[c]});
     if(temFs)o.fs=it.fs.map(x=>({n:x.n,...(x.thumb&&nivel<2?{thumb:x.thumb}:{}),...(x.full&&nivel<1?{full:x.full}:{})}));itens[ik]=o});
-  localStorage.setItem(k,JSON.stringify({v:1,uid:st.me.id,modeloId:R.modeloId,nome:R.nome,resp:R.resp,obs:R.obs||'',started:R.started,sub:R.sub||null,foco:R.foco||null,chk:R.chk||{},itens,savedAt:Date.now()}))}
+  localStorage.setItem(k,JSON.stringify({v:1,uid:st.me.id,modeloId:R.modeloId,nome:R.nome,resp:R.resp,obs:R.obs||'',started:R.started,pausa:R.pausa||0,sub:R.sub||null,foco:R.foco||null,chk:R.chk||{},itens,savedAt:Date.now()}))}
 let draftT;
 function saveDraft(){
   clearTimeout(draftT);
@@ -161,6 +161,8 @@ function restoreDraft(){
   Object.entries(d.itens||{}).forEach(([ik,v])=>{if(!itens[ik])return;CAMPOS.forEach(c=>{if(v[c]!=null)itens[ik][c]=v[c]});
     if(itens[ik].fs&&Array.isArray(v.fs))itens[ik].fs=itens[ik].fs.map(sl=>{const o=v.fs.find(z=>z.n===sl.n);return o?{...sl,...o}:sl})});
   st.R={modeloId:m.id,nome:m.nome,resp:m.responsavelId||'',blocos,itens,obs:d.obs||'',started:d.started||Date.now(),lib:libDe(m)};
+  /* tempo com o app fechado/parado entre o último registro e a retomada: não é tempo de ronda */
+  {const gap=d.savedAt?Date.now()-d.savedAt:0;st.R.pausa=(d.pausa||0)+(gap>3e5?gap:0)}
   if(d.sub)st.R.sub=d.sub;
   st.R.chk=d.chk||{};   /* check-ins de presença (código + antena) */
   const foco=d.foco&&itens[d.foco]?d.foco:null;
@@ -318,7 +320,7 @@ async function submitRonda(){
       const presenca=RH.local.evidencia(R,bl),ats=v.map(i=>i.at).filter(Boolean),tloc=ats.length>1?Math.max(...ats)-Math.min(...ats):0;   /* tloc: do 1º ao último item respondido neste local */
       for(const [k,i] of mine){if(fotoObrig(i)&&i.full){const fid=mk('f:'+k,'f');await RH.put('fotos',fid,{data:i.full})}
         if(i.fts&&i.r!=='IN')for(let j=0;j<i.fs.length;j++)if(i.fs[j].full)await RH.put('fotos',mk('f:'+k+':'+j,'f'),{data:i.fs[j].full})}
-      await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,ini:R.started,dur:Math.max(0,ts-R.started),tloc,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
+      await RH.put('rondas',rid,{...(presenca?{presenca}:{}),ts,execId,modeloId:R.modeloId,modeloNome:R.nome,ini:R.started,dur:Math.max(0,ts-R.started),pausa:R.pausa||0,tloc,salaId:sala?sala.id:null,salaNome,setor,inspId:st.me.id,inspNome:st.me.nome,c,nc,ina,
         pct:c+nc?Math.round(c/(c+nc)*1000)/10:100,obs:(R.obs||'').trim(),itens:mine.flatMap(([k,i])=>[{a:i.a,i:i.i,n:i.n,t:i.t,r:i.r,...(i.r==='IN'?{just:i.just.trim()}:{}),...(RH.ehTemp(i.t)&&RH.fmtIdeal(i.tmin,i.tmax)?{ideal:RH.fmtIdeal(i.tmin,i.tmax)}:{}),...(RH.ehTemp(i.t)&&tempVal(i)!=null?{tv:tempVal(i)}:{}),...(fotoObrig(i)?{thumb:i.thumb,fotoId:mk('f:'+k,'f')}:{})},
           ...(i.fts&&i.r!=='IN'?i.fs.map((x,j)=>({a:i.a,i:i.i,n:i.n,t:i.t+' · '+x.n,r:'FT',thumb:x.thumb,fotoId:mk('f:'+k+':'+j,'f')})):[])])});
       for(const [k,i] of mine.filter(([,i])=>i.r==='NC')){
