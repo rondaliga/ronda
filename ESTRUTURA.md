@@ -235,3 +235,7 @@ Para atualizar o app: envie as alterações para `main` (git push ou "Upload fil
 - Cartão "Tempo médio por ronda" mostra, abaixo de cada ronda, "concluída dd/mm às HH:MM (início HH:MM)" da última execução.
 - Ao passar o mouse/tocar na barra: tempo respondendo itens, deslocamento/espera entre locais, pausa (app fechado) e local mais demorado.
 - Nova propriedade `pausa` (ms) nas rondas: tempo em que a ronda ficou salva em rascunho e o app parado (> 5 min). Duração = abertura → envio (`ts`); `pausa` permite separar o tempo ocioso.
+
+## v1.0.15: balão do tempo por ronda
+- Cada barra mostra "Última execução: início → conclusão" (a data de conclusão só aparece se for outro dia) e o nº de execuções; o balão lista as 4 execuções mais recentes (início → conclusão, duração, tempo respondendo itens), a composição da média e um alerta quando há execução longa com pouco tempo em itens.
+- Balão rico: atributo `data-tiph` (HTML já escapado) em qualquer elemento; `RH.showTip(html,x,y,true)`.

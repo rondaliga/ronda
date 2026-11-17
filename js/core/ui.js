@@ -12,8 +12,8 @@ RH.toast=(m,k)=>{const t=$('#toast');t.innerHTML=`<div class="toast ${k||''}" ro
 
 /* ---------- tooltip (qualquer elemento com data-tip + gráfico) ---------- */
 const tip=RH.tip=$('#tip');
-RH.showTip=(t,x,y)=>{tip.textContent=t;tip.hidden=false;const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.left=Math.min(innerWidth-w-8,Math.max(8,x+12))+'px';tip.style.top=Math.max(8,y-h-12)+'px'};
-document.addEventListener('mousemove',e=>{const t=e.target.closest&&e.target.closest('[data-tip]');if(t)RH.showTip(t.dataset.tip,e.clientX,e.clientY);else if(!e.target.closest||!e.target.closest('#ch-line'))tip.hidden=true});
+RH.showTip=(t,x,y,html)=>{if(html)tip.innerHTML=t;else tip.textContent=t;tip.classList.toggle('tip-h',!!html);tip.hidden=false;const w=tip.offsetWidth,h=tip.offsetHeight;tip.style.left=Math.min(innerWidth-w-8,Math.max(8,x+12))+'px';tip.style.top=Math.max(8,y-h-12)+'px'};
+document.addEventListener('mousemove',e=>{const t=e.target.closest&&e.target.closest('[data-tip],[data-tiph]');if(t)RH.showTip(t.dataset.tiph||t.dataset.tip,e.clientX,e.clientY,!!t.dataset.tiph);else if(!e.target.closest||!e.target.closest('#ch-line'))tip.hidden=true});
 
 /* ---------- janela modal ---------- */
 RH.modal=(html,wide)=>{$('#modal').innerHTML=`<div class="ov" data-act="ovClose"><div class="mod ${wide?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`;

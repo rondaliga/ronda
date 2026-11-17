@@ -72,7 +72,7 @@ function serie(pts,o){
 function hbars(rows,o={}){
   rows=rows.filter(r=>r.v>0||o.keepZero);if(!rows.length)return empty('Sem dados no período');
   const m=Math.max(...rows.map(r=>r.v),1);
-  return `<div class="hb">${rows.map(r=>`<div class="hb-r" ${o.w?`style="grid-template-columns:minmax(80px,38%) 1fr ${o.w}px" `:''}data-tip="${esc(r.tip||r.l+': '+(r.t??r.v))}"><span class="hb-l" title="${esc(r.l)}">${esc(r.l)}${r.sub?`<small class="hb-sub">${esc(r.sub)}</small>`:''}</span><span class="hb-t"><i style="width:${r.v?Math.max(r.v/m*100,2):0}%;background:${r.c||'var(--c1)'}"></i></span><span class="hb-v">${r.t??r.v}</span></div>`).join('')}</div>`}
+  return `<div class="hb">${rows.map(r=>`<div class="hb-r" ${o.w?`style="grid-template-columns:minmax(80px,38%) 1fr ${o.w}px" `:''}data-tip="${esc(r.tip||r.l+': '+(r.t??r.v))}"${r.tiph?` data-tiph="${esc(r.tiph)}"`:''}><span class="hb-l" title="${esc(r.l)}">${esc(r.l)}${r.sub?`<small class="hb-sub">${esc(r.sub)}</small>`:''}</span><span class="hb-t"><i style="width:${r.v?Math.max(r.v/m*100,2):0}%;background:${r.c||'var(--c1)'}"></i></span><span class="hb-v">${r.t??r.v}</span></div>`).join('')}</div>`}
 
 /* ---- indicadores novos: Pareto, mapa de calor e tempos ---- */
 const fmtMin=ms=>{const m=Math.round(ms/6e4);return m<1?'< 1 min':m<60?m+' min':Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min'};
@@ -108,14 +108,24 @@ function tempoRondas(rs){
     if(r.tloc>0){e.loc+=r.tloc;if(!e.maior||r.tloc>e.maior.t)e.maior={t:r.tloc,l:r.salaId?r.salaNome:'Equipamentos'+(r.setor?' · '+r.setor:'')}}
     ex.set(k,e)});
   const hh=t=>new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const g={};ex.forEach(e=>{(g[e.n]??={s:0,k:0,loc:0,pausa:0,ult:null,maior:null});const a=g[e.n];a.s+=e.d;a.k++;a.loc+=e.loc;a.pausa+=e.pausa;
-    if(!a.ult||e.fim>a.ult.fim)a.ult=e;if(e.maior&&(!a.maior||e.maior.t>a.maior.t))a.maior=e.maior});
-  return Object.entries(g).map(([l,a])=>{const v=a.s/a.k,u=a.ult;
-    const entre=Math.max(0,v-a.loc/a.k-a.pausa/a.k);   /* deslocamento, espera e tempo fora dos itens */
-    const sub=`concluída ${fdm(u.fim)} às ${hh(u.fim)} (início ${hh(u.ini)})`;
-    const det=[`${l}: média ${fmtMin(v)} em ${a.k} execuç${a.k===1?'ão':'ões'}`,`Última: início ${fdm(u.ini)} ${hh(u.ini)} → conclusão ${fdm(u.fim)} ${hh(u.fim)}`,
-      `Respondendo itens nos locais: ${fmtMin(a.loc/a.k)}`,a.pausa?`Ronda pausada (app fechado): ${fmtMin(a.pausa/a.k)}`:'',`Deslocamento/espera entre locais: ${fmtMin(entre)}`,a.maior?`Local mais demorado: ${a.maior.l} (${fmtMin(a.maior.t)})`:''].filter(Boolean).join(' · ');
-    return {l,v,t:fmtMin(v),sub,tip:det}}).sort((a,b)=>b.v-a.v).slice(0,8)}
+  const mesmoDia=(a,b)=>fd(a)===fd(b);
+  /* "15/11 21:11 → 16/11 04:14" (a data de conclusão só aparece se for outro dia) */
+  const faixa=e=>`${fdm(e.ini)} ${hh(e.ini)} → ${mesmoDia(e.ini,e.fim)?'':fdm(e.fim)+' '}${hh(e.fim)}`;
+  const g={};ex.forEach(e=>{(g[e.n]??={e:[]}).e.push(e)});
+  return Object.entries(g).map(([l,{e:es}])=>{
+    es.sort((a,b)=>b.fim-a.fim);const k=es.length,u=es[0];
+    const m=f=>es.reduce((s,e)=>s+f(e),0)/k,v=m(e=>e.d),loc=m(e=>e.loc),pausa=m(e=>e.pausa),entre=Math.max(0,v-loc-pausa);
+    const maior=es.map(e=>e.maior).filter(Boolean).sort((a,b)=>b.t-a.t)[0];
+    const susp=e=>e.d>36e5&&e.loc<e.d*.1;   /* mais de 1 h com menos de 10% respondendo itens: ronda deixada aberta */
+    const linhas=es.slice(0,4).map(e=>`<div class="tp-r${susp(e)?' tp-w':''}"><span>${esc(faixa(e))}</span><b>${fmtMin(e.d)}</b><em>itens ${fmtMin(e.loc)}</em></div>`).join('');
+    const aviso=es.some(susp)?`<div class="tp-a">⚠ Há execução longa com pouco tempo respondendo itens: a ronda provavelmente ficou aberta entre um local e outro e inflou a média.</div>`:'';
+    const tiph=`<div class="tp-t">${esc(l)}</div><div class="tp-s">${k} execuç${k===1?'ão':'ões'} no período · média ${fmtMin(v)}</div>
+      <div class="tp-h">Execuções (mais recente primeiro)</div>${linhas}${k>4?`<div class="tp-s">+ ${k-4} anterior${k-4===1?'':'es'}</div>`:''}
+      <div class="tp-h">Composição da média</div>
+      <div class="tp-k"><span>Respondendo itens</span><b>${fmtMin(loc)}</b></div>
+      <div class="tp-k"><span>Deslocamento e espera</span><b>${fmtMin(entre)}</b></div>${pausa?`<div class="tp-k"><span>Pausada (app fechado)</span><b>${fmtMin(pausa)}</b></div>`:''}
+      ${maior?`<div class="tp-k"><span>Local mais demorado</span><b>${esc(maior.l)} · ${fmtMin(maior.t)}</b></div>`:''}${aviso}`;
+    return {l,v,t:fmtMin(v),sub:`Última execução: ${faixa(u)}${k>1?` · ${k} execuções`:''}`,tip:`${l}: média ${fmtMin(v)} em ${k} execuç${k===1?'ão':'ões'}`,tiph}}).sort((a,b)=>b.v-a.v).slice(0,8)}
 function tempoLocais(rs){
   const g={};rs.forEach(r=>{if(r.tloc>0&&r.tloc<=MAX_LOC){const l=r.salaId?r.salaNome:'Equipamentos · '+(r.setor||'Sem setor');(g[l]??={s:0,k:0});g[l].s+=r.tloc;g[l].k++}});
   return Object.entries(g).map(([l,x])=>({l,v:x.s/x.k,t:fmtMin(x.s/x.k),tip:`${l}: média ${fmtMin(x.s/x.k)} em ${x.k} registro${x.k===1?'':'s'}`})).sort((a,b)=>b.v-a.v).slice(0,8)}
@@ -190,7 +200,7 @@ RH.pages.painel=()=>{
     equip:(it,x)=>card(it,'Equipamentos com mais NCs','no período',hbars(x.porEq)),
     atraso:(it,x)=>card(it,'Rondas em atraso','última execução fora da periodicidade',x.atraso.length?`<div class="hb">${x.atraso.slice(0,6).map(m=>`<div class="hb-r" style="grid-template-columns:1fr auto"><span class="hb-l" style="color:var(--ink)">${esc(m.nome)} <small>${RH.ordemDaRonda(m).length} ${RH.ordemDaRonda(m).length===1?'local':'locais'}</small></span><span class="pill late">${lastM[m.id]?ago(lastM[m.id]):'Nunca realizada'}</span></div>`).join('')}</div>`:empty('Nenhuma ronda em atraso','Todas as rondas estão dentro da agenda de dias e horários.'),'span2'),
     calor:(it,x)=>card(it,'Mapa de calor: setor × horário','% de itens não conformes',heatHtml(x.rs),'span2'),
-    tempoRonda:(it,x)=>card(it,'Tempo médio por ronda','da abertura ao envio · com horário de conclusão',x.tRonda.length?hbars(x.tRonda,{w:78}):semTempo),
+    tempoRonda:(it,x)=>card(it,'Tempo médio por ronda','da abertura ao envio · última execução de cada ronda',x.tRonda.length?hbars(x.tRonda,{w:78}):semTempo),
     tempoLocal:(it,x)=>card(it,'Tempo médio por local','1º ao último item respondido',x.tLocal.length?hbars(x.tLocal,{w:78}):semTempo),
     sala:(it,x)=>card(it,'Salas abaixo da meta',`meta do hospital: ${meta}% · ${x.abaixo.length} de ${x.porSala.filter(y=>y.p!=null).length} salas com rondas`,x.abaixo.length?`<div class="hb">${x.abaixo.map(y=>`<div class="hb-r" data-tip="${esc(y.s.nome)}: ${pc(y.p)} (meta do hospital: ${meta}%)"><span class="hb-l">${esc(y.s.nome)}</span><span class="hb-t"><i style="width:${y.p}%;background:var(--s3)"></i></span><span class="hb-v">${Math.round(y.p)}%</span></div>`).join('')}</div><p class="hint" style="margin:10px 0 0">Só aparecem as salas com conformidade menor que a meta de ${meta}% no período. As que atingiram a meta e as sem rondas ficam ocultas.</p>`:x.porSala.some(y=>y.p!=null)?empty('Nenhuma sala abaixo da meta do hospital','Todas as salas com rondas no período atingiram a meta de '+meta+'%.'):empty(x.porSala.length?'Sem rondas no período':'Nenhuma sala cadastrada',x.porSala.length?'':'Cadastre salas em Cadastros.'),'span2'),
     recentes:(it,x)=>card(it,'Não conformidades recentes','mais recentes primeiro',x.rec.length?`<div class="tw" style="border:0"><table><thead><tr><th>Data</th><th>Local</th><th>Descrição</th><th>Severidade</th><th>Situação</th></tr></thead><tbody>${x.rec.map(n=>`<tr data-act="ncOpen" data-id="${n.id}"><td class="num">${fdt(n.ts)}</td><td>${esc(n.eqNome||n.salaNome)}<small>${esc(n.eqNome?n.salaNome:n.setor||'')}</small></td><td>${esc((n.desc||n.itemTexto||'').slice(0,80))}</td><td>${sevPill(n.sev)}</td><td>${stPill(n.status)}</td></tr>`).join('')}</tbody></table></div>`:empty('Nenhuma não conformidade registrada'),'span2')};
